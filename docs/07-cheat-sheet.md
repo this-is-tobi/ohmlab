@@ -22,6 +22,11 @@ ohmlab vault identity --config identity.json
 
 # Discover the active Vault raft leader
 ohmlab vault leader
+
+# Check ohmlab.fr objects (VaultSeed) without a cluster: files, or a rendered
+# chart on standard input
+helm template vault-operator argo-cd/apps/vault-operator -f argo-cd/instances/<instance>/values/core/vault-operator.yaml \
+  --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false | ohmlab validate -
 ```
 
 `ohmlab check` uses the in-cluster ServiceAccount when available and falls
