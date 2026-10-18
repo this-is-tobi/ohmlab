@@ -1,0 +1,46 @@
+{{- /*
+One VaultSeed per entry of ohmlab.vault.secrets, for the ohmlab controller. The
+entries keep their shape: path, data, plus the optional rotate, prune and
+deletionPolicy that the controller adds. While the post-config Job still runs
+they are only observed (the controller's observeOnly) or not rendered at all.
+
+The kind exists once the controller's chart has synced. requireCRD keeps this
+file from failing a sync on a cluster that does not have it yet; an app that
+was rendered before then needs a hard refresh once the CRD is there.
+*/}}
+{{- if and .Values.vault.enabled .Values.ohmlab.vault.seeds.enabled }}
+{{- if or (not .Values.ohmlab.vault.seeds.requireCRD) (.Capabilities.APIVersions.Has "ohmlab.fr/v1alpha1/VaultSeed") }}
+{{- $names := dict }}
+{{- range $entry := .Values.ohmlab.vault.secrets }}
+{{- $name := include "vault-operator.seedName" $entry.path }}
+{{- if hasKey $names $name }}
+{{- fail (printf "ohmlab.vault.secrets: %q and %q both become the VaultSeed %q" (get $names $name) $entry.path $name) }}
+{{- end }}
+{{- $_ := set $names $name $entry.path }}
+---
+apiVersion: ohmlab.fr/v1alpha1
+kind: VaultSeed
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: vault-seed
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/part-of: ohmlab
+spec:
+  path: {{ $entry.path | quote }}
+  data:
+    {{- toYaml $entry.data | nindent 4 }}
+  {{- with $entry.rotate }}
+  rotate:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if $entry.prune }}
+  prune: true
+  {{- end }}
+  {{- with $entry.deletionPolicy }}
+  deletionPolicy: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
