@@ -1,0 +1,20 @@
+{{- if and .Values.monitoring.enabled (include "ohmlab-controller.enabledTargets" . | fromJsonArray) }}
+# The controller's metrics port, scraped straight from the pods: there is no
+# Service to expose, and Prometheus is the only reader.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ohmlab-controller.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ohmlab-controller
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  podMetricsEndpoints:
+  - port: metrics
+    interval: 30s
+  sampleLimit: {{ int .Values.monitoring.sampleLimit }}
+{{- end }}

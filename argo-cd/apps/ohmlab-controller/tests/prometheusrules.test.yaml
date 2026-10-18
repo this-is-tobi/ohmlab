@@ -1,0 +1,131 @@
+rule_files: [rules.yaml]
+evaluation_interval: 1m
+tests:
+# No running pod fires, a healthy one does not.
+- interval: 1m
+  input_series:
+  - series: 'up{namespace="test", pod="ohmlab-controller-vault-abc"}'
+    values: '1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 7m
+    alertname: OhmlabControllerDown
+    exp_alerts: []
+- interval: 1m
+  input_series:
+  - series: 'up{namespace="test", pod="ohmlab-controller-vault-abc"}'
+    values: '1 1 0 0 0 0 0 0 0 0'
+  alert_rule_test:
+  - eval_time: 9m
+    alertname: OhmlabControllerDown
+    exp_alerts:
+    - exp_labels: {severity: critical}
+      exp_annotations:
+        summary: The ohmlab controller is not running
+        description: "Nothing is lost while it is down: Vault and the apps keep their state. Changes to the custom resources wait for it. Check the Deployments in test."
+# An object that stays not ready for 15m fires; one that recovers does not.
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_object_ready{target="vault", kind="VaultSeed", namespace="n", name="a"}'
+    values: '1 0+0x20'
+  - series: 'ohmlab_object_ready{target="vault", kind="VaultSeed", namespace="n", name="b"}'
+    values: '1 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: OhmlabObjectNotReady
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: OhmlabObjectNotReady
+    exp_alerts:
+    - exp_labels: {severity: warning, target: vault, kind: VaultSeed, namespace: n, name: a}
+      exp_annotations:
+        summary: An ohmlab object has not been reconciled for 15 minutes
+        description: "Read its conditions: kubectl get vaultseeds -A. RefPending waits for another path, BackendUnavailable and Forbidden are the backend's answer, a Stalled object waits for its spec to change."
+# Three resyncs (30m at the 10m default) without a success is stale.
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_reconcile_last_success_timestamp_seconds{target="vault", kind="VaultSeed"}'
+    values: '0+0x60'
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: OhmlabReconcileStale
+    exp_alerts: []
+  - eval_time: 45m
+    alertname: OhmlabReconcileStale
+    exp_alerts:
+    - exp_labels: {severity: warning, target: vault}
+      exp_annotations:
+        summary: A target has not reconciled successfully for more than three resyncs
+        description: "The backend is probably unreachable or refusing the controller's login. See ohmlab_backend_requests_total by result."
+# Backend errors for 10m fire; a lost race (conflict) never does.
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_backend_requests_total{target="vault", op="read", result="error"}'
+    values: '0+1x30'
+  - series: 'ohmlab_backend_requests_total{target="vault", op="write", result="conflict"}'
+    values: '0+5x30'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: OhmlabBackendErrors
+    exp_alerts:
+    - exp_labels: {severity: warning, target: vault}
+      exp_annotations:
+        summary: Requests from the ohmlab controller to a backend fail
+        description: "Errors that are neither a lost compare-and-set nor a refused policy: the backend is down, sealed or unreachable."
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_backend_requests_total{target="vault", op="write", result="conflict"}'
+    values: '0+5x30'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: OhmlabBackendErrors
+    exp_alerts: []
+# A refused policy fires.
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_backend_requests_total{target="vault", op="read", result="forbidden"}'
+    values: '0+1x40'
+  alert_rule_test:
+  - eval_time: 35m
+    alertname: OhmlabBackendForbidden
+    exp_alerts:
+    - exp_labels: {severity: warning, target: vault}
+      exp_annotations:
+        summary: A backend refuses the ohmlab controller
+        description: "The policy of the controller's role does not allow something an object declares, for example a path outside platforms/+/+/*."
+# A sustained write rate is a loop; a few writes are not.
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_backend_writes_total{target="vault", kind="VaultSeed", op="data"}'
+    values: '0+20x40'
+  alert_rule_test:
+  - eval_time: 35m
+    alertname: OhmlabWriteLoop
+    exp_alerts:
+    - exp_labels: {severity: critical, target: vault}
+      exp_annotations:
+        summary: The ohmlab controller keeps writing to a backend
+        description: "More than one data write every ten seconds for fifteen minutes. Another writer is probably undoing the controller's work. Set observeOnly on the target and look at the audit log."
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_backend_writes_total{target="vault", kind="VaultSeed", op="data"}'
+    values: '0 0 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15 15'
+  alert_rule_test:
+  - eval_time: 35m
+    alertname: OhmlabWriteLoop
+    exp_alerts: []
+# A CRD at another revision fires after 10m.
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_crd_revision_mismatch{target="vault", kind="VaultSeed"}'
+    values: '0 1+0x20'
+  alert_rule_test:
+  - eval_time: 5m
+    alertname: OhmlabCRDRevisionMismatch
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: OhmlabCRDRevisionMismatch
+    exp_alerts:
+    - exp_labels: {severity: warning, target: vault, kind: VaultSeed}
+      exp_annotations:
+        summary: The installed CRD and the controller image disagree on the API revision
+        description: "The catalog and the image pin were released apart. A custom resource may use a new field only after the image pin includes it."

@@ -1,0 +1,84 @@
+{{- range $dep, $targets := (include "ohmlab-controller.deployments" . | fromJson) }}
+{{- $sa := printf "ohmlab-controller-%s" $dep }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $sa }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $dep }}
+spec:
+  replicas: {{ $.Values.replicas }}
+  # A rollout starts the new pod before it stops the old one; the Lease of each
+  # target keeps them from running it twice.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ohmlab-controller
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $dep }}
+  template:
+    metadata:
+      labels:
+        {{- include "ohmlab-controller.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $dep }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+    spec:
+      serviceAccountName: {{ $sa }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: controller
+        image: {{ include "ohmlab-controller.image" $ }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+        args:
+        - --config=/etc/ohmlab/controller.yaml
+        - --target={{ join "," $targets }}
+        - --log-level={{ $.Values.logLevel }}
+        - --metrics-addr=:8080
+        - --probe-addr=:8081
+        ports:
+        - {name: metrics, containerPort: 8080, protocol: TCP}
+        - {name: probes, containerPort: 8081, protocol: TCP}
+        livenessProbe:
+          httpGet: {path: /healthz, port: probes}
+          periodSeconds: 20
+        readinessProbe:
+          httpGet: {path: /readyz, port: probes}
+          periodSeconds: 10
+        resources:
+          {{- toYaml $.Values.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: {drop: [ALL]}
+        volumeMounts:
+        - {name: config, mountPath: /etc/ohmlab/controller.yaml, subPath: controller.yaml, readOnly: true}
+        {{- if and (has "vault" $targets) $.Values.targets.vault.backend.caSecret }}
+        - {name: vault-ca, mountPath: /etc/ohmlab/vault-ca, readOnly: true}
+        {{- end }}
+      volumes:
+      - name: config
+        configMap: {name: {{ $sa }}}
+      {{- if and (has "vault" $targets) $.Values.targets.vault.backend.caSecret }}
+      - name: vault-ca
+        secret:
+          secretName: {{ $.Values.targets.vault.backend.caSecret }}
+          items:
+          - {key: {{ $.Values.targets.vault.backend.caKey }}, path: {{ $.Values.targets.vault.backend.caKey }}}
+      {{- end }}
+{{- end }}

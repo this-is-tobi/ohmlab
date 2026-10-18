@@ -1,0 +1,89 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheusRule.enabled (include "ohmlab-controller.enabledTargets" . | fromJsonArray) }}
+{{- $ns := .Release.Namespace }}
+{{- $stale := mul 3 (int (include "ohmlab-controller.resyncSeconds" .)) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-alerts
+  namespace: {{ .Release.Namespace }}
+spec:
+  groups:
+  - name: ohmlab-controller
+    rules:
+    - alert: OhmlabControllerDown
+      expr: max(up{namespace={{ $ns | quote }}, pod=~"ohmlab-controller-.+"}) != 1 or absent(up{namespace={{ $ns | quote }}, pod=~"ohmlab-controller-.+"})
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: The ohmlab controller is not running
+        description: >-
+          Nothing is lost while it is down: Vault and the apps keep their
+          state. Changes to the custom resources wait for it. Check the
+          Deployments in {{ $ns }}.
+    - alert: OhmlabObjectNotReady
+      expr: ohmlab_object_ready == 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: An ohmlab object has not been reconciled for 15 minutes
+        description: >-
+          Read its conditions: kubectl get vaultseeds -A. RefPending waits for
+          another path, BackendUnavailable and Forbidden are the backend's
+          answer, a Stalled object waits for its spec to change.
+    - alert: OhmlabReconcileStale
+      # More than three resyncs without a reconcile that completed.
+      expr: time() - max by (target) (ohmlab_reconcile_last_success_timestamp_seconds) > {{ $stale }}
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: A target has not reconciled successfully for more than three resyncs
+        description: >-
+          The backend is probably unreachable or refusing the controller's
+          login. See ohmlab_backend_requests_total by result.
+    - alert: OhmlabBackendErrors
+      expr: sum by (target) (increase(ohmlab_backend_requests_total{result="error"}[10m])) > 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: Requests from the ohmlab controller to a backend fail
+        description: >-
+          Errors that are neither a lost compare-and-set nor a refused
+          policy: the backend is down, sealed or unreachable.
+    - alert: OhmlabBackendForbidden
+      expr: sum by (target) (increase(ohmlab_backend_requests_total{result="forbidden"}[15m])) > 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: A backend refuses the ohmlab controller
+        description: >-
+          The policy of the controller's role does not allow something an
+          object declares, for example a path outside platforms/+/+/*.
+    - alert: OhmlabWriteLoop
+      # A settled platform writes almost never. A sustained rate of writes is a
+      # loop between the controller and something else that rewrites the path.
+      expr: sum by (target) (rate(ohmlab_backend_writes_total{op="data"}[10m])) > 0.1
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: The ohmlab controller keeps writing to a backend
+        description: >-
+          More than one data write every ten seconds for fifteen minutes.
+          Another writer is probably undoing the controller's work. Set
+          observeOnly on the target and look at the audit log.
+    - alert: OhmlabCRDRevisionMismatch
+      expr: ohmlab_crd_revision_mismatch == 1
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: The installed CRD and the controller image disagree on the API revision
+        description: >-
+          The catalog and the image pin were released apart. A custom
+          resource may use a new field only after the image pin includes it.
+{{- end }}
