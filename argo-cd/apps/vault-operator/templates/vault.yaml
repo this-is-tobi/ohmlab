@@ -137,9 +137,28 @@ spec:
       prometheus_retention_time: {{ .Values.vault.config.telemetry.retention }}
       disable_hostname: {{ .Values.vault.config.telemetry.disableHostname }}
   externalConfig:
-    {{- if or .Values.vault.externalConfig.policies .Values.vault.externalConfig.spokeClusters }}
+    {{- /*
+      The controller's policy and role are added here, to copies of the lists,
+      so an instance that replaces `policies` or `auth` wholesale (arrays are
+      replaced, not merged) cannot lose them.
+    */}}
+    {{- $policies := deepCopy (.Values.vault.externalConfig.policies | default list) }}
+    {{- $auth := deepCopy (.Values.vault.externalConfig.auth | default list) }}
+    {{- if .Values.ohmlab.controller.enabled }}
+    {{- $policies = append $policies (dict "name" "ohmlab-controller-vault" "rules" (include "vault-operator.controllerPolicy" .)) }}
+    {{- $role := dict "name" "ohmlab-controller-vault" "bound_service_account_names" (list .Values.ohmlab.controller.serviceAccount) "bound_service_account_namespaces" (list .Values.ohmlab.controller.namespace) "policies" (list "ohmlab-controller-vault") "ttl" "15m" }}
+    {{- $placed := false }}
+    {{- range $a := $auth }}
+    {{- if eq $a.type "kubernetes" }}
+    {{- $_ := set $a "roles" (append ($a.roles | default list) $role) }}
+    {{- $placed = true }}
+    {{- end }}
+    {{- end }}
+    {{- if not $placed }}{{ fail "ohmlab.controller.enabled needs a kubernetes entry in vault.externalConfig.auth to hold the controller's role" }}{{ end }}
+    {{- end }}
+    {{- if or $policies .Values.vault.externalConfig.spokeClusters }}
     policies:
-      {{- with .Values.vault.externalConfig.policies }}
+      {{- with $policies }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
       {{- /*
@@ -159,10 +178,10 @@ spec:
       {{- end }}
       {{- end }}
     {{- end }}
-    {{- if or .Values.vault.externalConfig.auth .Values.vault.externalConfig.oidcEnabled .Values.vault.externalConfig.spokeClusters }}
+    {{- if or $auth .Values.vault.externalConfig.oidcEnabled .Values.vault.externalConfig.spokeClusters }}
     auth:
-      {{- if .Values.vault.externalConfig.auth }}
-      {{- toYaml .Values.vault.externalConfig.auth | nindent 6 }}
+      {{- if $auth }}
+      {{- toYaml $auth | nindent 6 }}
       {{- end }}
       {{- /*
         One jwt mount per spoke cluster. Signature validation is pinned to

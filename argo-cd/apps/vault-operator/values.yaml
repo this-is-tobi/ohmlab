@@ -685,6 +685,13 @@ ohmlab:
     # Secrets configuration for ohmlab vault secrets command
     # Rendered as JSON array of secret entries in post-config job
     secrets: []
+    # The same entries as VaultSeed objects for the ohmlab controller
+    # (templates/vault-seeds.yaml). Off until the controller runs.
+    seeds:
+      enabled: false
+      # Render the objects only on a cluster that already has the kind, so a
+      # sync never fails for want of the controller's CRD.
+      requireCRD: true
     # Identity groups and their OIDC aliases. Rendered into the Vault CR's
     # externalConfig (groups, group-aliases), where bank-vaults applies them.
     # groups: [{name, type, policies, metadata}], groupAliases: [{name, group,
@@ -694,6 +701,18 @@ ohmlab:
       mountPath: oidc
       groups: []
       groupAliases: []
+  # The ohmlab controller's Vault target (chart ohmlab-controller): the policy
+  # it is granted and the Kubernetes-auth role it logs in with.
+  controller:
+    enabled: false
+    # The namespace and ServiceAccount of its Deployment. The ServiceAccount is
+    # ohmlab-controller-<deployment>: with a custom grouping, name that one.
+    namespace: ohmlab-system
+    serviceAccount: ohmlab-controller-vault
+    kvMount: homelab
+    # Grants delete on the metadata path, for deletionPolicy: Delete. Pair it
+    # with targets.vault.allowDelete in the controller's chart.
+    allowDelete: false
 
 # Grafana dashboards shipped with this app (templates/dashboards.yaml).
 monitoring:
