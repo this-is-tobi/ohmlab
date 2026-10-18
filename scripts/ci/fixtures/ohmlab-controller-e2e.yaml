@@ -1,0 +1,22 @@
+# The objects the controller e2e creates. Names and paths are what the checks in
+# e2e-ohmlab-controller.sh look for.
+apiVersion: ohmlab.fr/v1alpha1
+kind: VaultSeed
+metadata: {name: keycloak, namespace: vault-operator-system}
+spec:
+  path: homelab/platforms/production/core/keycloak
+  data:
+    admin: {username: admin, password: "<random:24>", passwordHashed: "<bcrypt:admin.password>"}
+    clients:
+      grafana: {clientId: grafana, clientSecret: "<random:32>"}
+    webhook: ""
+---
+apiVersion: ohmlab.fr/v1alpha1
+kind: VaultSeed
+metadata: {name: grafana, namespace: vault-operator-system}
+spec:
+  path: homelab/platforms/production/core/grafana
+  data:
+    oidc:
+      clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.grafana.clientSecret>"
+    age: {secret: "<age:secret>", public: "<age:public>"}
