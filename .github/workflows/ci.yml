@@ -28,6 +28,7 @@ jobs:
       GROUPS: >-
         {"utils": ["utils/*", "scripts/ci/utils-test-env*"],
         "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/test-vault-identity*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
+        "controller": ["utils/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/utils-test-env*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
         "sonarqube": ["argo-cd/apps/sonarqube/*"],
@@ -51,6 +52,8 @@ jobs:
         run: scripts/ci/verify-catalog.test.sh
       - name: Test the chart verification used by cd.yml
         run: scripts/ci/verify-chart.test.sh
+      - name: Test the image verification used by cd.yml
+        run: scripts/ci/verify-image.test.sh
       - name: Test the Renovate catalog manager
         run: scripts/ci/test-renovate-managers.sh
       - name: Test the Helm repository helpers
@@ -355,6 +358,35 @@ jobs:
       BUILD_AMD64: true
       BUILD_ARM64: true
 
+  # The controller image is the `controller` stage of the same Dockerfile.
+  build-controller-image:
+    needs: classify
+    if: ${{ fromJSON(needs.classify.outputs.groups).controller || fromJSON(needs.classify.outputs.groups).ci }}
+    uses: this-is-tobi/github-workflows/.github/workflows/build-docker.yml@v0
+    permissions:
+      contents: read
+      packages: write
+    with:
+      IMAGE_NAME: ghcr.io/this-is-tobi/homelab/ohmlab-controller
+      IMAGE_TAG: ci-${{ github.sha }}
+      IMAGE_DOCKERFILE: utils/Dockerfile
+      IMAGE_CONTEXT: utils/
+      IMAGE_TARGET: controller
+      PUSH: false
+      BUILD_AMD64: true
+      BUILD_ARM64: true
+
+  scan-controller-image:
+    needs: build-controller-image
+    uses: this-is-tobi/github-workflows/.github/workflows/scan-trivy.yml@v0
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+      packages: read
+    with:
+      IMAGE_ARTIFACT: ${{ needs.build-controller-image.outputs.artifact-prefix }}-amd64
+
   scan-image:
     needs: build-image
     uses: this-is-tobi/github-workflows/.github/workflows/scan-trivy.yml@v0
@@ -399,6 +431,8 @@ jobs:
       - govulncheck
       - build-image
       - scan-image
+      - build-controller-image
+      - scan-controller-image
       - gitleaks
       - lint-commits
       - workflow-permissions
