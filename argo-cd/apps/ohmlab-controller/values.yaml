@@ -1,0 +1,96 @@
+# Default values for the ohmlab controller.
+#
+# Nothing is rendered until a target is enabled: the instance values
+# (argo-cd/instances/<instance>/values/core/ohmlab-controller.yaml) turn on
+# the targets it wants and pin the image.
+
+# The controller image, as one reference pinned to an exact release and its
+# digest ("ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.2.0@sha256:..."): a
+# sync then runs exactly the image that was reviewed. Renovate proposes each new
+# release and Kyverno's verify-images policy checks the signature and the
+# provenance. Required as soon as a target is enabled; there is no `latest`.
+image: ""
+imagePullPolicy: IfNotPresent
+# Accept an image that is not pinned by digest. For the kind e2e, which runs an
+# image it just built and has no registry digest for it. Never set it on a
+# cluster.
+unsafeAllowUnpinnedImage: false
+
+# How often every object is reconciled again (each interval is stretched or
+# shrunk by up to 10%). A change to an object is acted on at once.
+resync: 10m
+logLevel: info
+
+# Targets are the unit; a Deployment is only packaging. A target reconciles
+# only the namespaces it lists: put the objects there, nowhere else.
+targets:
+  vault:
+    enabled: false
+    # Run the whole reconcile and write nothing to Vault: the shadow phase of
+    # a cutover, and a dry run for adopters. Conditions and
+    # ohmlab_planned_changes say what a real run would do.
+    observeOnly: false
+    # Let `deletionPolicy: Delete` remove paths. The Vault policy of the role
+    # must grant delete too (vault-operator: ohmlab.controller.allowDelete).
+    allowDelete: false
+    watchNamespaces:
+    - vault-operator-system
+    backend:
+      address: https://vault.vault-operator-system.svc.cluster.local:8200
+      # The Secret that holds Vault's CA. bank-vaults copies `vault-tls` into
+      # every namespace; key ca.crt is the CA. Empty trusts the system roots
+      # (a Vault behind a public certificate) or, with an http address, nothing.
+      caSecret: vault-tls
+      caKey: ca.crt
+      skipTLSVerify: false
+      auth:
+        mount: kubernetes
+        # The Kubernetes-auth role the controller logs in with. It is bound to
+        # this target's ServiceAccount, ohmlab-controller-<deployment>.
+        role: ohmlab-controller-vault
+
+# How the targets are packaged. Empty: one Deployment per enabled target
+# ("split"), each with its own ServiceAccount, RBAC, Vault role and egress.
+# Otherwise a map of Deployment name -> targets, every enabled target exactly
+# once, for example:
+#   deployments:
+#     all: [vault, harbor, sonarqube]       # one process for everything
+#     vault: [vault]                        # or keep Vault alone
+#     apps: [harbor, sonarqube]
+# A shared process shares memory, the OOM limit, the ServiceAccount, network
+# egress and the failure domain: it is not a security boundary (docs/08).
+deployments: {}
+
+replicas: 1
+resources:
+  requests:
+    cpu: 10m
+    memory: 48Mi
+  limits:
+    cpu: 250m
+    memory: 192Mi
+nodeSelector: {}
+tolerations: []
+
+monitoring:
+  enabled: true
+  # Series per scrape; the controller exposes controller-runtime's metrics and
+  # the ohmlab_* ones. Re-measure when a target is added.
+  sampleLimit: 1500
+  prometheusRule:
+    enabled: true
+  dashboards:
+    enabled: true
+    folder: Platform
+
+# Zero-trust NetworkPolicy for this namespace (templates/networkpolicy.yaml).
+# Disabled by default; the real rules live in the instance values, because the
+# API server and Vault are reached by addresses only the cluster knows.
+networkPolicy:
+  enabled: false
+  egressDeny: true
+  # The ports Prometheus may scrape: the metrics port is 8080.
+  prometheusScrapePorts: []
+  prometheusNamespace: prometheus-stack
+  extraIngress: []
+  extraEgress: []

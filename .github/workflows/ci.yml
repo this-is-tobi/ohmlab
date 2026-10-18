@@ -27,7 +27,7 @@ jobs:
     with:
       GROUPS: >-
         {"utils": ["utils/*", "scripts/ci/utils-test-env*"],
-        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/test-vault-identity*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
+        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
         "controller": ["utils/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/utils-test-env*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
@@ -200,6 +200,8 @@ jobs:
         run: |
           go generate ./api/...
           git diff --exit-code -- api ../argo-cd/apps/ohmlab-controller/files
+      - name: Test the ohmlab-controller chart
+        run: scripts/ci/test-ohmlab-controller-chart.sh
       - name: Check that every chart can read its secrets from Vault
         run: |
           scripts/ci/check-vault-access.test.sh

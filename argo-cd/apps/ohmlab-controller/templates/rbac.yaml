@@ -1,0 +1,98 @@
+{{- /*
+Least privilege per deployment: Roles in the namespaces its targets watch (not
+ClusterRoles), a Role in the lease namespace for its own Leases, and one small
+ClusterRole that reads its own CRDs by name (the API revision check). No Secret
+access: the vault target authenticates with its ServiceAccount token alone.
+*/}}
+{{- range $dep, $targets := (include "ohmlab-controller.deployments" . | fromJson) }}
+{{- $sa := printf "ohmlab-controller-%s" $dep }}
+{{- range $ns := (include "ohmlab-controller.watchedNamespaces" (dict "root" $ "targets" $targets) | fromJsonArray) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $sa }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+rules:
+{{- range $t := $targets }}
+{{- if has $ns (index $.Values.targets $t).watchNamespaces }}
+{{ include "ohmlab-controller.namespaceRules" $t }}
+{{- end }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $sa }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $sa }}}
+subjects:
+- {kind: ServiceAccount, name: {{ $sa }}, namespace: {{ $.Release.Namespace }}}
+{{- end }}
+---
+# Leader election: a Lease named after each target. `create` cannot be limited
+# by name (the name is not known when a create is authorised), so it is its own
+# rule.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $sa }}-leases
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+rules:
+- apiGroups: [coordination.k8s.io]
+  resources: [leases]
+  verbs: [create]
+# The election announces who leads with a core Event.
+- apiGroups: [""]
+  resources: [events]
+  verbs: [create, patch]
+- apiGroups: [coordination.k8s.io]
+  resources: [leases]
+  resourceNames:
+  {{- range $t := $targets }}
+  - ohmlab-controller-{{ $t }}
+  {{- end }}
+  verbs: [get, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $sa }}-leases
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $sa }}-leases}
+subjects:
+- {kind: ServiceAccount, name: {{ $sa }}, namespace: {{ $.Release.Namespace }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $.Release.Namespace }}:{{ $sa }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+rules:
+- apiGroups: [apiextensions.k8s.io]
+  resources: [customresourcedefinitions]
+  resourceNames:
+  {{- range $t := $targets }}
+  - {{ include "ohmlab-controller.crdName" $t }}
+  {{- end }}
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $.Release.Namespace }}:{{ $sa }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ $.Release.Namespace }}:{{ $sa }}}
+subjects:
+- {kind: ServiceAccount, name: {{ $sa }}, namespace: {{ $.Release.Namespace }}}
+{{- end }}

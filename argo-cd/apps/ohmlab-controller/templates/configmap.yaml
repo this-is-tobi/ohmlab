@@ -1,0 +1,32 @@
+{{- /* Each deployment receives only the sections of its own targets. */}}
+{{- range $dep, $targets := (include "ohmlab-controller.deployments" . | fromJson) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ohmlab-controller-{{ $dep }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $dep }}
+data:
+  controller.yaml: |
+    resync: {{ $.Values.resync | quote }}
+    leaseNamespace: {{ $.Release.Namespace | quote }}
+    {{- if has "vault" $targets }}
+    {{- $v := $.Values.targets.vault }}
+    vault:
+      observeOnly: {{ $v.observeOnly }}
+      allowDelete: {{ $v.allowDelete }}
+      watchNamespaces: {{ $v.watchNamespaces | toJson }}
+      backend:
+        address: {{ $v.backend.address | quote }}
+        {{- if $v.backend.caSecret }}
+        caFile: /etc/ohmlab/vault-ca/{{ $v.backend.caKey }}
+        {{- end }}
+        skipTLSVerify: {{ $v.backend.skipTLSVerify }}
+        auth:
+          mount: {{ $v.backend.auth.mount | quote }}
+          role: {{ $v.backend.auth.role | quote }}
+    {{- end }}
+{{- end }}

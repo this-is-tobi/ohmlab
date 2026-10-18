@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ohmlab-controller
+type: application
+version: 0.1.0
+description: |
+  The ohmlab controller. Reconciles the ohmlab.fr custom resources into the
+  platform's backends (Vault today; Harbor and SonarQube follow), one Deployment
+  per target by default. Templates only: the CRDs are generated from
+  utils/api/v1alpha1 into files/crds.
+home: https://this-is-tobi.com/homelab
+maintainers:
+- name: this-is-tobi
+  email: this-is-tobi@proton.me
+  url: https://this-is-tobi.com
