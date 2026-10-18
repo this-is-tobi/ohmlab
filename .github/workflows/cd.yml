@@ -67,6 +67,66 @@ jobs:
       SBOM: true
       SIGN: true
 
+  # The controller image: the `controller` stage of the same Dockerfile, released
+  # with the CLI under the same version.
+  image-controller:
+    needs: release
+    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'utils') }}
+    uses: this-is-tobi/github-workflows/.github/workflows/build-docker.yml@v0
+    permissions:
+      contents: read
+      packages: write
+    with:
+      IMAGE_NAME: ghcr.io/this-is-tobi/homelab/ohmlab-controller
+      IMAGE_TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
+      IMAGE_DOCKERFILE: utils/Dockerfile
+      IMAGE_CONTEXT: utils/
+      IMAGE_TARGET: controller
+      LATEST_TAG: true
+      BUILD_AMD64: true
+      BUILD_ARM64: true
+      BUILD_ARGS: |
+        VERSION=${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
+        COMMIT=${{ github.sha }}
+        BUILD_DATE=${{ github.event.head_commit.timestamp }}
+
+  attest-controller:
+    needs: image-controller
+    uses: this-is-tobi/github-workflows/.github/workflows/attest-docker.yml@v0
+    permissions:
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      IMAGE_NAME: ${{ needs.image-controller.outputs.image }}
+      DIGEST: ${{ needs.image-controller.outputs.digest }}
+      PROVENANCE: true
+      SBOM: true
+      SIGN: true
+
+  # What a node would meet: an anonymous pull of the digest for both platforms,
+  # the signature and the provenance Kyverno's verify-images policy checks.
+  # Re-run this job alone once a first-time package has been made public.
+  verify-controller:
+    needs:
+      - release
+      - image-controller
+      - attest-controller
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oras-project/setup-oras@005458ad77f1c8facd38a094e4af2e69e5607ff4 # v2.0.2
+        with:
+          version: 1.3.4
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Verify the published image
+        env:
+          IMAGE: ${{ needs.image-controller.outputs.image }}@${{ needs.image-controller.outputs.digest }}
+          VERSION: ${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
+        run: scripts/ci/verify-image.sh "$IMAGE" "$VERSION"
+
   binaries:
     needs: release
     if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'utils') }}

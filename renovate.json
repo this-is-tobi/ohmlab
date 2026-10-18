@@ -22,6 +22,14 @@
       "groupName": "kyverno"
     },
     {
+      "description": "One release of utils/ publishes both images (the CLI toolbox and the controller): bump their pins in one change",
+      "matchPackageNames": [
+        "ghcr.io/this-is-tobi/homelab/ohmlab",
+        "ghcr.io/this-is-tobi/homelab/ohmlab-controller"
+      ],
+      "groupName": "ohmlab images"
+    },
+    {
       "description": "Major chart bumps often carry breaking values changes \u2014 never automerge, flag loudly",
       "matchManagers": [
         "helmv3"

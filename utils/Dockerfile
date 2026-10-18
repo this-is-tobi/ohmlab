@@ -1,8 +1,9 @@
 ARG GO_IMAGE=mirror.gcr.io/library/golang:1.27-alpine
 ARG BASE_IMAGE=mirror.gcr.io/library/alpine:3.24.3
+ARG CONTROLLER_BASE_IMAGE=gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
 
 # =============================================================================
-# Stage 1: Build Go binary
+# Stage 1: Build the Go binaries (the CLI and the controller)
 # =============================================================================
 FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS builder
 
@@ -26,9 +27,31 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
       -X github.com/this-is-tobi/homelab/utils/cmd.commit=${COMMIT} \
       -X github.com/this-is-tobi/homelab/utils/cmd.date=${BUILD_DATE}" \
     -o /ohmlab .
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+    -trimpath \
+    -ldflags="-s -w \
+      -X github.com/this-is-tobi/homelab/utils/internal/buildinfo.Version=${VERSION} \
+      -X github.com/this-is-tobi/homelab/utils/internal/buildinfo.Commit=${COMMIT} \
+      -X github.com/this-is-tobi/homelab/utils/internal/buildinfo.Date=${BUILD_DATE}" \
+    -o /ohmlab-controller ./cmd/controller
 
 # =============================================================================
-# Stage 2: Final image (toolbox)
+# Stage 2: Controller image (target `controller`)
+# Static binary and CA certificates only: no shell, no package manager. The
+# base runs as the numeric user 65532, which `runAsNonRoot` needs.
+#
+# This stage sits BEFORE the toolbox on purpose: an image built without a
+# target is the last stage, and that must stay the toolbox.
+# =============================================================================
+FROM ${CONTROLLER_BASE_IMAGE} AS controller
+
+COPY --from=builder /ohmlab-controller /ohmlab-controller
+
+USER 65532:65532
+ENTRYPOINT ["/ohmlab-controller"]
+
+# =============================================================================
+# Stage 3: Final image (toolbox) - the default target
 # =============================================================================
 FROM ${BASE_IMAGE}
 
