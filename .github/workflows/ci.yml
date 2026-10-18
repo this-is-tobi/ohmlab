@@ -393,6 +393,29 @@ jobs:
     with:
       IMAGE_ARTIFACT: ${{ needs.build-controller-image.outputs.artifact-prefix }}-amd64
 
+  # The controller on a real cluster, under the Vault policy the platform grants
+  # it: split into one Deployment per target, and as one process for all.
+  e2e-controller:
+    needs:
+      - classify
+      - build-controller-image
+    if: ${{ fromJSON(needs.classify.outputs.groups).controller || fromJSON(needs.classify.outputs.groups).ci }}
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [split, single]
+    uses: this-is-tobi/github-workflows/.github/workflows/test-kube-deployment.yml@v0
+    permissions:
+      contents: read
+      packages: read
+    with:
+      KIND_CLUSTER_NAME: ohmlab-e2e
+      IMAGE_ARTIFACTS: ${{ needs.build-controller-image.outputs.artifact-prefix }}-amd64
+      TEST_COMMAND: >-
+        E2E_EXISTING_CLUSTER=1 KIND_CLUSTER=ohmlab-e2e
+        IMAGE=ghcr.io/this-is-tobi/homelab/ohmlab-controller:ci-${{ github.sha }}
+        scripts/ci/e2e-ohmlab-controller.sh ${{ matrix.mode }}
+
   scan-image:
     needs: build-image
     uses: this-is-tobi/github-workflows/.github/workflows/scan-trivy.yml@v0
@@ -439,6 +462,7 @@ jobs:
       - scan-image
       - build-controller-image
       - scan-controller-image
+      - e2e-controller
       - gitleaks
       - lint-commits
       - workflow-permissions
