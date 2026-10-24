@@ -1,9 +1,9 @@
 dependencies:
 - name: coder
   repository: https://helm.coder.com/v2
-  version: 2.38.1
+  version: 2.38.2
 - name: cluster
   repository: https://cloudnative-pg.github.io/charts
   version: 0.9.0
-digest: sha256:9a1be9e9c1f84a2a6313c50438ac458603ac3d5a679a99d80f9a921fe5a01ecf
-generated: "2026-10-21T08:29:21.771557146Z"
+digest: sha256:c589e34e8a6f4deeeb0e907e3519af96171f1ba6c8402d5b3366029716ca3a80
+generated: "2026-10-24T20:03:30.509886838Z"

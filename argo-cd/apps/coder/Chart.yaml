@@ -5,7 +5,7 @@ version: 0.1.0
 dependencies:
 - name: coder
   alias: coder
-  version: 2.38.1
+  version: 2.38.2
   repository: https://helm.coder.com/v2
 - name: cluster
   alias: cnpg
