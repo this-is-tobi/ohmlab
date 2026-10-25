@@ -5,7 +5,7 @@ version: 0.1.0
 dependencies:
 - name: rustfs
   alias: rustfs
-  version: 1.0.3
+  version: 1.0.4
   repository: https://charts.rustfs.com
 - name: vso-utils
   alias: vso
