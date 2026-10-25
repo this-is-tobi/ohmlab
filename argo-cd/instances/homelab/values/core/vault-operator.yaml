@@ -123,9 +123,6 @@ ohmlab:
           gitea:
             clientId: gitea
             clientSecret: "<random:32>"
-          mattermost:
-            clientId: mattermost
-            clientSecret: "<random:32>"
           rustfs:
             clientId: rustfs
             clientSecret: "<random:32>"
@@ -226,9 +223,6 @@ ohmlab:
           endpoint: "https://s3.fr-par.scw.cloud"
           region: fr-par
           secretKey: ""
-        keycloak:
-          clientId: mattermost
-          clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.mattermost.clientSecret>"
     - path: homelab/platforms/production/tenant/rustfs
       data:
         admin:
