@@ -588,6 +588,7 @@ vso:
       kubernetes:
         role: vault-operator
         serviceAccount: vso
+        audiences: [vault]
       vaultConnectionRef: default
 
 backup-utils:

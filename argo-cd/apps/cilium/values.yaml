@@ -60,6 +60,7 @@ vso:
       kubernetes:
         role: cilium
         serviceAccount: vso
+        audiences: [vault]
   # No per-namespace VaultConnection: the VaultAuth above sets no
   # vaultConnectionRef, so VSO uses the operator's `default` connection
   # (vault-operator-system, CA from vault-tls); a second one would only

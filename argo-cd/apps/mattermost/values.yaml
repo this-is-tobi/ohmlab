@@ -210,6 +210,7 @@ vso:
       kubernetes:
         role: mattermost
         serviceAccount: vso
+        audiences: [vault]
   vaultConnection:
     default:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"

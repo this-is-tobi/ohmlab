@@ -322,6 +322,9 @@ vso:
       kubernetes:
         role: ""
         serviceAccount: vso
+        # -- The audience of the token VSO logs in with: a token meant for Vault,
+        # not a Kubernetes API credential. The Vault role can require it.
+        audiences: [vault]
   vaultConnection:
     default:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
