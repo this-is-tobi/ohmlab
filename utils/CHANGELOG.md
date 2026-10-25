@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/this-is-tobi/homelab/compare/v0.2.0...v0.3.0) (2026-10-25)
+
+
+### Features
+
+* **utils:** name the keys behind each change the controller plans or writes ([a63ff25](https://github.com/this-is-tobi/homelab/commit/a63ff2508cf2ce745f39b2387625f8cb007ca477))
+
 ## [0.2.0](https://github.com/this-is-tobi/homelab/compare/v0.1.3...v0.2.0) (2026-10-25)
 
 
