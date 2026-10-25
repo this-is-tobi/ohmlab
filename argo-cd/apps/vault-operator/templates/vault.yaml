@@ -147,6 +147,7 @@ spec:
     {{- if .Values.ohmlab.controller.enabled }}
     {{- $policies = append $policies (dict "name" "ohmlab-controller-vault" "rules" (include "vault-operator.controllerPolicy" .)) }}
     {{- $role := dict "name" "ohmlab-controller-vault" "bound_service_account_names" (list .Values.ohmlab.controller.serviceAccount) "bound_service_account_namespaces" (list .Values.ohmlab.controller.namespace) "policies" (list "ohmlab-controller-vault") "ttl" "15m" }}
+    {{- with .Values.ohmlab.controller.audience }}{{ $_ := set $role "audience" . }}{{ end }}
     {{- $placed := false }}
     {{- range $a := $auth }}
     {{- if eq $a.type "kubernetes" }}
