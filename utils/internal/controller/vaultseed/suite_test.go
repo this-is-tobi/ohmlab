@@ -101,6 +101,7 @@ type harness struct {
 	rec     *Reconciler
 	reg     *prometheus.Registry
 	metrics *metrics.Metrics
+	mgr     ctrl.Manager
 	cancel  context.CancelFunc
 }
 
@@ -110,6 +111,15 @@ func observeOnly(r *Reconciler) { r.ObserveOnly = true }
 func allowDelete(r *Reconciler) { r.AllowDelete = true }
 
 func start(t *testing.T, opts ...option) *harness {
+	t.Helper()
+	h := prepare(t, opts...)
+	h.run()
+	return h
+}
+
+// prepare sets a harness up without starting its manager, for a test whose
+// objects must all exist before the controller first looks.
+func prepare(t *testing.T, opts ...option) *harness {
 	t.Helper()
 	ns := fmt.Sprintf("t%d-%d", time.Now().UnixNano()%100000, nsCounter.Add(1))
 	if err := direct.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}); err != nil {
@@ -125,7 +135,7 @@ func start(t *testing.T, opts ...option) *harness {
 		t.Fatal(err)
 	}
 	reg := prometheus.NewRegistry()
-	h := &harness{t: t, ns: ns, kv: seedtest.New(), reg: reg, metrics: metrics.New(reg)}
+	h := &harness{t: t, ns: ns, kv: seedtest.New(), reg: reg, metrics: metrics.New(reg), mgr: mgr}
 	h.rec = &Reconciler{
 		Client:      mgr.GetClient(),
 		KV:          h.kv,
@@ -141,11 +151,15 @@ func start(t *testing.T, opts ...option) *harness {
 	if err := h.rec.SetupWithManager(mgr, true); err != nil {
 		t.Fatal(err)
 	}
+	return h
+}
+
+// run starts the manager; it stops when the test ends.
+func (h *harness) run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	h.cancel = cancel
-	go func() { _ = mgr.Start(ctx) }()
-	t.Cleanup(cancel)
-	return h
+	go func() { _ = h.mgr.Start(ctx) }()
+	h.t.Cleanup(cancel)
 }
 
 func (h *harness) path(name string) string { return "homelab/platforms/production/core/" + name }
