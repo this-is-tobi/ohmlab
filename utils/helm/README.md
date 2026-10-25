@@ -233,6 +233,7 @@ A Helm chart to deploy ohmlab.
 | rootManager.targetRevision | string | `"main"` | Default git revision (branch, tag, commit) used to read the instance folders and the `instance-manager` chart. |
 | vso.enabled | bool | `false` | Enable VSO integration. Set to true in instance values AFTER vault-operator is deployed so VaultStaticSecret CRDs are available. |
 | vso.extraObjects | list | `[]` |  |
+| vso.vaultAuth.default.kubernetes.audiences | list | `["vault"]` | The audience of the token VSO logs in with: a token meant for Vault, not a Kubernetes API credential. The Vault role can require it. |
 | vso.vaultAuth.default.kubernetes.role | string | `""` |  |
 | vso.vaultAuth.default.kubernetes.serviceAccount | string | `"vso"` |  |
 | vso.vaultAuth.default.method | string | `"kubernetes"` |  |

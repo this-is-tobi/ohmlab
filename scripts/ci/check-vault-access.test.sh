@@ -18,7 +18,8 @@ cat >"$work/vault.json" <<'JSON'
     {"name": "listonly", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["list"]},
     {"name": "commented", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["commented"]},
     {"name": "glob", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["glob"]},
-    {"name": "dotted", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["dotted"]}
+    {"name": "dotted", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["dotted"]},
+    {"name": "strict", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["app"], "audience": "vault"}
   ],
   "policies": [
     {"name": "app", "rules": "# path \"kv/data/platforms/+/+/other\" { capabilities = [\"read\"] }\npath \"kv/data/platforms/+/+/app\" {\n  capabilities = [\"read\", \"list\"]\n}"},
@@ -30,11 +31,14 @@ cat >"$work/vault.json" <<'JSON'
 }
 JSON
 
-# auth <name> <role> <service account> [<namespace>] -> one VaultAuth
+# auth <name> <role> <service account> [<namespace>] [<audiences>] -> one
+# VaultAuth; the audiences default to vault, an empty value requests none.
 auth() {
   printf -- '---\napiVersion: secrets.hashicorp.com/v1beta1\nkind: VaultAuth\nmetadata:\n  name: %s\n' "$1"
   [ -n "${4:-}" ] && printf '  namespace: %s\n' "$4"
   printf 'spec:\n  method: kubernetes\n  mount: kubernetes\n  kubernetes:\n    role: %s\n    serviceAccount: %s\n' "$2" "$3"
+  [ -n "${5-vault}" ] && printf '    audiences: [%s]\n' "${5-vault}"
+  return 0
 }
 
 # vss <name> <VaultAuth name> <mount> <path> -> one VaultStaticSecret
@@ -75,6 +79,9 @@ check "a commented-out policy path grants nothing" 1 app-ns "$(auth a commented 
 check "a trailing glob grants the whole subtree" 0 app-ns "$(auth a glob vso; vss s a kv $app)"
 check "a dot in a policy path is a dot" 1 app-ns "$(auth a dotted vso; vss s a kv aXb)" 'cannot read'
 check "a VaultStaticSecret whose VaultAuth is not rendered is refused" 1 app-ns "$(vss s missing kv $app)" 'references VaultAuth "missing"'
+check "a VaultAuth that requests no audience is refused" 1 app-ns "$(auth a app vso '' '')" 'requests no token audience'
+check "a role that requires an audience passes the VaultAuth that requests it" 0 app-ns "$(auth a strict vso; vss s a kv $app)"
+check "a role that requires an audience refuses a VaultAuth that requests another" 1 app-ns "$(auth a strict vso '' other)" 'accepts only the audience "vault"'
 check "one bad secret among good ones is refused" 1 app-ns "$(auth a app vso; vss ok a kv $app; vss bad a kv platforms/production/core/other)" 'bad'
 
 exit "$fail"
