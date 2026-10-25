@@ -48,6 +48,13 @@ targets:
         # The Kubernetes-auth role the controller logs in with. It is bound to
         # this target's ServiceAccount, ohmlab-controller-<deployment>.
         role: ohmlab-controller-vault
+        # The audience of the token the controller logs in with: a projected
+        # ServiceAccount token valid for Vault only, instead of the pod's API
+        # token, so the JWT Vault receives cannot be replayed against the API
+        # server. A role without an audience accepts it too; a role with one
+        # (vault-operator: ohmlab.controller.audience) accepts nothing else.
+        # Empty logs in with the pod's API token.
+        audience: vault
 
 # How the targets are packaged. Empty: one Deployment per enabled target
 # ("split"), each with its own ServiceAccount, RBAC, Vault role and egress.

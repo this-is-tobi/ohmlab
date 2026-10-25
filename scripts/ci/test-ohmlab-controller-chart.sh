@@ -64,6 +64,17 @@ cfg=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "ohmlab-controller-v
 [ "$(yq '.vault.backend.auth.role' <<<"$cfg")" = "ohmlab-controller-vault" ] || fail "the config lacks the Vault role"
 [ "$(yq '.leaseNamespace' <<<"$cfg")" = "ohmlab-system" ] || fail "the Lease namespace is the release's"
 
+# --- Vault login: a projected token for Vault alone, not the API token --------
+spec=$(yq -o=json 'select(.kind == "Deployment") | .spec.template.spec' <<<"$out")
+jq -e '[.volumes[] | select(.name == "vault-token") | .projected.sources[0].serviceAccountToken] == [{"audience": "vault", "expirationSeconds": 600, "path": "token"}]
+       and ([.containers[0].volumeMounts[] | select(.name == "vault-token") | .mountPath] == ["/var/run/secrets/ohmlab/vault"])' <<<"$spec" >/dev/null \
+  || fail "the controller must log in with a projected token whose audience is vault"
+[ "$(yq '.vault.backend.auth.tokenFile' <<<"$cfg")" = "/var/run/secrets/ohmlab/vault/token" ] || fail "the config must point the login at the projected token"
+noaud=$(render "${BASE[@]}" --set targets.vault.backend.auth.audience=)
+if grep -q 'vault-token\|tokenFile' <<<"$noaud"; then
+  fail "an empty audience must log in with the pod's own token: no projected token, no tokenFile"
+fi
+
 # --- grouping ---------------------------------------------------------------
 single=$(render "${BASE[@]}" --set 'deployments.all={vault}')
 [ "$(yq 'select(.kind == "Deployment") | .metadata.name' <<<"$single")" = "ohmlab-controller-all" ] || fail "grouped: want a Deployment named after the group"

@@ -119,9 +119,11 @@ vexec secrets enable -path=homelab -version=2 kv >/dev/null
 vexec auth enable kubernetes >/dev/null
 vexec write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc >/dev/null
 vexec_in policy write ohmlab-controller-vault - <"$POLICY" >/dev/null
+# The audience is the chart's default: the role takes the controller's projected
+# token and nothing else.
 vexec write auth/kubernetes/role/ohmlab-controller-vault \
   bound_service_account_names="$SA" bound_service_account_namespaces="$NS_CTL" \
-  policies=ohmlab-controller-vault ttl=15m >/dev/null
+  policies=ohmlab-controller-vault ttl=15m audience=vault >/dev/null
 
 step "install the chart ($MODE)"
 # The chart refuses an image that is not pinned by digest. The e2e runs one it
@@ -139,7 +141,7 @@ SA_EXPECT=$DEPLOY
 if [ "$MODE" = single ]; then
   # The Vault role is bound to the ServiceAccount of the deployment.
   vexec write auth/kubernetes/role/ohmlab-controller-vault bound_service_account_names="$SA_EXPECT" \
-    bound_service_account_namespaces="$NS_CTL" policies=ohmlab-controller-vault ttl=15m >/dev/null
+    bound_service_account_namespaces="$NS_CTL" policies=ohmlab-controller-vault ttl=15m audience=vault >/dev/null
 fi
 k -n "$NS_CTL" rollout status "deploy/$DEPLOY" --timeout=120s >/dev/null || fail "the controller did not become ready"
 
@@ -153,6 +155,17 @@ eventually 90 "grafana Ready" ready grafana
 [ "$(kvfield grafana age.secret | cut -c1-15)" = AGE-SECRET-KEY- ] || fail "age secret"
 OWNER=$(vexec kv metadata get -format=json -mount=homelab platforms/production/core/keycloak | jq -r '.data.custom_metadata["ohmlab.fr/owner"]')
 [ "$OWNER" = "$NS_VAULT/keycloak" ] || fail "owner marker is '$OWNER'"
+
+step "the role takes a token meant for Vault and refuses the API token"
+# The controller became Ready under this role, so it logs in with its projected
+# token; this shows the role would refuse the token every pod is given.
+login() { vexec_in write -field=token_policies auth/kubernetes/login role=ohmlab-controller-vault jwt=- >/dev/null 2>&1; }
+for_vault=$(k -n "$NS_CTL" create token "$SA_EXPECT" --audience vault) || fail "could not create a Vault-audience token"
+for_api=$(k -n "$NS_CTL" create token "$SA_EXPECT") || fail "could not create an API token"
+login <<<"$for_vault" || fail "a Vault-audience token of the controller's ServiceAccount must log in"
+if login <<<"$for_api"; then
+  fail "the role must refuse the ServiceAccount's API token"
+fi
 
 step "a resync that finds nothing to do writes nothing"
 v1=$(kvversion keycloak); v2=$(kvversion grafana)
