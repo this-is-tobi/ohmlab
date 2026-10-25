@@ -28,5 +28,8 @@ data:
         auth:
           mount: {{ $v.backend.auth.mount | quote }}
           role: {{ $v.backend.auth.role | quote }}
+          {{- if $v.backend.auth.audience }}
+          tokenFile: /var/run/secrets/ohmlab/vault/token
+          {{- end }}
     {{- end }}
 {{- end }}

@@ -71,6 +71,9 @@ spec:
         {{- if and (has "vault" $targets) $.Values.targets.vault.backend.caSecret }}
         - {name: vault-ca, mountPath: /etc/ohmlab/vault-ca, readOnly: true}
         {{- end }}
+        {{- if and (has "vault" $targets) $.Values.targets.vault.backend.auth.audience }}
+        - {name: vault-token, mountPath: /var/run/secrets/ohmlab/vault, readOnly: true}
+        {{- end }}
       volumes:
       - name: config
         configMap: {name: {{ $sa }}}
@@ -80,5 +83,16 @@ spec:
           secretName: {{ $.Values.targets.vault.backend.caSecret }}
           items:
           - {key: {{ $.Values.targets.vault.backend.caKey }}, path: {{ $.Values.targets.vault.backend.caKey }}}
+      {{- end }}
+      {{- if and (has "vault" $targets) $.Values.targets.vault.backend.auth.audience }}
+      # Valid for Vault only and for ten minutes; the kubelet renews it before
+      # then and every login reads the file again.
+      - name: vault-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: {{ $.Values.targets.vault.backend.auth.audience | quote }}
+              expirationSeconds: 600
+              path: token
       {{- end }}
 {{- end }}
