@@ -80,6 +80,8 @@ nodeSelector: {}
 tolerations: []
 
 monitoring:
+  # The PodMonitor and the PrometheusRule render only on a cluster that has
+  # the Prometheus Operator CRDs (prometheus-stack); the dashboards always.
   enabled: true
   # Series per scrape; the controller exposes controller-runtime's metrics and
   # the ohmlab_* ones. Re-measure when a target is added.

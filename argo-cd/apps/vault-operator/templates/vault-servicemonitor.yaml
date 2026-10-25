@@ -1,4 +1,5 @@
-{{- if .Values.vault.enabled }}
+{{- /* Only where the Prometheus Operator CRDs exist: Argo CD refuses a whole sync over one unknown kind, and re-renders once they appear. */}}
+{{- if and .Values.vault.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
 ---
 # Replaces the operator's own auto-generated ServiceMonitor (disabled via
 # vault.serviceMonitor.enabled: false in values.yaml — it unconditionally

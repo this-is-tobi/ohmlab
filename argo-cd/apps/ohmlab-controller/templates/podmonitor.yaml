@@ -1,4 +1,5 @@
-{{- if and .Values.monitoring.enabled (include "ohmlab-controller.enabledTargets" . | fromJsonArray) }}
+{{- /* Only where the Prometheus Operator CRDs exist: Argo CD refuses a whole sync over one unknown kind, and re-renders once they appear. */}}
+{{- if and .Values.monitoring.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") (include "ohmlab-controller.enabledTargets" . | fromJsonArray) }}
 # The controller's metrics port, scraped straight from the pods: there is no
 # Service to expose, and Prometheus is the only reader.
 apiVersion: monitoring.coreos.com/v1

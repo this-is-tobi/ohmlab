@@ -104,18 +104,19 @@ apps:
   # with `catalog: ohmlab` and `targetRevision: <chart version>`, and declare
   # `catalogs.ohmlab` in instance.yaml.
 
-  # The ohmlab controller — keeps Vault configured from VaultSeed objects
-  # (docs/08-controller.md). Enable it with vault-operator, see values/core.
-- app: ohmlab-controller
-  enabled: "false"
-  namespace: ohmlab-system
-  syncWave: 9
-
   # Vault operator — manages Vault clusters and Vault Secrets Operator.
 - app: vault-operator
   enabled: "false"
   namespace: vault-operator-system
   syncWave: 10
+
+  # The ohmlab controller — keeps Vault configured from VaultSeed objects
+  # (docs/08-controller.md). Enable it with vault-operator, see values/core.
+  # After vault-operator: it needs that app's namespace and Vault role.
+- app: ohmlab-controller
+  enabled: "false"
+  namespace: ohmlab-system
+  syncWave: 11
 
   # trust-manager — publishes the Vault CA as a ConfigMap (BackendTLSPolicy
   # only accepts ConfigMap CA references). Needs cert-manager.

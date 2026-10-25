@@ -69,19 +69,18 @@ apps:
     jqPathExpressions:
     - .spec.volumeClaimTemplates[].status
     - .spec.template.metadata.annotations["checksum/token-secret"]
-# The ohmlab controller keeps Vault configured from VaultSeed objects
-# (docs/08-controller.md). Just before vault-operator (10), whose chart renders
-# the objects: the CRD this app installs is what its `requireCRD` waits for.
-# Waves order nothing while progressiveSync is off; the controller retries its
-# Vault login until the role exists.
-- app: ohmlab-controller
-  enabled: "true"
-  namespace: ohmlab-system
-  syncWave: 9
 - app: vault-operator
   enabled: "true"
   namespace: vault-operator-system
   syncWave: 10
+# The ohmlab controller keeps Vault configured from VaultSeed objects
+# (docs/08-controller.md). After vault-operator (10): its Roles go in the
+# namespace vault-operator creates and it logs in with the role vault-operator
+# grants. vault-operator renders the objects once this app's CRD exists.
+- app: ohmlab-controller
+  enabled: "true"
+  namespace: ohmlab-system
+  syncWave: 11
 # After cert-manager (10): its webhook certificate. Publishes the Vault CA
 # ConfigMap Traefik validates Vault against, so Kyverno needs no Secret access.
 - app: trust-manager
