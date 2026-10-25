@@ -1,7 +1,7 @@
 outline:
   image:
     repository: ghcr.io/this-is-tobi/mirror/outline
-    tag: 1.11.0
+    tag: 1.12.0
   ingress:
     enabled: true
     className: nginx
