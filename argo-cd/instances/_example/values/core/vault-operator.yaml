@@ -47,7 +47,13 @@ vault:
 # are templated (`<random:24>`, `<age:secret>`, `<ref:path#key>`), credentials
 # that cannot be generated are empty placeholders to set by hand in Vault.
 ohmlab:
+  # The ohmlab controller (docs/08-controller.md): its Vault policy and role,
+  # and the secrets below rendered as VaultSeed objects.
+  controller:
+    enabled: false
   vault:
+    seeds:
+      enabled: false
     secrets: []
     # - path: homelab/platforms/production/tenant/actions-runner-controller
     #   data:

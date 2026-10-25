@@ -2,14 +2,14 @@
 #
 # Nothing is rendered until a target is enabled: the instance values
 # (argo-cd/instances/<instance>/values/core/ohmlab-controller.yaml) turn on
-# the targets it wants and pin the image.
+# the targets it wants.
 
 # The controller image, as one reference pinned to an exact release and its
 # digest ("ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.2.0@sha256:..."): a
 # sync then runs exactly the image that was reviewed. Renovate proposes each new
 # release and Kyverno's verify-images policy checks the signature and the
 # provenance. Required as soon as a target is enabled; there is no `latest`.
-image: ""
+image: "ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.2.0@sha256:b95faf022ec98704e0c538e4fb4a26e9a8c78f37569337040ca0831c462ddc01"
 imagePullPolicy: IfNotPresent
 # Accept an image that is not pinned by digest. For the kind e2e, which runs an
 # image it just built and has no registry digest for it. Never set it on a

@@ -1,0 +1,36 @@
+# The ohmlab controller on the `homelab` instance (docs/08-controller.md).
+
+targets:
+  vault:
+    enabled: true
+    # The shadow phase of the cutover: the whole reconcile, no write to Vault.
+    # The takeover sets this to false.
+    observeOnly: true
+    watchNamespaces:
+    - vault-operator-system
+
+# Zero-trust NetworkPolicy for this namespace: the API server and Vault, plus
+# DNS (added by the chart); Prometheus scrapes the metrics port.
+networkPolicy:
+  enabled: true
+  egressDeny: true
+  prometheusScrapePorts:
+  - { protocol: TCP, port: 8080 }
+  extraEgress:
+  - name: apiserver
+    rules:
+    - to:
+      - ipBlock: { cidr: 192.168.1.0/24 }
+      ports:
+      - { protocol: TCP, port: 6443 }
+  - name: vault
+    rules:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: vault-operator-system
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: vault
+      ports:
+      - { protocol: TCP, port: 8200 }
