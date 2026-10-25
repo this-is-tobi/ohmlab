@@ -125,10 +125,13 @@ func TestAPendingReferenceWaitsThenSucceeds(t *testing.T) {
 }
 
 func TestReferencesThatFormACycleStall(t *testing.T) {
-	h := start(t)
+	// Both objects exist before the controller starts: one it reconciled
+	// alone would read Vault for a reference that has no cycle yet.
+	h := prepare(t)
 	a, b := h.path("a"), h.path("b")
 	h.create("a", a, `{"x":"<ref:`+b+`#y>"}`)
 	h.create("b", b, `{"y":"<ref:`+a+`#x>"}`)
+	h.run()
 	h.reason("a", v1alpha1.ConditionStalled, v1alpha1.ReasonRefCycle)
 	h.reason("b", v1alpha1.ConditionStalled, v1alpha1.ReasonRefCycle)
 	if msg := cond(h.get("a"), v1alpha1.ConditionStalled).Message; !strings.Contains(msg, a) || !strings.Contains(msg, b) {
