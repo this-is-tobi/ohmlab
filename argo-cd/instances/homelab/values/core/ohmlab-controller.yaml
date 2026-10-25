@@ -3,9 +3,7 @@
 targets:
   vault:
     enabled: true
-    # The shadow phase of the cutover: the whole reconcile, no write to Vault.
-    # The takeover sets this to false.
-    observeOnly: true
+    observeOnly: false
     watchNamespaces:
     - vault-operator-system
 
