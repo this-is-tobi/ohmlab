@@ -470,6 +470,9 @@ func TestAReferenceCycleClearsOnceTheOtherObjectIsFixed(t *testing.T) {
 	h.create("a", a, `{"x":"<ref:`+b+`#y>"}`)
 	h.create("b", b, `{"y":"<ref:`+a+`#x>"}`)
 	h.reason("a", v1alpha1.ConditionStalled, v1alpha1.ReasonRefCycle)
+	// b settles too before it is updated: a can stall first, and b's own
+	// status patch would then make the update below conflict.
+	h.reason("b", v1alpha1.ConditionStalled, v1alpha1.ReasonRefCycle)
 
 	fixed := h.get("b")
 	fixed.Spec.Data = apiextensionsv1.JSON{Raw: []byte(`{"y":"<random:8>"}`)}
