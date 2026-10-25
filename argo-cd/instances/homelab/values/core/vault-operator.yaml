@@ -47,7 +47,14 @@ vault:
 # silently resolved last-wins by Helm, so a second `ohmlab:` block later in the
 # file would drop everything defined here.
 ohmlab:
+  # The controller's Vault policy and role (chart ohmlab-controller).
+  controller:
+    enabled: true
   vault:
+    # The same secrets as VaultSeed objects, for the controller. While the
+    # post-config Job still writes, the controller only observes.
+    seeds:
+      enabled: true
     # Identity groups and aliases, applied by bank-vaults from the Vault
     # resource's externalConfig (templates/vault.yaml).
     identity:
@@ -567,6 +574,15 @@ networkPolicy:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: traefik
+      ports:
+      - { protocol: TCP, port: 8200 }
+  # The ohmlab controller's Vault target.
+  - name: ohmlab-controller
+    rules:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ohmlab-system
       ports:
       - { protocol: TCP, port: 8200 }
   extraEgress:

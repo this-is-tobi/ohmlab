@@ -1,0 +1,20 @@
+# The ohmlab controller: keeps Vault configured from VaultSeed objects
+# (docs/08-controller.md). Nothing runs until a target is enabled.
+#
+# 1. Enable the Vault target. Start with observeOnly to see what it would do.
+# 2. In values/core/vault-operator.yaml set ohmlab.controller.enabled and
+#    ohmlab.vault.seeds.enabled, and enable the app in core.yaml.
+#
+# The chart pins the image to a release and its digest; set `image` here only
+# to run another one:
+# image: ghcr.io/this-is-tobi/homelab/ohmlab-controller:<version>@sha256:<digest>
+#
+# targets:
+#   vault:
+#     enabled: true
+#     observeOnly: true
+#     watchNamespaces:
+#     - vault-operator-system
+#
+# networkPolicy: allow egress to your API server (see the homelab instance's
+# values for the shape) and to the Vault pods on 8200, and Prometheus on 8080.
