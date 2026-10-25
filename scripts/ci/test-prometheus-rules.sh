@@ -46,7 +46,8 @@ for test in "$root"/*/tests/prometheusrules.test.yaml; do
   mkdir -p "$dir"
   mapfile -t args < <(values_args "$chart")
   echo "::group::$name"
-  if helm template ci "$chart" --namespace test "${args[@]}" \
+  # As on a cluster with the Prometheus Operator: charts gate their rules on it.
+  if helm template ci "$chart" --namespace test --api-versions monitoring.coreos.com/v1 "${args[@]}" \
       | yq ea '[select(.kind == "PrometheusRule") | .spec.groups[]] | {"groups": .}' >"$dir/rules.yaml" \
     && cp "$test" "$dir/test.yaml" \
     && promtool_in "$dir" check rules rules.yaml \

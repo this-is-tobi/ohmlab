@@ -179,12 +179,12 @@ The chart name is the entry's `chart` (default: the app name) and the values sti
 
 ### What the apps expect from each other
 
-Waves are not enforced by default (see the `syncWave` semantics above), so an app whose chart ships objects of another app's CRDs fails its first sync and converges once that app is up. When you enable a subset, enable the providers first:
+Waves are not enforced by default (see the `syncWave` semantics above), so an app whose chart ships objects of another app's CRDs fails its first sync and converges once that app is up, provided it is up within the retry window: a failed automated sync is retried three times (about three and a half minutes) and then not again for the same commit. An app still failed after that stays so until you sync it once by hand or push a new commit. When you enable a subset, enable the providers first:
 
 | Needs                                                      | Provided by        | Used by                                                                                                                             |
 | ---------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Vault Secrets Operator CRDs (`secrets.hashicorp.com`)      | `vault-operator`   | Almost every chart: its secrets are `vso.vaultStaticSecrets` entries, each with the Vault KV `mount` and `path` to set per instance |
-| Prometheus Operator CRDs (`monitoring.coreos.com`)         | `prometheus-stack` | Charts that ship a ServiceMonitor, PodMonitor or PrometheusRule: switch their `monitoring` values off where you do not run it         |
+| Prometheus Operator CRDs (`monitoring.coreos.com`)         | `prometheus-stack` | Charts that ship a ServiceMonitor, PodMonitor or PrometheusRule: switch their `monitoring` values off where you do not run it (`vault-operator` and `ohmlab-controller` leave theirs out by themselves when the CRDs are missing) |
 | Gateway API CRDs                                           | `./run.sh -b`      | The routes of the apps exposed through a gateway                                                                                    |
 
 Vault, delivered by the Vault Secrets Operator, is the only secret backend supported today. Other backends (External Secrets, ...) are planned: every chart declares its secrets in one place (`vso:`) so they can be swapped later.

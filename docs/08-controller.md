@@ -18,7 +18,7 @@ flowchart LR
 
 ## Enabling it
 
-1. The `ohmlab-controller` chart ships with every target off. Enable the Vault target and name the objects' namespace in the instance values (`argo-cd/instances/<instance>/values/core/ohmlab-controller.yaml`), and list the app in `core.yaml` with a sync wave just before `vault-operator`.
+1. The `ohmlab-controller` chart ships with every target off. Enable the Vault target and name the objects' namespace in the instance values (`argo-cd/instances/<instance>/values/core/ohmlab-controller.yaml`), and list the app in `core.yaml` with a sync wave after `vault-operator`: the controller's Roles go in the namespace `vault-operator` creates, and it logs in with the role `vault-operator` grants. `vault-operator` renders the objects once the controller's CRD exists, at Argo CD's next reconciliation.
 2. In the `vault-operator` instance values, set `ohmlab.controller.enabled: true`. The chart then grants the controller its Vault policy and Kubernetes-auth role.
 3. Set `ohmlab.vault.seeds.enabled: true` to render one `VaultSeed` per entry of `ohmlab.vault.secrets`.
 
@@ -135,7 +135,7 @@ A shared process is not a security boundary. What is isolated and what is not:
 
 ## Operating
 
-Metrics, alerts and a dashboard come with the chart. The alerts: `OhmlabControllerDown`, `OhmlabObjectNotReady`, `OhmlabReconcileStale` (three resyncs without a completed reconcile), `OhmlabBackendErrors`, `OhmlabBackendForbidden`, `OhmlabWriteLoop` (a sustained rate of data writes, which means something else rewrites the path), `OhmlabCRDRevisionMismatch`.
+Metrics, alerts and a dashboard come with the chart. The PodMonitor and the alert rules render only where the Prometheus Operator CRDs exist (`prometheus-stack`), so the app syncs without them and gains them at Argo CD's next reconciliation once they are installed. The alerts: `OhmlabControllerDown`, `OhmlabObjectNotReady`, `OhmlabReconcileStale` (three resyncs without a completed reconcile), `OhmlabBackendErrors`, `OhmlabBackendForbidden`, `OhmlabWriteLoop` (a sustained rate of data writes, which means something else rewrites the path), `OhmlabCRDRevisionMismatch`.
 
 ```sh
 kubectl get vaultseeds -A                       # path, Ready, reason

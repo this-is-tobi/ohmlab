@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHART="$ROOT/argo-cd/apps/ohmlab-controller"
 DIGEST=sha256:0000000000000000000000000000000000000000000000000000000000000000
 IMAGE=ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.2.0@$DIGEST
-BASE=(--namespace ohmlab-system --set "image=$IMAGE" --set targets.vault.enabled=true)
+BASE=(--namespace ohmlab-system --set "image=$IMAGE" --set targets.vault.enabled=true --api-versions monitoring.coreos.com/v1)
 
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }
@@ -102,6 +102,12 @@ expect_fail 'is in deployments' --set 'targets.harbor.enabled=true' --set 'targe
 mon=$(render "${BASE[@]}" --set resync=5m)
 [ "$(yq 'select(.kind == "PrometheusRule") | .spec.groups[0].rules[] | select(.alert == "OhmlabReconcileStale") | .expr' <<<"$mon")" = 'time() - max by (target) (ohmlab_reconcile_last_success_timestamp_seconds) > 900' ] \
   || fail "the stale alert is not three resyncs"
+# Without the Prometheus Operator CRDs the monitoring objects stay out (Argo CD
+# would refuse the whole sync over them) and everything else renders.
+bare=$(render --namespace ohmlab-system --set "image=$IMAGE" --set targets.vault.enabled=true)
+[ -z "$(yq 'select(.apiVersion == "monitoring.coreos.com/v1") | .kind' <<<"$bare")" ] || fail "a PodMonitor or PrometheusRule renders on a cluster without the Prometheus Operator"
+[ "$(yq 'select(.kind == "Deployment") | .metadata.name' <<<"$bare")" = "ohmlab-controller-vault" ] || fail "without the Prometheus Operator the controller must still render"
+[ "$(yq 'select(.kind == "PodMonitor") | .kind' <<<"$out")" = PodMonitor ] || fail "with the Prometheus Operator the PodMonitor must render"
 out=$(render "${BASE[@]}" --set resync=soon)
 grep -q 'write it as' <<<"$out" || fail "a bad resync must fail"
 
