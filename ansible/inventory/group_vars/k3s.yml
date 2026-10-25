@@ -79,6 +79,9 @@ k3sExtraServerArgs: >-
   --disable traefik
   --write-kubeconfig-mode 600
   --node-label node-type=master
+  --etcd-expose-metrics
+  --kube-controller-manager-arg=bind-address={{ k3sNodeIP }}
+  --kube-scheduler-arg=bind-address={{ k3sNodeIP }}
 # --etcd-arg heartbeat-interval=250  --etcd-arg election-timeout=2500
 k3sExtraAgentArgs: >-
   {{ k3sExtraArgs }}

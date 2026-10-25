@@ -117,13 +117,14 @@ kube-prometheus-stack:
       limits:
         cpu: 500m
         memory: 128Mi
-  # k3s bundles the scheduler, controller-manager and (embedded) etcd inside
-  # the single k3s server process and doesn't expose them as separate
-  # Services the way kubeadm/RKE2 clusters do — kube-proxy metrics are also
-  # not reachable the chart's default way here. The chart's default
-  # ServiceMonitors for these select Services with zero endpoints, so they
-  # never scrape anything and their bundled Grafana dashboards are
-  # permanently blank. Disabling avoids phantom "no data" dashboards.
+  # k3s runs the scheduler, controller-manager and embedded etcd inside the
+  # k3s server process and exposes their metrics only with the server flags
+  # --etcd-expose-metrics and --kube-{controller-manager,scheduler}-arg=
+  # bind-address=<node-ip> (ansible k3sExtraServerArgs). Disabled here: the
+  # chart's default monitors select Services that do not exist, so they would
+  # leave their bundled dashboards permanently blank. An instance whose
+  # masters carry those flags enables them with its master IPs as endpoints.
+  # kube-proxy stays disabled (not reachable this way).
   kubeControllerManager:
     enabled: false
   kubeEtcd:

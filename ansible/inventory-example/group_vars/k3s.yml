@@ -142,6 +142,12 @@ k3sExtraArgs: >-
   --node-name {{ inventory_hostname }}
   --node-ip={{ k3sNodeIP }}
   --resolv-conf {{ k3sResolvConfPath }}
+# Control-plane metrics for Prometheus: etcd on http://<node-ip>:2381 (plain
+# HTTP, no authentication), the controller-manager on :10257 and the
+# scheduler on :10259 (HTTPS, Kubernetes authn/authz). Bound to the node IP
+# rather than 0.0.0.0, which loosens k3s's default of 127.0.0.1: keep the
+# LAN trusted. The prometheus-stack app's kubeEtcd/kubeControllerManager/
+# kubeScheduler need these flags (see its values).
 k3sExtraServerArgs: >-
   {{ k3sExtraArgs }}
   {{ k3sCniServerArgs }}
@@ -152,6 +158,9 @@ k3sExtraServerArgs: >-
   --disable traefik
   --write-kubeconfig-mode 600
   --node-label node-type=master
+  --etcd-expose-metrics
+  --kube-controller-manager-arg=bind-address={{ k3sNodeIP }}
+  --kube-scheduler-arg=bind-address={{ k3sNodeIP }}
 k3sExtraAgentArgs: >-
   {{ k3sExtraArgs }}
   {{ k3sCniAgentArgs }}

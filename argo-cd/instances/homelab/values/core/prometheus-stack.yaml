@@ -26,6 +26,34 @@ kube-prometheus-stack:
             resources:
               requests:
                 storage: 200Gi
+  # Masters pi0/pi3/pi4 run k3s with the control-plane metrics flags
+  # (ansible k3sExtraServerArgs).
+  kubeEtcd:
+    enabled: true
+    endpoints: [192.168.1.100, 192.168.1.103, 192.168.1.104]
+    service:
+      port: 2381
+      targetPort: 2381
+    serviceMonitor:
+      scheme: http
+  kubeControllerManager:
+    enabled: true
+    endpoints: [192.168.1.100, 192.168.1.103, 192.168.1.104]
+    service:
+      port: 10257
+      targetPort: 10257
+    serviceMonitor:
+      https: true
+      insecureSkipVerify: true
+  kubeScheduler:
+    enabled: true
+    endpoints: [192.168.1.100, 192.168.1.103, 192.168.1.104]
+    service:
+      port: 10259
+      targetPort: 10259
+    serviceMonitor:
+      https: true
+      insecureSkipVerify: true
   grafana:
     admin:
       existingSecret: monitoring-admin
