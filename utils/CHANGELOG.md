@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0](https://github.com/this-is-tobi/homelab/compare/v0.1.3...v0.2.0) (2026-10-25)
+
+
+### Features
+
+* **utils:** add a context-aware KV v2 client with compare-and-set ([b349924](https://github.com/this-is-tobi/homelab/commit/b3499245a36398ebe82b027095ccbb7172e7acda))
+* **utils:** add the ohmlab-controller binary ([5f1e15a](https://github.com/this-is-tobi/homelab/commit/5f1e15aae3880694af38e4e9e5ea99583bf000d1))
+* **utils:** add the planner that decides what a VaultSeed changes ([4093582](https://github.com/this-is-tobi/homelab/commit/4093582bd091d6d5d35d5915ef53b90bcef2c2f8))
+* **utils:** add the seeding loop and test it against a real Vault ([58de584](https://github.com/this-is-tobi/homelab/commit/58de584e191742659b3a98a548662b4cd4c20794))
+* **utils:** add the VaultSeed API and an ohmlab validate command ([eefe372](https://github.com/this-is-tobi/homelab/commit/eefe372ce6d10bf8d9fcb68b5c1c02b2c505c2bf))
+* **utils:** add the VaultSeed reconciler ([a425998](https://github.com/this-is-tobi/homelab/commit/a425998947f4d3bdce71a10a412c534984860bda))
+* **utils:** publish the controller image ([fe676ee](https://github.com/this-is-tobi/homelab/commit/fe676ee548d396a8456a6329e52a2217304dde43))
+
+
+### Bug Fixes
+
+* **deps:** update dependency hashicorp/vault to v2.2.1 ([bf51040](https://github.com/this-is-tobi/homelab/commit/bf5104090ed1a3334b9352419f5b2fe55f50f1bd))
+* **deps:** update module github.com/go-logr/logr to v1.4.4 ([b71e456](https://github.com/this-is-tobi/homelab/commit/b71e45651daea987cfc7eabb70a7d44a53f3036b))
+
 ## [0.1.3](https://github.com/this-is-tobi/homelab/compare/v0.1.2...v0.1.3) (2026-10-22)
 
 
