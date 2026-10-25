@@ -280,86 +280,105 @@ vault:
         }
     auth:
     - type: kubernetes
+      # Each role takes only tokens meant for Vault: every VaultAuth requests the
+      # audience `vault` (kubernetes.audiences), and the API token of a pod of the
+      # same ServiceAccount does not log in.
       roles:
       - name: argo-cd
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [argo-cd]
+        audience: vault
         policies: [argo-cd]
         ttl: 1h
       - name: argo-cd-core
         # VSO service account in argocd-system for the core ArgoCD OIDC secret
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [argocd-system]
+        audience: vault
         policies: [argo-cd-core]
         ttl: 1h
       - name: cert-manager
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [cert-manager]
+        audience: vault
         policies: [cert-manager]
         ttl: 1h
       - name: coder
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [coder]
+        audience: vault
         policies: [coder]
         ttl: 1h
       - name: gitea
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [gitea]
+        audience: vault
         policies: [gitea]
         ttl: 1h
       - name: harbor
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [harbor]
+        audience: vault
         policies: [harbor]
         ttl: 1h
       - name: keycloak
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [keycloak-system]
+        audience: vault
         policies: [keycloak]
         ttl: 1h
       - name: mattermost
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [mattermost]
+        audience: vault
         policies: [mattermost]
         ttl: 1h
       - name: rustfs
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [rustfs]
+        audience: vault
         policies: [rustfs]
         ttl: 1h
       - name: outline
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [outline]
+        audience: vault
         policies: [outline]
         ttl: 1h
       - name: prometheus-stack
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [prometheus-stack]
+        audience: vault
         policies: [prometheus-stack]
         ttl: 1h
       - name: argo-workflows
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [argo-workflows]
+        audience: vault
         policies: [argo-workflows]
         ttl: 1h
       - name: mlflow
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [mlflow]
+        audience: vault
         policies: [mlflow]
         ttl: 1h
       - name: vaultwarden
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [vaultwarden]
+        audience: vault
         policies: [vaultwarden]
         ttl: 1h
       - name: sonarqube
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [sonarqube]
+        audience: vault
         policies: [sonarqube]
         ttl: 1h
       - name: actions-runner-controller
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [actions-runner-controller]
+        audience: vault
         policies: [actions-runner-controller]
         ttl: 1h
       - name: sops
@@ -367,26 +386,31 @@ vault:
         # The sops app deploys to its own `sops` namespace (catalog default =
         # app name); this previously said kube-system, which 403'd every sync.
         bound_service_account_namespaces: [sops]
+        audience: vault
         policies: [sops]
         ttl: 1h
       - name: crowdsec
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [crowdsec]
+        audience: vault
         policies: [crowdsec]
         ttl: 1h
       - name: longhorn
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [longhorn-system]
+        audience: vault
         policies: [longhorn]
         ttl: 1h
       - name: apisix
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [apisix]
+        audience: vault
         policies: [apisix]
         ttl: 1h
       - name: traefik
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [traefik]
+        audience: vault
         policies: [traefik, traefik-dashboard]
         ttl: 1h
       - name: cilium
@@ -394,6 +418,7 @@ vault:
         # secret only (least-privilege: not a general kube-system grant).
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [kube-system]
+        audience: vault
         policies: [hubble]
         ttl: 1h
       # VSO service account in vault-operator-system for vault-oidc-credentials.
@@ -401,6 +426,7 @@ vault:
       - name: vault-operator
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [vault-operator-system]
+        audience: vault
         policies: [vault]
         ttl: 1h
     # Multi-cluster JWT auth — enable per remote cluster.
