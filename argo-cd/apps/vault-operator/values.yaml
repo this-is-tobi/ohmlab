@@ -668,6 +668,11 @@ ohmlab:
     # Grants delete on the metadata path, for deletionPolicy: Delete. Pair it
     # with targets.vault.allowDelete in the controller's chart.
     allowDelete: false
+    # The only token audience the role accepts: the controller's chart logs in
+    # with a projected token for this audience (targets.vault.backend.auth.audience),
+    # so the pod's API token, or any other token of the ServiceAccount, cannot
+    # log in. Empty accepts a token of any audience.
+    audience: vault
 
 # Grafana dashboards shipped with this app (templates/dashboards.yaml).
 monitoring:

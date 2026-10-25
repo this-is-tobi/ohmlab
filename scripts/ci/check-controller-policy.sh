@@ -4,7 +4,8 @@
 # controller under a copy in utils/internal/seed/testdata. A test that passes on
 # a policy the cluster does not have proves nothing, so the two must be the same
 # text, comments aside. The Kubernetes-auth role that carries the policy is
-# checked too: bound to the controller's ServiceAccount and nothing else.
+# checked too: bound to the controller's ServiceAccount and the token audience
+# its chart logs in with, and nothing else.
 #
 #   check-controller-policy.sh
 #
@@ -38,11 +39,18 @@ check true controller-policy-allow-delete.hcl
 
 cr=$(render --set ohmlab.controller.enabled=true)
 role=$(yq -o=json -I=0 '.spec.externalConfig.auth[] | select(.type == "kubernetes") | .roles[] | select(.name == "ohmlab-controller-vault")' <<<"$cr")
-want='{"name":"ohmlab-controller-vault","bound_service_account_names":["ohmlab-controller-vault"],"bound_service_account_namespaces":["ohmlab-system"],"policies":["ohmlab-controller-vault"],"ttl":"15m"}'
+want='{"name":"ohmlab-controller-vault","bound_service_account_names":["ohmlab-controller-vault"],"bound_service_account_namespaces":["ohmlab-system"],"policies":["ohmlab-controller-vault"],"ttl":"15m","audience":"vault"}'
 if [ "$(jq -cS . <<<"$role")" != "$(jq -cS . <<<"$want")" ]; then
-  echo "FAIL: the controller's role is not bound to its ServiceAccount alone:" >&2
+  echo "FAIL: the controller's role is not bound to its ServiceAccount and the vault audience alone:" >&2
   echo "  got  $role" >&2
   echo "  want $want" >&2
+  failures=$((failures + 1))
+fi
+
+# An empty audience drops the key: the role then accepts any audience.
+cr=$(render --set ohmlab.controller.enabled=true --set ohmlab.controller.audience=)
+if [ "$(yq '.spec.externalConfig.auth[] | select(.type == "kubernetes") | .roles[] | select(.name == "ohmlab-controller-vault") | has("audience")' <<<"$cr")" != false ]; then
+  echo "FAIL: an empty ohmlab.controller.audience must leave the role without one" >&2
   failures=$((failures + 1))
 fi
 
