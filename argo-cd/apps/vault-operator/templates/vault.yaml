@@ -262,8 +262,7 @@ spec:
     {{- end }}
     {{- /*
       Identity groups and their aliases (OIDC group mapping). bank-vaults adopts
-      a group or alias that already exists by name and keeps its id, so moving
-      them here from the post-config Job changes nothing in Vault.
+      a group or alias that already exists by name and keeps its id.
     */}}
     {{- $identity := .Values.ohmlab.vault.identity }}
     {{- if $identity.groups }}

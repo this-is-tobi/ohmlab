@@ -51,8 +51,8 @@ ohmlab:
   controller:
     enabled: true
   vault:
-    # The same secrets as VaultSeed objects, for the controller. While the
-    # post-config Job still writes, the controller only observes.
+    # The secrets below as VaultSeed objects: the controller seeds them and
+    # keeps them as declared.
     seeds:
       enabled: true
     # Identity groups and aliases, applied by bank-vaults from the Vault

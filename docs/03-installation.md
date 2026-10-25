@@ -201,7 +201,7 @@ Each `vso.vaultStaticSecrets` entry copies only what its consumer needs into its
 
 The `sops` app ([sops-secrets-operator](https://github.com/isindir/sops-secrets-operator)) and the `./run.sh -d` / `-e` helpers are there for instances that prefer to commit encrypted Kubernetes manifests (a `SopsSecret` in the `templates/` of a chart) next to their values. This repository's own instance does not use them. Prefer Vault where you can: the operator creates Secrets in any namespace, so it holds a cluster-wide permission on Secrets.
 
-1. Have the post-config job generate the age key pair in Vault, by adding this entry to `ohmlab.vault.secrets` in the `vault-operator` values, then enable the `sops` app in `core.yaml` (the example values of the app point at that path).
+1. Have the ohmlab controller generate the age key pair in Vault, by adding this entry to `ohmlab.vault.secrets` in the `vault-operator` values (the controller must be enabled, see [docs/08-controller.md](08-controller.md)), then enable the `sops` app in `core.yaml` (the example values of the app point at that path).
 
    ```yaml
    - path: homelab/platforms/production/core/sops

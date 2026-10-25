@@ -251,7 +251,7 @@ Each app also gets a dedicated least-privilege Vault policy
 bound to the `vso` ServiceAccount **in the app's own namespace** — a role
 bound to the wrong namespace fails with `403 namespace not authorized`.
 
-Values that cannot be generated are declared as empty placeholders under `ohmlab.vault.secrets` and set by hand in Vault; the post-config job keeps what is already there unless `forceRotate` is on. The GitHub App of the runner scale sets is one: put its `id`, `installationId` and `privateKey` (the PEM) in a JSON file and patch them in, so the key never lands in the shell history, then delete the file. VSO builds the `github-app` Secret that every scale set references from them.
+Values that cannot be generated are declared as empty placeholders under `ohmlab.vault.secrets` and set by hand in Vault. The ohmlab controller keeps a key that exists, generates one that is missing, and leaves a placeholder declared as `""` for a person to fill in; to regenerate keys, set `rotate.token` on the entry ([docs/08-controller.md](08-controller.md)). The GitHub App of the runner scale sets is one: put its `id`, `installationId` and `privateKey` (the PEM) in a JSON file and patch them in, so the key never lands in the shell history, then delete the file. VSO builds the `github-app` Secret that every scale set references from them.
 
 ```sh
 vault kv patch -mount=homelab platforms/production/tenant/actions-runner-controller - < github-app.json

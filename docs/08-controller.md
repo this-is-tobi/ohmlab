@@ -76,7 +76,7 @@ spec:
 - **Seed once.** A key that exists is never overwritten, whether a template made it or a person typed it. A key that is missing is generated. A placeholder declared as `""` stays what a person put there. Changing a template (for example a longer `<random:N>`) does not touch the existing value; rotate it instead.
 - **References follow their source.** A key declared as `<ref:...>` is a copy, so it is kept equal to its source at every resync. A reference whose source is missing or empty waits (`RefPending`) and the object writes nothing until every missing key can be computed. A bcrypt hash is rewritten only when it stops matching the key it hashes, so a resync never produces a new salt.
 - **Compare and set.** Every write names the KV version it read. If somebody wrote in between, the controller reads again and plans again, so an edit made at that moment is kept.
-- **Adoption.** A path created before the object existed (by the old post-config Job, or by hand) is adopted: the controller records its owner in the path's custom metadata and leaves the data alone. A path whose owner marker names another object is not touched (`OwnedByAnother`).
+- **Adoption.** A path created before the object existed (by an earlier version of the chart, or by hand) is adopted: the controller records its owner in the path's custom metadata and leaves the data alone. A path whose owner marker names another object is not touched (`OwnedByAnother`).
 - **Rotation.** `rotate.token` is compared with the one recorded on the path. When they differ, the listed keys (or every generated key) are regenerated once and the token is recorded. Leaving the token in place does nothing on later resyncs. The token is recorded after the keys are written: if Vault refuses to record it, the next attempt regenerates the keys again (one more KV version) until it is recorded, and the object reports `Forbidden`.
 - **Pruning.** With `prune: true`, keys the controller wrote and the object no longer declares are removed. `status.managedKeys` lists those keys by name; keys written by anybody else are never removed, and an object that lost its status prunes nothing.
 - **Quiet resyncs.** An object is reconciled again every ten minutes. A resync that finds nothing to do writes nothing to Vault and nothing to the Kubernetes API.
@@ -161,11 +161,11 @@ It reports malformed templates, bcrypt targets and rotation keys that do not exi
 
 ## Migrating from the post-config Job
 
-The `vault-post-config` Job ran `ohmlab vault secret` after every sync of `vault-operator`. The controller replaces it with the same semantics, except that a reference now follows its source, rotation is a one-shot token instead of `forceRotate`, and nothing waits for a hook. The move happens in three steps on a live instance:
+Earlier versions of the `vault-operator` chart seeded `ohmlab.vault.secrets` with a `vault-post-config` Job, which ran `ohmlab vault secret` after every sync. The controller replaces it with the same semantics, except that a reference follows its source, rotation is a one-shot token instead of `forceRotate`, and nothing waits for a hook. The current chart has no Job: an instance that still runs it moves over in two steps, then upgrades.
 
-1. **Shadow.** Enable the target with `observeOnly: true` and render the objects. The Job stays the only writer. The expected planned changes are `adopt` only; when a day passes without an unexpected one, go on.
+1. **Shadow.** Enable the target with `observeOnly: true` and render the objects. The Job stays the only writer. The expected planned changes are `adopt` only; go on once they hold over enough resyncs to have seen the Job run and the controller's token renew.
 2. **Takeover.** Set `observeOnly: false`. The first reconcile writes only the owner markers, which creates no KV version. The Job can stay for one sync as a safety net. To go back, set `observeOnly: true`.
-3. **Clean-up.** Remove the Job, its ServiceAccount, RBAC, Vault role and policy, and `forceRotate`.
+3. **Upgrade.** The new chart drops the Job, its ServiceAccount and RBAC, its Vault policy and role, and `forceRotate`. bank-vaults does not delete what it no longer lists, so remove the role and the policy by hand: `vault delete auth/kubernetes/role/vault-post-config` and `vault policy delete vault-post-config`.
 
 Identity groups and their OIDC aliases are not the controller's: the `vault-operator` chart renders `ohmlab.vault.identity` into the Vault resource's `externalConfig`, where bank-vaults applies them.
 

@@ -144,7 +144,7 @@ vso:
           templates:
             RUSTFS_IDENTITY_OPENID_CLIENT_SECRET:
               # Reads the app's own tenant path (keycloak.clientSecret is
-              # ref-copied there from core/keycloak by vault-post-config) —
+              # ref-copied there from core/keycloak by the ohmlab controller) —
               # the rustfs role has no read access to core/keycloak.
               text: '{{ get .Secrets "keycloak" | dig "clientSecret" "" }}'
 
