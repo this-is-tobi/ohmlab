@@ -67,9 +67,11 @@ namespaceSuffix: ""
 # gate on the ArgoCD instance (utils/helm values set
 # `applicationsetcontroller.enable.progressive.syncs: true`) and it changes
 # rollout behaviour: the AppSet controller drives each step's sync itself
-# and STRIPS `syncPolicy.automated` from the generated Applications (prune
-# is carried into the triggered sync; instead of selfHeal the controller
-# re-triggers a sync when an app drifts OutOfSync) — expected, not a bug.
+# and turns `syncPolicy.automated` off on the generated Applications (prune
+# is carried into the triggered sync). It syncs an app again only when the
+# app's revision changes: drift at the same commit (a hand edit, a chart that
+# renders more once a CRD exists, such as vault-operator's VaultSeeds) stays
+# OutOfSync until the next commit or a manual sync — expected, not a bug.
 # Generated Applications carry a `ohmlab.fr/sync-wave: w<syncWave>` label
 # ("w" prefix because a bare "-10" is not a valid label value); each step
 # below lists the wave values it syncs, in order, and everything not listed
