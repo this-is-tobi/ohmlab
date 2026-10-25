@@ -3,6 +3,7 @@
   "include-component-in-tag": false,
   "bump-minor-pre-major": true,
   "separate-pull-requests": true,
+  "always-update": true,
   "packages": {
     "utils": {
       "release-type": "go",
