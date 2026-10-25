@@ -84,6 +84,7 @@ func TestADeletedGeneratedKeyComesBackAndAHandFilledPlaceholderStays(t *testing.
 	if d["webhook"] != "https://hooks.example/x" || d["keep"] != oldKeep {
 		t.Errorf("hand-filled or existing keys changed: %v", d)
 	}
+	h.eventually("the write event to name the key", func() bool { return strings.Contains(dumpEvents(t, h.ns), ": 1 add-key (gone)") })
 }
 
 func TestAReferenceFollowsItsSourceAndAHandEditIsPutBack(t *testing.T) {
@@ -252,6 +253,11 @@ func TestObserveOnlyReportsDriftAndWritesNothing(t *testing.T) {
 	h.reason("fresh", v1alpha1.ConditionDrifted, v1alpha1.ReasonDrifted)
 	if c := cond(h.get("legacy"), v1alpha1.ConditionReady); c.Status != metav1.ConditionFalse || c.Reason != v1alpha1.ReasonObserveOnly {
 		t.Errorf("ready = %+v", c)
+	}
+	// The message names the key behind each change, so nobody has to read the
+	// path to find it.
+	if msg := cond(h.get("legacy"), v1alpha1.ConditionDrifted).Message; !strings.Contains(msg, "1 add-key (extra)") || !strings.Contains(msg, "1 adopt") {
+		t.Errorf("drifted message = %q", msg)
 	}
 	if st := h.get("legacy").Status; len(st.ManagedKeys) != 0 {
 		t.Errorf("nothing was written, so nothing is managed: %+v", st)
@@ -497,5 +503,16 @@ func TestAHashOfAValueThatIsStillEmptyWaitsForTheValue(t *testing.T) {
 	d, _, _, _ := h.kv.Get(p)
 	if hash, _ := d["passwordHashed"].(string); !secretgen.BcryptMatches(hash, "hunter2") {
 		t.Errorf("the hash must follow the value that was filled in: %v", d)
+	}
+}
+
+func TestDescribeNamesTheKeysAndCutsALongList(t *testing.T) {
+	changes := []seed.Change{{Action: seed.ActionUpdateField, Key: "keycloak.clientSecret"}, {Action: seed.ActionAdopt}}
+	for i := 6; i >= 0; i-- {
+		changes = append(changes, seed.Change{Action: seed.ActionAddKey, Key: fmt.Sprintf("k%d", i)})
+	}
+	want := "7 add-key (k0, k1, k2, k3, k4, and 2 more), 1 adopt, 1 update-field (keycloak.clientSecret)"
+	if got := describe(changes); got != want {
+		t.Errorf("describe = %q, want %q", got, want)
 	}
 }

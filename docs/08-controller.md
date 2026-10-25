@@ -92,7 +92,7 @@ Deleting an object never blocks by default and never touches Vault. With `deleti
 | `Ready` | `True` when the path holds what is declared. |
 | `Reconciling` | `True` while the object waits for something and retries with backoff (5s doubling to 5m). |
 | `Stalled` | `True` when the controller cannot go on as declared. It is checked again at every resync, never with a backoff: a cycle ends when the other object is fixed, and a hash of a value that is still empty ends when the value is filled in. |
-| `Drifted` | `True` in observe-only mode when a real run would change something. |
+| `Drifted` | `True` in observe-only mode when a real run would change something. Its message sums the changes by action and names the keys behind them, for example `1 adopt, 1 update-field (keycloak.clientSecret)`; values never appear. |
 
 | Reason | Condition | What to do |
 | --- | --- | --- |
