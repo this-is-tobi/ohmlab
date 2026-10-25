@@ -95,7 +95,7 @@ type outcome struct {
 	version    int64
 	managed    []string
 	keepStatus bool // leave kvVersion and managedKeys as they are
-	counts     map[string]int
+	changes    []seed.Change
 	written    seed.Result
 }
 
@@ -175,14 +175,13 @@ func (r *Reconciler) decide(ctx context.Context, obj *v1alpha1.VaultSeed) outcom
 		if res.DataWritten {
 			// The data landed and the marker after it did not: say what was
 			// written, or the retry that redoes the marker leaves no trace.
-			o.written, o.counts = res, actionCounts(res.Plan.Changes)
+			o.written, o.changes = res, res.Plan.Changes
 			o.version, o.managed, o.keepStatus = res.Version, res.Plan.Managed, false
 		}
 		return o
 	}
 
 	plan := res.Plan
-	counts := actionCounts(plan.Changes)
 	switch plan.Blocked {
 	case seed.ReasonOwnedByAnother:
 		return outcome{ready: metav1.ConditionFalse, reason: v1alpha1.ReasonOwnedByAnother, message: plan.Message, keepStatus: true, success: true}
@@ -198,11 +197,11 @@ func (r *Reconciler) decide(ctx context.Context, obj *v1alpha1.VaultSeed) outcom
 		if plan.Empty() && len(plan.Changes) == 0 {
 			return outcome{ready: metav1.ConditionTrue, reason: v1alpha1.ReasonReconciled, message: "the path holds what is declared", version: res.Version, keepStatus: true, success: true}
 		}
-		return outcome{ready: metav1.ConditionFalse, reason: v1alpha1.ReasonObserveOnly, drifted: true, version: res.Version, keepStatus: true, success: true, counts: counts,
-			message: fmt.Sprintf("observe-only: %s planned, nothing written", describe(counts))}
+		return outcome{ready: metav1.ConditionFalse, reason: v1alpha1.ReasonObserveOnly, drifted: true, version: res.Version, keepStatus: true, success: true, changes: plan.Changes,
+			message: fmt.Sprintf("observe-only: %s planned, nothing written", describe(plan.Changes))}
 	}
 	return outcome{ready: metav1.ConditionTrue, reason: v1alpha1.ReasonReconciled, message: "the path holds what is declared",
-		version: res.Version, managed: plan.Managed, success: true, written: res, counts: counts}
+		version: res.Version, managed: plan.Managed, success: true, written: res, changes: plan.Changes}
 }
 
 // failed reports an error of the engine: a bad path is the spec's, a refusal
@@ -370,6 +369,7 @@ func apiEqual(a, b v1alpha1.VaultSeedStatus) bool {
 func (r *Reconciler) record(obj *v1alpha1.VaultSeed, o outcome, previous string) {
 	// Healthy: Ready, or only held back by observe-only mode (the drift is
 	// reported by ohmlab_planned_changes, not by an alert on every object).
+	counts := actionCounts(o.changes)
 	ready := 0.0
 	if o.ready == metav1.ConditionTrue || o.drifted {
 		ready = 1
@@ -379,7 +379,7 @@ func (r *Reconciler) record(obj *v1alpha1.VaultSeed, o outcome, previous string)
 		r.Metrics.LastSuccess.WithLabelValues(Target, kind).SetToCurrentTime()
 	}
 	if r.ObserveOnly {
-		r.Metrics.SetPlanned(Target, kind, obj.Namespace+"/"+obj.Name, o.counts)
+		r.Metrics.SetPlanned(Target, kind, obj.Namespace+"/"+obj.Name, counts)
 	}
 
 	log.Log.WithValues("target", Target, "kind", kind, "namespace", obj.Namespace, "name", obj.Name).
@@ -387,16 +387,16 @@ func (r *Reconciler) record(obj *v1alpha1.VaultSeed, o outcome, previous string)
 
 	w := o.written
 	if w.DataWritten || w.MetadataWritten {
-		if n := o.counts["adopt"]; n > 0 {
+		if n := counts["adopt"]; n > 0 {
 			r.Metrics.Adopted.WithLabelValues(Target, kind).Add(float64(n))
 			r.Recorder.Eventf(obj, nil, "Normal", "Adopted", "Reconcile", "took ownership of the path")
 		}
-		if n := o.counts["rotate"]; n > 0 {
+		if n := counts["rotate"]; n > 0 {
 			r.Metrics.Rotations.WithLabelValues(Target).Add(float64(n))
 			r.Recorder.Eventf(obj, nil, "Normal", "Rotated", "Reconcile", "regenerated %d key(s)", n)
 		}
 		if w.DataWritten {
-			r.Recorder.Eventf(obj, nil, "Normal", "Written", "Reconcile", "wrote KV version %d: %s", w.Version, describe(o.counts))
+			r.Recorder.Eventf(obj, nil, "Normal", "Written", "Reconcile", "wrote KV version %d: %s", w.Version, describe(o.changes))
 		}
 	}
 	// A failure is an event once, when the object enters it: the Ready reason
@@ -441,12 +441,38 @@ func actionCounts(changes []seed.Change) map[string]int {
 	return counts
 }
 
-func describe(counts map[string]int) string {
-	parts := make([]string, 0, len(counts))
-	for a, n := range counts {
-		parts = append(parts, fmt.Sprintf("%d %s", n, a))
+// namedKeys is how many keys describe names per action before it cuts.
+const namedKeys = 5
+
+// describe sums changes by action and names the keys behind them, so the field
+// a change touches is found without reading the path. A change carries key
+// names only, never a value.
+func describe(changes []seed.Change) string {
+	keys := map[seed.Action][]string{}
+	counts := map[seed.Action]int{}
+	for _, c := range changes {
+		counts[c.Action]++
+		if c.Key != "" {
+			keys[c.Action] = append(keys[c.Action], c.Key)
+		}
 	}
-	sort.Strings(parts)
+	actions := make([]string, 0, len(counts))
+	for a := range counts {
+		actions = append(actions, string(a))
+	}
+	sort.Strings(actions)
+	parts := make([]string, 0, len(actions))
+	for _, a := range actions {
+		part := fmt.Sprintf("%d %s", counts[seed.Action(a)], a)
+		if k := keys[seed.Action(a)]; len(k) > 0 {
+			sort.Strings(k)
+			if len(k) > namedKeys {
+				k = append(k[:namedKeys:namedKeys], fmt.Sprintf("and %d more", len(k)-namedKeys))
+			}
+			part += " (" + strings.Join(k, ", ") + ")"
+		}
+		parts = append(parts, part)
+	}
 	return strings.Join(parts, ", ")
 }
 
