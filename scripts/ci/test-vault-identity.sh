@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Identity groups and their OIDC aliases are bank-vaults' to apply, not the
-# post-config Job's: a group created with the right policies and an alias to an
-# OIDC group the creator controls is a way to any policy, and bank-vaults already
-# writes the policies and the auth roles, so it gains no power by writing these
-# too. This checks the vault-operator chart renders them into the Vault CR and
-# that the Job neither runs the identity step nor keeps the policy for it.
+# Identity groups and their OIDC aliases are bank-vaults' to apply and nobody
+# else's: a group created with the right policies and an alias to an OIDC group
+# the creator controls is a way to any policy, and bank-vaults already writes the
+# policies and the auth roles, so it gains no power by writing these too. This
+# checks the vault-operator chart renders them into the Vault CR, and that the
+# retired post-config Job, which used to write them, does not come back.
 #
 #   test-vault-identity.sh
 #
@@ -27,16 +27,10 @@ cr=$(yq 'select(.kind == "Vault") | .spec.externalConfig' <<<"$out")
 [ "$(yq -o=json -I=0 '.["group-aliases"][0] | [.name, .mountpath, .group]' <<<"$cr")" = '["/admin","oidc","homelab-admins"]' ] \
   || fail "the Vault CR lacks the /admin alias on the oidc mount"
 
-job=$(yq 'select(.kind == "Job") | .spec.template.spec.containers[0].command[2]' <<<"$out")
-[ -n "$job" ] || fail "no post-config Job rendered"
-grep -q 'vault identity' <<<"$job" && fail "the post-config Job still runs 'ohmlab vault identity'"
-grep -q 'identity-config' <<<"$job" && fail "the post-config Job still writes an identity config"
-grep -q 'ohmlab vault secret' <<<"$job" || fail "the post-config Job lost its secrets step"
-
-policy=$(yq 'select(.kind == "Vault") | .spec.externalConfig.policies[] | select(.name == "vault-post-config") | .rules' <<<"$out")
-grep -q 'identity/' <<<"$policy" && fail "the vault-post-config policy still grants identity paths"
-grep -q 'sys/auth' <<<"$policy" && fail "the vault-post-config policy still reads sys/auth"
-grep -q 'platforms/+/+/\*' <<<"$policy" || fail "the vault-post-config policy lost its KV rule"
+[ -z "$(yq 'select(.metadata.name == "vault-post-config*") | .kind' <<<"$out")" ] \
+  || fail "the chart renders a vault-post-config object again"
+[ "$(yq -o=json -I=0 '[.policies[].name, .auth[].roles[]?.name] | map(select(. == "vault-post-config")) | length' <<<"$cr")" = 0 ] \
+  || fail "the Vault CR declares the vault-post-config policy or role again"
 
 # A custom mount path is honoured, per alias or as the default.
 out=$(render --set ohmlab.vault.identity.mountPath=jwt-main)

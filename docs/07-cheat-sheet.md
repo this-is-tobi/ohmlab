@@ -11,8 +11,9 @@ The Go CLI in [utils/](../utils/) ships operational commands (built as
 # Exits non-zero when problems are found (cron/CI friendly).
 ohmlab check
 
-# Initialize/repair declarative Vault secrets (idempotent — used by the
-# vault-post-config Job; can be run manually after a Vault recovery)
+# Initialize/repair declarative Vault secrets (idempotent). The ohmlab
+# controller does this continuously; run it by hand only to repair Vault
+# without the controller, e.g. after a recovery
 ohmlab vault secret --config secrets.json --auth-method token
 
 # Repair Vault identity groups/aliases by hand (OIDC group mapping). The

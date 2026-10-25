@@ -1,8 +1,8 @@
 {{- /*
 One VaultSeed per entry of ohmlab.vault.secrets, for the ohmlab controller. The
 entries keep their shape: path, data, plus the optional rotate, prune and
-deletionPolicy that the controller adds. While the post-config Job still runs
-they are only observed (the controller's observeOnly) or not rendered at all.
+deletionPolicy that the controller adds. The controller is the only writer of
+these paths.
 
 The kind exists once the controller's chart has synced. requireCRD keeps this
 file from failing a sync on a cluster that does not have it yet; an app that

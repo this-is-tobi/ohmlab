@@ -134,7 +134,7 @@ policies:
     - "mirror.gcr.io/*"
     - "reg.kyverno.io/*"
   # Signature and provenance check for the images this repository publishes
-  # (the ohmlab CLI the vault-post-config Job runs). cd.yml signs them
+  # (the ohmlab CLI and the ohmlab controller). cd.yml signs them
   # keyless through the shared attest-docker workflow and attaches SLSA
   # provenance. The signer identity alone proves little: that workflow is
   # public, so any repository can sign with it. The provenance's source

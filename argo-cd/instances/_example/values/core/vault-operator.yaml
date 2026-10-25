@@ -41,11 +41,13 @@ vault:
     # docs/05-services.md ("Multi-cluster (spoke clusters)").
     spokeClusters: []
 
-# The secrets the ohmlab post-config job writes to Vault, one entry per path an
-# enabled app reads (the keys each app expects are in the homelab instance:
-# argo-cd/instances/homelab/values/core/vault-operator.yaml). Generated values
-# are templated (`<random:24>`, `<age:secret>`, `<ref:path#key>`), credentials
-# that cannot be generated are empty placeholders to set by hand in Vault.
+# The secrets the ohmlab controller writes to Vault (once ohmlab.controller and
+# ohmlab.vault.seeds below are enabled, docs/08-controller.md), one entry per
+# path an enabled app reads (the keys each app expects are in the homelab
+# instance: argo-cd/instances/homelab/values/core/vault-operator.yaml).
+# Generated values are templated (`<random:24>`, `<age:secret>`,
+# `<ref:path#key>`), credentials that cannot be generated are empty
+# placeholders to set by hand in Vault.
 ohmlab:
   # The ohmlab controller (docs/08-controller.md): its Vault policy and role,
   # and the secrets below rendered as VaultSeed objects.
