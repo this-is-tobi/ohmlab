@@ -19,7 +19,7 @@ dependencies:
   alias: loki
   version: 19.4.0
   repository: https://grafana-community.github.io/helm-charts
-  condition: loki.enabled
+  condition: lokiStack.enabled
 - name: alloy
   alias: alloy
   version: 1.14.3

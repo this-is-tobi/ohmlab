@@ -585,9 +585,13 @@ vso:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
 
 # Centralized log aggregation, off by default — enable per-instance.
-# `enabled` gates the Helm dependency itself (condition: loki.enabled in
-# Chart.yaml); real config lives in the instance override.
-loki:
+# This chart's own switches for Loki live here rather than under `loki:`:
+# everything under `loki:` is handed to the Loki chart, whose values schema
+# refuses any key it does not define. The Loki config itself goes under
+# `loki:` in the instance override.
+lokiStack:
+  # Gates the Helm dependency itself (condition: lokiStack.enabled in
+  # Chart.yaml).
   enabled: false
   # Independent toggle: whether to create + use the dedicated
   # longhorn-single-replica StorageClass (see templates/loki-storageclass.yaml)

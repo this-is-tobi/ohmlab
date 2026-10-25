@@ -1,9 +1,9 @@
-{{- if index .Values "loki" "enabled" }}
+{{- if .Values.lokiStack.enabled }}
 ---
 # Auto-discovered by the same grafana sidecar mechanism as
 # grafana-dashboards/ (see templates/dashboards.yaml) — no manual
 # datasource wiring needed in kube-prometheus-stack's own values. Cleanly
-# absent when loki.enabled is false.
+# absent when lokiStack.enabled is false.
 apiVersion: v1
 kind: ConfigMap
 metadata:

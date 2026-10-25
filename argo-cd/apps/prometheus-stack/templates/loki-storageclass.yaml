@@ -1,4 +1,4 @@
-{{- if and (index .Values "loki" "enabled") (index .Values "loki" "singleReplicaStorage" "enabled") }}
+{{- if and .Values.lokiStack.enabled .Values.lokiStack.singleReplicaStorage.enabled }}
 ---
 # Dedicated low-replica StorageClass for Loki's chunk/index PVC. Logs are
 # not precious like Postgres/Vault data — skipping the cluster default's
@@ -7,10 +7,11 @@
 # volume is lost. Loki's own compactor/retention handles data lifecycle
 # independently of replica count.
 #
-# Independent toggle from loki.enabled: set loki.singleReplicaStorage.enabled
-# to false (and point loki.singleBinary.persistence.storageClass at the
-# cluster default "longhorn" class instead) to trade this perf/IO win for
-# the cluster default's 3x replication resilience.
+# Independent toggle from lokiStack.enabled: set
+# lokiStack.singleReplicaStorage.enabled to false (and point
+# loki.singleBinary.persistence.storageClass at the cluster default
+# "longhorn" class instead) to trade this perf/IO win for the cluster
+# default's 3x replication resilience.
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:

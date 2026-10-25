@@ -144,20 +144,21 @@ networkPolicy:
       - { protocol: TCP, port: 4318 }
 
 # Centralized log aggregation. Loki + Alloy are bundled as Helm
-# dependencies of this chart (Chart.yaml, condition: loki.enabled /
+# dependencies of this chart (Chart.yaml, condition: lokiStack.enabled /
 # alloy.enabled) rather than separate apps — this namespace already runs
 # a hostPath-reading DaemonSet (prometheus-node-exporter) and already has
 # no egress NetworkPolicy at all (see above), so Alloy's own traffic
 # (apiserver calls + pushing to Loki) needs zero new netpol rules.
-loki:
+lokiStack:
   enabled: true
   # Dedicated 1-replica StorageClass instead of the cluster default's 3x
   # replication — logs aren't precious like Postgres/Vault data, and this
   # cuts write I/O meaningfully on Pi-class storage. Set to false to fall
-  # back to the "longhorn" default class instead (see singleBinary.
+  # back to the "longhorn" default class instead (see loki.singleBinary.
   # persistence.storageClass below).
   singleReplicaStorage:
     enabled: true
+loki:
   deploymentMode: Monolithic
   loki:
     auth_enabled: false
@@ -207,12 +208,9 @@ loki:
   backend:
     replicas: 0
   # Minimal footprint: no gateway (Monolithic has one backend, nothing to
-  # route between), no minio (filesystem storage, not S3), no memcached
-  # read/result caches (unnecessary at homelab query volume), no
-  # canary/test hooks.
+  # route between), no memcached read/result caches (unnecessary at homelab
+  # query volume), no canary/test hooks. Storage is the filesystem, not S3.
   gateway:
-    enabled: false
-  minio:
     enabled: false
   test:
     enabled: false
