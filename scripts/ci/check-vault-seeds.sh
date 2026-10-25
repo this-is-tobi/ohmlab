@@ -22,6 +22,14 @@ for values in "$ROOT"/argo-cd/instances/*/values/core/vault-operator.yaml; do
     failures=$((failures + 1))
     continue
   fi
+  # The seeds are the app's last sync wave, so nothing else waits for them.
+  if ! yq -o=json -I=0 'select(. != null) | [.kind, (.metadata.annotations["argocd.argoproj.io/sync-wave"] // "0")]' <<<"$rendered" \
+      | jq -se 'map([.[0], (.[1] | tonumber)]) | (map(select(.[0] == "VaultSeed") | .[1]) | min) as $seed
+                | (map(select(.[0] != "VaultSeed") | .[1]) | max) as $other | $seed == null or $seed > $other' >/dev/null; then
+    echo "FAIL $instance: an object of vault-operator syncs in the same wave as the VaultSeeds or after them"
+    failures=$((failures + 1))
+    continue
+  fi
   if out=$("${TMPDIR:-/tmp}/ohmlab-validate" validate - <<<"$rendered" 2>&1); then
     echo "ok   $instance: $out"
   else
