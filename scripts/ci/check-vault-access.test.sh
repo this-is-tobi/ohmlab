@@ -12,14 +12,14 @@ cat >"$work/vault.json" <<'JSON'
 {
   "mounts": ["kv"],
   "roles": [
-    {"name": "app", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["app"]},
-    {"name": "any", "bound_service_account_names": ["*"], "bound_service_account_namespaces": ["*"], "policies": ["app"]},
-    {"name": "nopolicy", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["gone"]},
-    {"name": "listonly", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["list"]},
-    {"name": "commented", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["commented"]},
-    {"name": "glob", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["glob"]},
-    {"name": "dotted", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["dotted"]},
-    {"name": "strict", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["app"], "audience": "vault"}
+    {"name": "app", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["app"], "audience": "vault"},
+    {"name": "any", "bound_service_account_names": ["*"], "bound_service_account_namespaces": ["*"], "policies": ["app"], "audience": "vault"},
+    {"name": "nopolicy", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["gone"], "audience": "vault"},
+    {"name": "listonly", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["list"], "audience": "vault"},
+    {"name": "commented", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["commented"], "audience": "vault"},
+    {"name": "glob", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["glob"], "audience": "vault"},
+    {"name": "dotted", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["dotted"], "audience": "vault"},
+    {"name": "open", "bound_service_account_names": ["vso"], "bound_service_account_namespaces": ["app-ns"], "policies": ["app"]}
   ],
   "policies": [
     {"name": "app", "rules": "# path \"kv/data/platforms/+/+/other\" { capabilities = [\"read\"] }\npath \"kv/data/platforms/+/+/app\" {\n  capabilities = [\"read\", \"list\"]\n}"},
@@ -80,8 +80,8 @@ check "a trailing glob grants the whole subtree" 0 app-ns "$(auth a glob vso; vs
 check "a dot in a policy path is a dot" 1 app-ns "$(auth a dotted vso; vss s a kv aXb)" 'cannot read'
 check "a VaultStaticSecret whose VaultAuth is not rendered is refused" 1 app-ns "$(vss s missing kv $app)" 'references VaultAuth "missing"'
 check "a VaultAuth that requests no audience is refused" 1 app-ns "$(auth a app vso '' '')" 'requests no token audience'
-check "a role that requires an audience passes the VaultAuth that requests it" 0 app-ns "$(auth a strict vso; vss s a kv $app)"
-check "a role that requires an audience refuses a VaultAuth that requests another" 1 app-ns "$(auth a strict vso '' other)" 'accepts only the audience "vault"'
+check "a role that requires no audience is refused" 1 app-ns "$(auth a open vso; vss s a kv $app)" 'requires no token audience'
+check "a role that requires an audience refuses a VaultAuth that requests another" 1 app-ns "$(auth a app vso '' other)" 'accepts only the audience "vault"'
 check "one bad secret among good ones is refused" 1 app-ns "$(auth a app vso; vss ok a kv $app; vss bad a kv platforms/production/core/other)" 'bad'
 
 exit "$fail"

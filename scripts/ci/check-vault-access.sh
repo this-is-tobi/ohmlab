@@ -2,8 +2,8 @@
 # The Vault Secrets Operator only works when what a chart asks for matches
 # what the vault-operator chart configures in Vault: the role the chart's
 # VaultAuth logs in with must exist and be bound to that service account and
-# namespace, the VaultAuth must request a token audience (the role's, when the
-# role requires one) rather than log in with a Kubernetes API token, the KV
+# namespace, the role must require a token audience and the VaultAuth request
+# it (not log in with a Kubernetes API token), the KV
 # mount of every VaultStaticSecret must exist, and one of the
 # role's policies must let it read the secret path. A mismatch is a silent
 # `403 permission denied` on the cluster, and the instance values and the
@@ -51,7 +51,9 @@ check_stream() {
                "\($label): role \"\($role.name)\" is not bound to the namespace \"\($ans)\" of VaultAuth \($a.metadata.name) (bound to: \(($role.bound_service_account_namespaces // []) | join(", ")))"
              elif ($a.spec.kubernetes.audiences // []) == [] then
                "\($label): VaultAuth \($a.metadata.name) requests no token audience, so VSO logs in with a Kubernetes API token: set kubernetes.audiences: [vault]"
-             elif ($role.audience // "") != "" and (($a.spec.kubernetes.audiences // []) | index($role.audience)) == null then
+             elif ($role.audience // "") == "" then
+               "\($label): role \"\($role.name)\" of VaultAuth \($a.metadata.name) requires no token audience, so any token of the service account logs in, the API token of its pods too: set audience: vault"
+             elif (($a.spec.kubernetes.audiences // []) | index($role.audience)) == null then
                "\($label): role \"\($role.name)\" accepts only the audience \"\($role.audience)\", which VaultAuth \($a.metadata.name) does not request (requests: \(($a.spec.kubernetes.audiences // []) | join(", ")))"
              else empty end),
           ($objs[] | select(.kind == "VaultStaticSecret") as $s
