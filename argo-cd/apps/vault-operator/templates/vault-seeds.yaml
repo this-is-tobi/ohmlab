@@ -5,8 +5,9 @@ deletionPolicy that the controller adds. While the post-config Job still runs
 they are only observed (the controller's observeOnly) or not rendered at all.
 
 The kind exists once the controller's chart has synced. requireCRD keeps this
-file from failing a sync on a cluster that does not have it yet; an app that
-was rendered before then needs a hard refresh once the CRD is there.
+file from failing a sync on a cluster that does not have it yet; Argo CD renders
+the app again at its next reconciliation once the CRD is there, because the
+cluster's API versions are part of its manifest cache key.
 */}}
 {{- if and .Values.vault.enabled .Values.ohmlab.vault.seeds.enabled }}
 {{- if or (not .Values.ohmlab.vault.seeds.requireCRD) (.Capabilities.APIVersions.Has "ohmlab.fr/v1alpha1/VaultSeed") }}
