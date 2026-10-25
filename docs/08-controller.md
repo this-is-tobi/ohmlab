@@ -145,8 +145,8 @@ kubectl -n vault-operator-system describe vaultseed production-core-keycloak
 - **An object stays `RefPending` after its source exists.** The retry delay grows to five minutes; touch the object (an annotation change does not count, the spec must change) or wait.
 - **A deleted object's finalizer will not clear.** Only `deletionPolicy: Delete` adds one. Read the `Forbidden` or `BackendUnavailable` condition. Once the cause is fixed it finishes by itself; to give up on removing the path, patch the finalizer away: `kubectl patch vaultseed <name> -p '{"metadata":{"finalizers":null}}' --type merge`.
 - **`OhmlabCRDRevisionMismatch`.** The CRDs come from the catalog and the image from its pin, and they were released apart. Bring the lagging one up to the same release.
-- **The `VaultSeed` objects do not appear on a new cluster.** `vault-operator` renders them only once the kind exists, and Argo CD caches a render. Hard-refresh the `vault-operator` application after the `ohmlab-controller` application has synced.
-- **A path was changed by hand.** Keys the objects declare as references are put back at the next resync. Anything else you changed stays.
+- **The `VaultSeed` objects do not appear on a new cluster.** `vault-operator` renders them only once the kind exists, which the `ohmlab-controller` application installs. Argo CD renders `vault-operator` again at its next reconciliation once the CRD is there (within about three minutes with the default `timeout.reconciliation`), with no refresh needed. If they are still missing after that, check that the `ohmlab-controller` application has synced.
+- **A path was changed by hand.** The controller sees it at the next resync, not at once. Keys the objects declare as references are put back, and a declared key that was deleted comes back (with a new value if it is generated). Any other value you changed stays.
 
 ## Checking objects before merge
 
