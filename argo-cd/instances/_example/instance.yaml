@@ -81,7 +81,7 @@ projects:
 # Progressive sync (optional): actually ENFORCES syncWave ordering between
 # the generated Applications via ApplicationSet RollingSync. Without it,
 # syncWave on AppSet-generated apps orders nothing — everything syncs in
-# parallel and converges by retry. Needs the alpha
+# parallel and converges by retry, within the retry window (docs/03). Needs the alpha
 # ApplicationSetProgressiveSyncs feature gate (enabled by the ohmlab chart).
 # Steps list the wave values synced together, in order; unlisted waves land
 # in an automatic final catch-all step. See
@@ -91,7 +91,8 @@ projects:
 #   steps:
 #   - [-10]
 #   - [0, 5]
-#   - [10, 11, 12, 15]
+#   - [10]
+#   - [11, 12, 13, 15]
 #   - [20]
 #   - [30, 40]
 #   - [50, 55, 60]
