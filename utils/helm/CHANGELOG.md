@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/this-is-tobi/homelab/compare/chart-v0.1.7...chart-v0.2.0) (2026-10-26)
+
+
+### Features
+
+* **vso:** log in to Vault with a token meant for Vault only ([f1bc178](https://github.com/this-is-tobi/homelab/commit/f1bc1785c172448c33e97798b64b18efcd80b634))
+
 ## [0.1.7](https://github.com/this-is-tobi/homelab/compare/chart-v0.1.6...chart-v0.1.7) (2026-10-25)
 
 
