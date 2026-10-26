@@ -82,6 +82,19 @@ backups:
     task: snapshot
     cron: "0 3 * * *"
     retain: 7
+  # Volumes whose data churns (time-series and log stores) join the `trim`
+  # group instead: a snapshot of them is worthless and pins every block their
+  # compaction rewrites. Belonging to a group takes a volume out of `default`,
+  # so they leave the daily snapshots, and the weekly trim gives back the
+  # space they free. A PVC joins with the labels
+  # recurring-job.longhorn.io/source=enabled and
+  # recurring-job-group.longhorn.io/trim=enabled.
+  - name: trim-weekly
+    task: filesystem-trim
+    cron: "0 4 * * 0"
+    groups: [trim]
+    retain: 1
+    concurrency: 1
   # Uncomment together with backupTarget + the longhorn-s3 secret:
   # - name: backup-weekly
   #   task: backup
@@ -91,6 +104,24 @@ backups:
 longhorn:
   ingress:
     enabled: false
+  # Sized for this cluster: four storage nodes (pi1, pi2, pi5, pi6), each a
+  # USB 3 spinning disk on Raspberry Pi 4s. Random writes are the limit, so
+  # background work is kept to one task per node at a time.
+  defaultSettings:
+    # A node coming back rebuilds its replicas one at a time instead of five,
+    # so the rebuild does not hold the other disks at 100 % for hours.
+    concurrentReplicaRebuildPerNodeLimit: 1
+    concurrentVolumeBackupRestorePerNodeLimit: 1
+  # Control-plane pods of Longhorn: two of each are enough to survive a node.
+  csi:
+    attacherReplicaCount: 2
+    provisionerReplicaCount: 2
+    resizerReplicaCount: 2
+    snapshotterReplicaCount: 2
+  longhornGlobalManager:
+    replicas: 2
+  longhornUI:
+    replicas: 1
   # Off-cluster backup destination — uncomment when the S3 keys exist (same
   # blocker as the CNPG `backup.enabled` flags): create the `longhorn-s3`
   # secret in longhorn-system with AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
