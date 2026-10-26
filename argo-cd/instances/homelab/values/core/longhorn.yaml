@@ -75,6 +75,12 @@ sso:
 # disks) and need no S3 — they protect against app-level mistakes, not disk
 # loss. Off-cluster backups additionally need defaultSettings.backupTarget +
 # the longhorn-s3 credential secret (see below), same S3 bucket as CNPG.
+# Two replicas: for data that is not worth three copies on these disks
+# (Prometheus), or whose app already keeps another copy on another node.
+storageClasses:
+  longhorn-two-replicas:
+    numberOfReplicas: 2
+
 backups:
   recurringJobs:
   # Applies to every volume without an explicit recurring-job group.
