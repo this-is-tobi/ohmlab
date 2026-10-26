@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.7.0](https://github.com/this-is-tobi/homelab/compare/catalog-v0.6.0...catalog-v0.7.0) (2026-10-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **vault-operator:** the vault-operator chart no longer writes ohmlab.vault.secrets by itself. Enable the ohmlab-controller app with its Vault target, and ohmlab.controller.enabled and ohmlab.vault.seeds.enabled in the vault-operator values, before upgrading (docs/08-controller.md, "Migrating from the post-config Job"). After the upgrade, delete the leftover Vault role and policy by hand: `vault delete auth/kubernetes/role/vault-post-config` and `vault policy delete vault-post-config`.
+
+### Features
+
+* **deps:** update helm release loki to v20 ([2340ccf](https://github.com/this-is-tobi/homelab/commit/2340ccfa6578e4bceb14859a0bc2e4c8dfaa5f4d))
+* **ohmlab-controller:** log in to Vault with a token meant for Vault only ([3bb3b0a](https://github.com/this-is-tobi/homelab/commit/3bb3b0af394cef10b46b6348e1f09577b02102aa))
+* **vault-operator:** accept only Vault-audience tokens on the controller's role ([977e502](https://github.com/this-is-tobi/homelab/commit/977e502230e5e5a72d7a34794fb0a04a0cd623ba))
+* **vault-operator:** accept only Vault-audience tokens on the VSO roles ([be2bc05](https://github.com/this-is-tobi/homelab/commit/be2bc050b1846bb27898124db856472e8c200891))
+* **vso:** log in to Vault with a token meant for Vault only ([f1bc178](https://github.com/this-is-tobi/homelab/commit/f1bc1785c172448c33e97798b64b18efcd80b634))
+
+
+### Bug Fixes
+
+* **deps:** update ghcr.io/this-is-tobi/homelab/ohmlab-controller docker tag to v0.3.0 ([cfecae2](https://github.com/this-is-tobi/homelab/commit/cfecae2ffe32f1b1ede03ae7a1d0900087bc5e86))
+* **deps:** update helm release loki to v19.4.0 ([8e55ccb](https://github.com/this-is-tobi/homelab/commit/8e55ccbfeb4401eef0016c0f896a705922743445))
+* **deps:** update helm release loki to v20.0.1 ([7f5021c](https://github.com/this-is-tobi/homelab/commit/7f5021c47a27a99f470c57578edfcd4727015528))
+* **deps:** update helm release rustfs to v1.0.4 ([c67d41b](https://github.com/this-is-tobi/homelab/commit/c67d41b7ef0a917e08c8cd36236cfb2cfe2f1b32))
+* **ohmlab-controller:** let an adopter enable the controller as documented ([e34aa25](https://github.com/this-is-tobi/homelab/commit/e34aa2512d7ad5f8e8be1e73a67bff67558e6bbb))
+* **vault-operator:** sync the VaultSeeds after the rest of the app ([2d0da14](https://github.com/this-is-tobi/homelab/commit/2d0da14454a4db0d61ec83c88d2cd9e1aacb26fa))
+
+
+### Miscellaneous Chores
+
+* **vault-operator:** retire the post-config Job ([0de8d27](https://github.com/this-is-tobi/homelab/commit/0de8d27b05333000b84df15f91c248d5478cf008))
+
 ## [0.6.0](https://github.com/this-is-tobi/homelab/compare/catalog-v0.5.0...catalog-v0.6.0) (2026-10-25)
 
 
