@@ -279,6 +279,20 @@ alloy:
 
         loki.source.kubernetes "pods" {
           targets    = discovery.relabel.pod_logs.output
+          forward_to = [loki.process.pod_logs.receiver]
+        }
+
+        loki.process "pod_logs" {
+          // longhorn-manager prints the whole log of an engine or replica
+          // process each time one fails. The processes run for weeks, so one
+          // failure replays gigabytes of old lines, which the instance
+          // managers already logged when they were new.
+          stage.match {
+            selector            = `{namespace="longhorn-system", container="longhorn-manager"} |~ "level=warning msg=\"pvc-[0-9a-f-]+-(e-[0-9]+|r-[0-9a-f]+): "`
+            pipeline_name       = "longhorn_instance_log_replay"
+            action              = "drop"
+            drop_counter_reason = "longhorn_instance_log_replay"
+          }
           forward_to = [loki.write.default.receiver]
         }
 

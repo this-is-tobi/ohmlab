@@ -118,6 +118,11 @@ longhorn:
     # so the rebuild does not hold the other disks at 100 % for hours.
     concurrentReplicaRebuildPerNodeLimit: 1
     concurrentVolumeBackupRestorePerNodeLimit: 1
+    # How long an engine waits for a replica before dropping it. The default
+    # 8 s is shorter than these disks stall under load: replicas were dropped
+    # in bursts (6, 9, 8 at a time) and each one cost a rebuild, which loads
+    # the disks again. 20 s rides out a stall; a dead replica still goes.
+    engineReplicaTimeout: '{"v1":"20"}'
   # Control-plane pods of Longhorn: two of each are enough to survive a node.
   csi:
     attacherReplicaCount: 2
