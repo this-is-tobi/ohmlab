@@ -226,7 +226,10 @@ kube-prometheus-stack:
       storageSpec:
         volumeClaimTemplate:
           spec:
-            accessModes: [ReadWriteMany]
+            # One Prometheus writes its own TSDB. ReadWriteOnce: on Longhorn,
+            # ReadWriteMany serves the volume over NFS, which Prometheus does
+            # not support for its local storage.
+            accessModes: [ReadWriteOnce]
             resources:
               requests:
                 storage: 100Gi

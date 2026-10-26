@@ -22,7 +22,16 @@ kube-prometheus-stack:
       enableOTLPReceiver: true
       storageSpec:
         volumeClaimTemplate:
+          # Metrics are not worth three copies on these disks: two replicas,
+          # and no daily snapshot (each one would pin every block compaction
+          # rewrites). The labels move the volume from Longhorn's `default`
+          # snapshot group to the weekly `trim` group.
+          metadata:
+            labels:
+              recurring-job.longhorn.io/source: enabled
+              recurring-job-group.longhorn.io/trim: enabled
           spec:
+            storageClassName: longhorn-two-replicas
             resources:
               requests:
                 storage: 200Gi
