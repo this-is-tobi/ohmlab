@@ -95,6 +95,14 @@ vso:
 backups:
   recurringJobs: []
 
+# Extra StorageClasses (templates/storageclasses.yaml), name -> replica count,
+# beside the chart's default three-replica `longhorn` class. For volumes whose
+# app keeps its own copies on other nodes, or whose data can be rebuilt.
+#   storageClasses:
+#     longhorn-two-replicas:
+#       numberOfReplicas: 2
+storageClasses: {}
+
 longhorn:
   preUpgradeChecker:
     jobEnabled: false

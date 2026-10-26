@@ -1,0 +1,27 @@
+{{- /*
+Longhorn StorageClasses beside the chart's default `longhorn` class (three
+replicas). One class per entry of .Values.storageClasses; the parameters are
+the default class's except the replica count, so a volume moves between
+classes by replica count alone.
+*/ -}}
+{{- range $name, $sc := .Values.storageClasses }}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ $name }}
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: {{ required (printf "storageClasses.%s.numberOfReplicas is required" $name) $sc.numberOfReplicas | quote }}
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: "ext4"
+  dataLocality: "disabled"
+  unmapMarkSnapChainRemoved: "ignored"
+  disableRevisionCounter: "true"
+  dataEngine: "v1"
+  backupTargetName: "default"
+{{- end }}
