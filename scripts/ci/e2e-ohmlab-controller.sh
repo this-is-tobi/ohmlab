@@ -243,9 +243,14 @@ eventually 60 "keycloak Ready after the rollout" ready keycloak
 step "probes and metrics"
 # The pod that leads (the identity is "<pod>_<uuid>"); an old one may still be terminating.
 pod=${holder_after%%_*}
+# The gauge is labelled: it exists once the new leader has reconciled for the first time.
 # Read the whole body first: `grep -q` would close the pipe early and, with pipefail, fail the pipeline.
-metrics=$(k -n "$NS_CTL" get --raw "/api/v1/namespaces/$NS_CTL/pods/$pod:8080/proxy/metrics")
-grep -q '^ohmlab_reconcile_last_success_timestamp_seconds' <<<"$metrics" || fail "the metric is missing"
+has_success_metric() {
+  local metrics
+  metrics=$(k -n "$NS_CTL" get --raw "/api/v1/namespaces/$NS_CTL/pods/$pod:8080/proxy/metrics") || return 1
+  grep -q '^ohmlab_reconcile_last_success_timestamp_seconds' <<<"$metrics"
+}
+eventually 60 "the success metric" has_success_metric
 k -n "$NS_CTL" get --raw "/api/v1/namespaces/$NS_CTL/pods/$pod:8081/proxy/readyz" >/dev/null || fail "readyz"
 
 echo
