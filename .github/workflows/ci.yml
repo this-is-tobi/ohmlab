@@ -1,25 +1,22 @@
 name: CI
 
+# Pull requests only: GitHub runs them against the merge of the branch into
+# main, so what is checked is what lands.
 on:
   pull_request:
     branches:
       - main
-  push:
-    branches:
-      - main
 
-# A new push to a pull request supersedes the run in flight. A push to main
-# gets a group of its own (the run id), so the full run on main is never cancelled.
+# A new push to a pull request supersedes the run in flight.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  # Which gates a change can affect. On a push (not a pull request) every
-  # group reports changed, so main always runs the full set.
+  # Which gates a change can affect.
   classify:
     uses: this-is-tobi/github-workflows/.github/workflows/classify-changes.yml@v0
     permissions:
@@ -60,7 +57,7 @@ jobs:
         run: scripts/lib/helm-repos.test.sh
 
   # actionlint cannot see remote reusable workflows: a caller granting less
-  # than a called job declares only fails on main, as a startup failure.
+  # than a called job declares only fails at startup.
   workflow-permissions:
     needs: classify
     if: ${{ fromJSON(needs.classify.outputs.groups).ci }}
@@ -427,8 +424,8 @@ jobs:
     with:
       IMAGE_ARTIFACT: ${{ needs.build-image.outputs.artifact-prefix }}-amd64
 
-  # Scans the commits this event brings (the pull request, or the push), as
-  # gitleaks-action did. The shared workflow's default walks the whole history.
+  # Scans the commits the pull request brings, as gitleaks-action did. The
+  # shared workflow's default walks the whole history.
   gitleaks:
     uses: this-is-tobi/github-workflows/.github/workflows/scan-gitleaks.yml@v0
     permissions:
@@ -436,10 +433,9 @@ jobs:
       security-events: write
       pull-requests: write
     with:
-      LOG_OPTS: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.sha) || format('{0}..{1}', github.event.before, github.sha) }}
+      LOG_OPTS: ${{ format('{0}..{1}', github.event.pull_request.base.sha, github.sha) }}
 
   lint-commits:
-    if: ${{ github.event_name == 'pull_request' }}
     uses: this-is-tobi/github-workflows/.github/workflows/lint-commits.yml@v0
     permissions:
       contents: read
