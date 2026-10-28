@@ -31,7 +31,7 @@
           {{ pihole.password
              if (pihole.password | default('') | length > 0)
              else lookup('ansible.builtin.password',
-                         playbook_dir + '/inventory/group_vars/.pihole_password',
+                         inventory_dir + '/group_vars/.pihole_password',
                          length=24, chars=['ascii_letters', 'digits']) }}
       no_log: true
 

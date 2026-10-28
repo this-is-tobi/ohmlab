@@ -25,7 +25,7 @@
       {{ (hostvars[groups['masters'][0]]['k3s_token'] | default(''))
          or (k3sToken | default(''))
          or lookup('ansible.builtin.file',
-                   playbook_dir + '/inventory/group_vars/.k3sToken',
+                   inventory_dir + '/group_vars/.k3sToken',
                    errors='ignore')
          or '' }}
   no_log: true
@@ -124,7 +124,7 @@
   become: false
   ansible.builtin.copy:
     content: "{{ k3s_token }}"
-    dest: "{{ playbook_dir }}/inventory/group_vars/.k3sToken"
+    dest: "{{ inventory_dir }}/group_vars/.k3sToken"
     mode: "0600"
   no_log: true
   when: masters_is_primary
@@ -185,6 +185,6 @@
   become: false
   ansible.builtin.copy:
     content: "{{ k3s_ca_data.stdout }}"
-    dest: "{{ playbook_dir }}/inventory/group_vars/.k3sCaData"
+    dest: "{{ inventory_dir }}/group_vars/.k3sCaData"
     mode: "0600"
   when: masters_is_primary

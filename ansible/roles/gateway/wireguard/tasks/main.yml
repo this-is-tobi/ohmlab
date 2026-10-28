@@ -31,7 +31,7 @@
           {{ wireguard.password
              if (wireguard.password | default('') | length > 0)
              else lookup('ansible.builtin.password',
-                         playbook_dir + '/inventory/group_vars/.wireguard_password',
+                         inventory_dir + '/group_vars/.wireguard_password',
                          length=24, chars=['ascii_letters', 'digits']) }}
       no_log: true
 

@@ -18,7 +18,7 @@
       {{ (hostvars[groups['masters'][0]]['k3s_token'] | default(''))
          or (k3sToken | default(''))
          or lookup('ansible.builtin.file',
-                   playbook_dir + '/inventory/group_vars/.k3sToken',
+                   inventory_dir + '/group_vars/.k3sToken',
                    errors='ignore')
          or '' }}
   no_log: true
