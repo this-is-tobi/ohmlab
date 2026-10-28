@@ -11,7 +11,7 @@ apps:
   # Pinned published chart: a change under utils/helm only reaches the
   # cluster once its version is released and bumped here.
   catalog: ohmlab
-  targetRevision: 0.2.0
+  targetRevision: 0.2.1
 - app: longhorn
   enabled: "true"
   namespace: longhorn-system
