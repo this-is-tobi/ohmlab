@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/this-is-tobi/homelab/compare/chart-v0.2.1...chart-v0.3.0) (2026-10-28)
+
+
+### Features
+
+* **ohmlab:** let the root manager take git or OCI sources and a separate values repository ([63ce890](https://github.com/this-is-tobi/homelab/commit/63ce890fc0248ada68e57659e98e7a5b70977d52))
+
 ## [0.2.1](https://github.com/this-is-tobi/homelab/compare/chart-v0.2.0...chart-v0.2.1) (2026-10-28)
 
 
