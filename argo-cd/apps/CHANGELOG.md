@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.0](https://github.com/this-is-tobi/homelab/compare/catalog-v0.7.0...catalog-v0.8.0) (2026-10-28)
+
+
+### Features
+
+* **longhorn:** extra StorageClasses by replica count, and a two-replica one for the homelab ([d3e1296](https://github.com/this-is-tobi/homelab/commit/d3e12963d35088b75ec5ec87f10a786608d5ca4e))
+
+
+### Bug Fixes
+
+* **deps:** update cnpg postgres images ([c8afdd1](https://github.com/this-is-tobi/homelab/commit/c8afdd17bf31560c4a7ff41ec9939ca0f93f942e))
+* **deps:** update helm release argo-cd to v10.11.3 ([2a92810](https://github.com/this-is-tobi/homelab/commit/2a92810faee22320db288ab5d952e816d256d7be))
+* **deps:** update helm release argo-cd to v10.11.6 ([ee50d8e](https://github.com/this-is-tobi/homelab/commit/ee50d8e33bfed1ab40f5c64eb6891f8909a0aeba))
+* **deps:** update helm release coder to v2.38.3 ([71253cf](https://github.com/this-is-tobi/homelab/commit/71253cf8ff7ff476d017089e0a4e35d36c525bf6))
+* **deps:** update helm release loki to v20.0.2 ([aef167c](https://github.com/this-is-tobi/homelab/commit/aef167c9a87237c174fdf39ef1225b0480e1f1f0))
+* **deps:** update helm release trust-manager to v0.26.0 ([4846c0e](https://github.com/this-is-tobi/homelab/commit/4846c0e1f916a688993762358e5798b1f5de82ba))
+* **deps:** update kube-prometheus-stack docker tag to v92.14.0 ([ae72298](https://github.com/this-is-tobi/homelab/commit/ae72298bb9f2b8d88bb7e603970c470530a47881))
+* **deps:** update kube-prometheus-stack docker tag to v92.14.1 ([f8ab070](https://github.com/this-is-tobi/homelab/commit/f8ab07077894b7d4b61bae228e4794d85c4ad208))
+* **prometheus-stack:** keep Prometheus's TSDB off NFS and out of snapshots ([28da936](https://github.com/this-is-tobi/homelab/commit/28da936d6430c7fbbb3bbab7a095d46f53c05e90))
+
 ## [0.7.0](https://github.com/this-is-tobi/homelab/compare/catalog-v0.6.0...catalog-v0.7.0) (2026-10-26)
 
 
