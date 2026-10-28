@@ -44,6 +44,7 @@ DECRYPT="false"
 ENCRYPT="false"
 UPDATE="false"
 BOOTSTRAP_INSTANCE=""
+INSTANCES_DIR="$SCRIPT_PATH/argo-cd/instances"
 YES="false"
 
 # =============================================================================
@@ -126,6 +127,10 @@ GITOPS (ArgoCD):
                   Per-app values are read from:
                     ./argo-cd/instances/<instance>/values/{core,tenant}/<app>.yaml
                   Example: ./run.sh -b homelab
+
+  -i <dir>        Directory holding the instance folders, for an instance kept
+                  in a repository of its own (default: ./argo-cd/instances).
+                  Example: ./run.sh -b homelab -i ../homelab/argo-cd/instances
 
                   An optional admin password may be provided via the
                   ARGOCD_ADMIN_PASSWORD environment variable. The script will
@@ -393,21 +398,21 @@ print_initial_admin_password() {
 
 bootstrap_instance() {
   local instance="$1"
-  local values_file="$SCRIPT_PATH/argo-cd/instances/$instance/values/core/ohmlab.yaml"
-  local instance_dir="$SCRIPT_PATH/argo-cd/instances/$instance"
+  local values_file="$INSTANCES_DIR/$instance/values/core/ohmlab.yaml"
+  local instance_dir="$INSTANCES_DIR/$instance"
 
   # Folders prefixed with `_` are templates (e.g. `_example`) and are excluded
   # by the root manager AppSet. Refuse to bootstrap them.
   if [[ "$instance" == _* ]]; then
     error "Instance '$instance' starts with '_' and is treated as a template."
-    error "Copy it to a real name first:  cp -r argo-cd/instances/$instance argo-cd/instances/<name>"
+    error "Copy it to a real name first:  cp -r $INSTANCES_DIR/$instance $INSTANCES_DIR/<name>"
     exit 1
   fi
 
   if [[ ! -d "$instance_dir" ]]; then
     error "Instance '$instance' not found: $instance_dir"
     log "Available instances:"
-    find "$SCRIPT_PATH/argo-cd/instances/" -mindepth 1 -maxdepth 1 -type d \
+    find "$INSTANCES_DIR/" -mindepth 1 -maxdepth 1 -type d \
       ! -name '_*' -exec basename {} \; 2>/dev/null | sed 's/^/  /' || echo "  (none)"
     exit 1
   fi
@@ -515,8 +520,8 @@ EOF
   fi
   log ""
   log "The root 'manager' ApplicationSet will now reconcile every instance"
-  log "under ./argo-cd/instances/*/ (one per-instance Application per folder,"
-  log "each fanning out into core + tenant AppSets)."
+  log "under argo-cd/instances/*/ of its values repository (one per-instance"
+  log "Application per folder, each fanning out into core + tenant AppSets)."
   log ""
   log "Monitor progress:"
   log "  kubectl get applications,applicationsets -n argocd-system"
@@ -527,7 +532,7 @@ EOF
 # =============================================================================
 
 # Parse options
-while getopts "hdekp:t:ub:y" flag; do
+while getopts "hdekp:t:ub:i:y" flag; do
   case "${flag}" in
     d) DECRYPT="true" ;;
     e) ENCRYPT="true" ;;
@@ -536,6 +541,7 @@ while getopts "hdekp:t:ub:y" flag; do
     t) TAGS="${OPTARG}" ;;
     u) UPDATE="true" ;;
     b) BOOTSTRAP_INSTANCE="${OPTARG}" ;;
+    i) INSTANCES_DIR="${OPTARG%/}" ;;
     y) YES="true" ;;
     h)
       print_help
