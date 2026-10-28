@@ -367,6 +367,18 @@ jobs:
       BUILD_AMD64: true
       BUILD_ARM64: true
 
+  # The checks an instance repository runs through validate-instance.yml, run
+  # here on this repository's own instances, at this change's revision.
+  validate-instance:
+    needs: classify
+    if: ${{ fromJSON(needs.classify.outputs.groups).shell || fromJSON(needs.classify.outputs.groups).ci }}
+    uses: ./.github/workflows/validate-instance.yml
+    permissions:
+      contents: read
+    with:
+      ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      product-repository: ${{ github.repository }}
+
   # The controller image is the `controller` stage of the same Dockerfile.
   build-controller-image:
     needs: classify
@@ -465,6 +477,7 @@ jobs:
       - build-controller-image
       - scan-controller-image
       - e2e-controller
+      - validate-instance
       - gitleaks
       - lint-commits
       - workflow-permissions
