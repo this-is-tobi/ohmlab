@@ -13,8 +13,10 @@ yellow='\033[0;33m'
 no_color='\033[0m'
 
 SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-ALL_VARS_FILE="$SCRIPT_PATH/../ansible/inventory/group_vars/all.yml"
-PI_PASSWORD_FILE="$SCRIPT_PATH/../ansible/inventory/group_vars/.pi_password"
+# The inventory Ansible reads: ANSIBLE_INVENTORY wins over the product's own.
+INVENTORY_DIR="${ANSIBLE_INVENTORY:-$SCRIPT_PATH/../ansible/inventory}"
+ALL_VARS_FILE="$INVENTORY_DIR/group_vars/all.yml"
+PI_PASSWORD_FILE="$INVENTORY_DIR/group_vars/.pi_password"
 
 # Variables
 DOWNLOAD_DIRECTORY="./tmp"
