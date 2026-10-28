@@ -10,7 +10,7 @@ mkdir "$dir/bin" "$dir/credentials"
 echo '{"auths": {}}' >"$dir/credentials/config.json"
 
 DIGEST=$(printf 'a%.0s' $(seq 64))
-REF="ghcr.io/this-is-tobi/homelab/ohmlab-controller@sha256:$DIGEST"
+REF="ghcr.io/this-is-tobi/ohmlab/controller@sha256:$DIGEST"
 
 cat >"$dir/bin/oras" <<'STUB'
 #!/usr/bin/env bash
@@ -63,7 +63,7 @@ expect() { # expect <label> <exit> [pattern in the output]
 reset; run "$REF" 0.2.0
 expect "a signed, attested, multi-platform image passes" 0 "build provenance names this-is-tobi/homelab"
 
-reset; run "ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.2.0" 0.2.0
+reset; run "ghcr.io/this-is-tobi/ohmlab/controller:0.2.0" 0.2.0
 expect "a tag instead of a digest is refused" 1 "pinned by digest"
 
 reset; run "$REF" v0.2.0

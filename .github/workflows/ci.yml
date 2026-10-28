@@ -357,7 +357,7 @@ jobs:
       contents: read
       packages: write
     with:
-      IMAGE_NAME: ghcr.io/this-is-tobi/homelab/ohmlab
+      IMAGE_NAME: ghcr.io/this-is-tobi/ohmlab/cli
       IMAGE_TAG: ci-${{ github.sha }}
       IMAGE_DOCKERFILE: utils/Dockerfile
       IMAGE_CONTEXT: utils/
@@ -374,7 +374,7 @@ jobs:
       contents: read
       packages: write
     with:
-      IMAGE_NAME: ghcr.io/this-is-tobi/homelab/ohmlab-controller
+      IMAGE_NAME: ghcr.io/this-is-tobi/ohmlab/controller
       IMAGE_TAG: ci-${{ github.sha }}
       IMAGE_DOCKERFILE: utils/Dockerfile
       IMAGE_CONTEXT: utils/
@@ -414,7 +414,7 @@ jobs:
       IMAGE_ARTIFACTS: ${{ needs.build-controller-image.outputs.artifact-prefix }}-amd64
       TEST_COMMAND: >-
         E2E_EXISTING_CLUSTER=1 KIND_CLUSTER=ohmlab-e2e
-        IMAGE=ghcr.io/this-is-tobi/homelab/ohmlab-controller:ci-${{ github.sha }}
+        IMAGE=ghcr.io/this-is-tobi/ohmlab/controller:ci-${{ github.sha }}
         scripts/ci/e2e-ohmlab-controller.sh ${{ matrix.mode }}
 
   scan-image:

@@ -41,7 +41,7 @@ jobs:
       contents: read
       packages: write
     with:
-      IMAGE_NAME: ghcr.io/this-is-tobi/homelab/ohmlab
+      IMAGE_NAME: ghcr.io/this-is-tobi/ohmlab/cli
       IMAGE_TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
       IMAGE_DOCKERFILE: utils/Dockerfile
       IMAGE_CONTEXT: utils/
@@ -77,7 +77,7 @@ jobs:
       contents: read
       packages: write
     with:
-      IMAGE_NAME: ghcr.io/this-is-tobi/homelab/ohmlab-controller
+      IMAGE_NAME: ghcr.io/this-is-tobi/ohmlab/controller
       IMAGE_TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
       IMAGE_DOCKERFILE: utils/Dockerfile
       IMAGE_CONTEXT: utils/
@@ -170,7 +170,7 @@ jobs:
       contents: read
       packages: write
     with:
-      ARTIFACT_NAME: ghcr.io/this-is-tobi/homelab/catalog
+      ARTIFACT_NAME: ghcr.io/this-is-tobi/ohmlab/catalog
       ARTIFACT_TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['argo-cd/apps--version'] }}
       ARTIFACT_TYPE: application/vnd.ohmlab.catalog.v1
       BUILD_COMMAND: scripts/build-catalog.sh dist
@@ -225,7 +225,7 @@ jobs:
       packages: write
     with:
       CHART_PATH: utils/helm
-      REPOSITORY: this-is-tobi/homelab/charts
+      REPOSITORY: this-is-tobi/charts
       HELM_REPOS: argo=https://argoproj.github.io/argo-helm,this-is-tobi=https://this-is-tobi.github.io/helm-charts
 
   attest-chart:

@@ -7,7 +7,7 @@
 #
 # The chart pins the image to a release and its digest; set `image` here only
 # to run another one:
-# image: ghcr.io/this-is-tobi/homelab/ohmlab-controller:<version>@sha256:<digest>
+# image: ghcr.io/this-is-tobi/ohmlab/controller:<version>@sha256:<digest>
 #
 # targets:
 #   vault:

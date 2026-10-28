@@ -11,7 +11,7 @@ mkdir "$dir/bin" "$dir/credentials"
 echo '{"auths": {}}' >"$dir/credentials/config.json"
 
 DIGEST=$(printf 'a%.0s' $(seq 64))
-REF="ghcr.io/this-is-tobi/homelab/catalog@sha256:$DIGEST"
+REF="ghcr.io/this-is-tobi/ohmlab/catalog@sha256:$DIGEST"
 LAYER=application/vnd.oci.image.layer.v1.tar+gzip
 TYPE=application/vnd.ohmlab.catalog.v1
 
@@ -114,10 +114,10 @@ expect() { # expect <label> <exit> [pattern in the output]
 reset; run "$REF" 0.2.0
 expect "a signed, attested, well-formed bundle passes" 0 "every chart renders from the bundle alone"
 
-reset; run "ghcr.io/this-is-tobi/homelab/catalog:0.2.0" 0.2.0
+reset; run "ghcr.io/this-is-tobi/ohmlab/catalog:0.2.0" 0.2.0
 expect "a tag instead of a digest is refused" 1 "pinned by digest"
 
-reset; run "ghcr.io/this-is-tobi/homelab/catalog" 0.2.0
+reset; run "ghcr.io/this-is-tobi/ohmlab/catalog" 0.2.0
 expect "a reference without a digest is refused" 1 "pinned by digest"
 
 reset; run "$REF" v0.2.0
