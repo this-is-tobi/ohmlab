@@ -338,12 +338,19 @@ rootManager:
   # pointing at the `instance-manager` chart.
   enabled: true
   repoURL:
-    # -- Repo holding the `argo-cd/` tree (charts + instances + values).
+    # -- Where the `instance-manager` chart comes from: a git repository, or an
+    # `oci://` bundle with the layout of this repository (the chart is read at
+    # `argo-cd/apps/instance-manager`).
     sources: "https://github.com/this-is-tobi/homelab.git"
-    # -- Repo holding the values tree. Defaults to `sources`.
+    # -- Git repository holding `argo-cd/instances/*`: the instances are
+    # discovered there and their `instance.yaml` read from it. Defaults to
+    # `sources`; required when `sources` is an `oci://` bundle.
     values: ""
-  # -- Default git revision (branch, tag, commit) used to read the instance
-  # folders and the `instance-manager` chart.
+  # -- Revision of `sources` alone: a git revision, or the exact version of an
+  # `oci://` bundle (required then). Defaults to `targetRevision`.
+  sourcesRevision: ""
+  # -- Git revision (branch, tag, commit) of the `values` repository, and of
+  # `sources` when `sourcesRevision` is empty.
   targetRevision: main
 
 projects:
@@ -355,8 +362,13 @@ projects:
     # -- Project name (referenced by `argo-cd/instances/<inst>/instance.yaml.projects.core`).
     name: admin-core
     description: "Homelab platform/core tier (infra, identity, observability, security)"
-    sourceRepos:
-    - "https://github.com/this-is-tobi/homelab.git"
+    # -- Repositories the project's Applications may take sources from. Empty:
+    # `rootManager.repoURL.sources`, `rootManager.repoURL.values` and
+    # `extraSourceRepos`, without duplicates. A bundle is listed with its
+    # `oci://` scheme, a registry path without one.
+    sourceRepos: []
+    # -- Added to the derived `sourceRepos` (registries, other catalogs).
+    extraSourceRepos: []
     destinations:
     - namespace: "*"
       server: "https://kubernetes.default.svc"
@@ -429,8 +441,11 @@ projects:
     # namespace pattern, and blacklist ResourceQuota/LimitRange in
     # namespaceResourceBlacklist so tenants cannot lift their own limits.
     description: Homelab tenant/apps tier (user-facing services)
-    sourceRepos:
-    - "https://github.com/this-is-tobi/homelab.git"
+    # -- Repositories the project's Applications may take sources from. Empty:
+    # derived like the `core` project's.
+    sourceRepos: []
+    # -- Added to the derived `sourceRepos`.
+    extraSourceRepos: []
     destinations:
     - namespace: "*"
       server: "https://kubernetes.default.svc"
