@@ -22,12 +22,10 @@
       "groupName": "kyverno"
     },
     {
-      "description": "One release of utils/ publishes both images (the CLI toolbox and the controller): bump their pins in one change. The old names stay listed until no pin uses them",
+      "description": "One release of utils/ publishes both images (the CLI toolbox and the controller): bump their pins in one change",
       "matchPackageNames": [
         "ghcr.io/this-is-tobi/ohmlab/cli",
-        "ghcr.io/this-is-tobi/ohmlab/controller",
-        "ghcr.io/this-is-tobi/homelab/ohmlab",
-        "ghcr.io/this-is-tobi/homelab/ohmlab-controller"
+        "ghcr.io/this-is-tobi/ohmlab/controller"
       ],
       "groupName": "ohmlab images"
     },
