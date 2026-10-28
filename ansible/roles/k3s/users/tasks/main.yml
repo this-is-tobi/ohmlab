@@ -2,13 +2,15 @@
 # Cluster CA for the generated kubeconfigs: prefer the vaulted k3sCaData,
 # fall back to the file fetched by the masters role on the last deploy run
 # (inventory/group_vars/.k3sCaData) — on a fresh install the vault value is
-# still empty, so the fallback is the only source that exists.
+# still empty, so the fallback is the only source that exists. This play runs
+# on the implicit localhost, which has no inventory_dir: the first master's is
+# the inventory the masters role wrote to.
 - name: Resolve cluster CA data
   ansible.builtin.set_fact:
     users_ca_data: >-
       {{ (k3sCaData | default(''))
          or lookup('ansible.builtin.file',
-                   playbook_dir + '/inventory/group_vars/.k3sCaData',
+                   hostvars[groups['masters'][0]].inventory_dir + '/group_vars/.k3sCaData',
                    errors='ignore')
          or '' }}
   no_log: true
