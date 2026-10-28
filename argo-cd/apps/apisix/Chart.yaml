@@ -12,7 +12,7 @@ dependencies:
 # bundled bitnami etcd subchart (bitnamilegacy images are frozen/unmaintained).
 - name: etcd
   alias: etcd
-  version: 0.8.9
+  version: 0.9.0
   repository: oci://ghcr.io/cloudpirates-io/helm-charts
   condition: etcd.enabled
 # VSO integration — delivers the admin API credentials from Vault as the
