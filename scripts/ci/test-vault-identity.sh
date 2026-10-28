@@ -13,7 +13,24 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHART="$ROOT/argo-cd/apps/vault-operator"
-VALUES="$ROOT/argo-cd/instances/homelab/values/core/vault-operator.yaml"
+# Its own values, so the check does not depend on what an instance declares.
+VALUES="$(mktemp)"
+trap 'rm -f "$VALUES"' EXIT
+cat >"$VALUES" <<'YAML'
+vault:
+  externalConfig:
+    oidcEnabled: true
+ohmlab:
+  vault:
+    identity:
+      groups:
+      - name: homelab-admins
+        type: external
+        policies: [admin]
+      groupAliases:
+      - name: /admin
+        group: homelab-admins
+YAML
 
 failures=0
 fail() { echo "FAIL: $*" >&2; failures=$((failures + 1)); }

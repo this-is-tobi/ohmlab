@@ -112,14 +112,14 @@ for job in image image-controller; do
   fi
 done
 
-for path in argo-cd/instances/homelab/instance.yaml argo-cd/instances/_example/instance.yaml; do
+for path in argo-cd/instances/mylab/instance.yaml argo-cd/instances/_example/instance.yaml; do
   if FILES=$files P=$path node -e 'const [, body, flags] = /^\/(.*)\/([a-z]*)$/.exec(process.env.FILES); process.exit(new RegExp(body, flags).test(process.env.P) ? 0 : 1)'; then
     echo "ok   the manager reads $path"
   else
     echo "FAIL the manager does not read $path"; fail=1
   fi
 done
-if FILES=$files P=argo-cd/instances/homelab/values/core/ohmlab.yaml node -e 'const [, body, flags] = /^\/(.*)\/([a-z]*)$/.exec(process.env.FILES); process.exit(new RegExp(body, flags).test(process.env.P) ? 0 : 1)'; then
+if FILES=$files P=argo-cd/instances/mylab/values/core/ohmlab.yaml node -e 'const [, body, flags] = /^\/(.*)\/([a-z]*)$/.exec(process.env.FILES); process.exit(new RegExp(body, flags).test(process.env.P) ? 0 : 1)'; then
   echo "FAIL the manager reads the values files"; fail=1
 else
   echo "ok   the manager leaves the values files alone"
