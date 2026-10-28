@@ -24,7 +24,7 @@ jobs:
     with:
       GROUPS: >-
         {"utils": ["utils/*", "scripts/ci/utils-test-env*"],
-        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
+        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
         "controller": ["utils/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/utils-test-env*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
@@ -118,6 +118,8 @@ jobs:
         run: |
           set -euo pipefail
           source scripts/lib/helm-repos.sh
+          export ROOT=$PWD
+          source scripts/lib/instances.sh
           # The dependencies of every chart are built first, several at a time:
           # fetching them one chart after the other is most of this step.
           locked=()
@@ -138,19 +140,15 @@ jobs:
             [ -f "$chart/Chart.yaml" ] || continue
             name="$(basename "$chart")"
             # Render each app chart the way production does: against a real
-            # instance values file (homelab first, the documented _example
-            # template as fallback). Charts with `required` values get them
-            # via --set instead.
+            # instance values file (scripts/lib/instances.sh: a real instance
+            # first, the documented _example template as fallback). Charts
+            # with `required` values get them via --set instead.
             args=()
             case "$name" in
               instance-manager) args=(--set instance.name=ci --set repoURL=https://example.com/ci.git) ;;
               *)
-                for inst in homelab _example; do
-                  for scope in core tenant; do
-                    vf="argo-cd/instances/$inst/values/$scope/$name.yaml"
-                    if [ -f "$vf" ]; then args=(-f "$vf"); break 2; fi
-                  done
-                done
+                vf=$(values_file "$name")
+                if [ -n "$vf" ]; then args=(-f "$vf"); fi
                 ;;
             esac
             echo "::group::$name ${args[*]:-}"
@@ -207,6 +205,8 @@ jobs:
         run: scripts/ci/check-controller-policy.sh
       - name: Validate the VaultSeed objects each instance would deploy
         run: scripts/ci/check-vault-seeds.sh
+      - name: Test that the instance checks read INSTANCES_DIR
+        run: scripts/ci/test-instances-dir.sh
       - name: Check that every image pin is one Kyverno verifies
         run: scripts/ci/check-image-pins.sh
       - name: Check that every chart can read its secrets from Vault

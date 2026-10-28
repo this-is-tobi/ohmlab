@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Unit-tests the alert rules each app chart renders. For every
 # <apps-root>/<app>/tests/prometheusrules.test.yaml, render the chart the
-# way production does (homelab instance values first, the documented
-# _example as fallback, or the chart's own tests/values.yaml when it has one),
+# way production does (the values of a real instance of INSTANCES_DIR first,
+# the documented _example as fallback, or the chart's own tests/values.yaml
+# when it has one; see scripts/lib/instances.sh),
 # keep its PrometheusRule groups, and run promtool.
 # Charts render into namespace "test", so rules filtering on the release
 # namespace are tested with namespace="test".
 set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/lib/instances.sh
+source "$ROOT/scripts/lib/instances.sh"
 
 root="${1:-argo-cd/apps}"
 work=$(mktemp -d)
@@ -27,15 +32,10 @@ promtool_in() { # $1 = directory holding rules.yaml and test.yaml, rest = promto
 # renders nothing until a feature is on (the ohmlab controller is one) brings
 # its own in tests/values.yaml; the others are rendered the way production does.
 values_args() {
-  local inst scope vf name
-  name=$(basename "$1")
+  local vf
   if [ -f "$1/tests/values.yaml" ]; then printf '%s\n' -f "$1/tests/values.yaml"; return; fi
-  for inst in homelab _example; do
-    for scope in core tenant; do
-      vf="argo-cd/instances/$inst/values/$scope/$name.yaml"
-      if [ -f "$vf" ]; then printf '%s\n' -f "$vf"; return; fi
-    done
-  done
+  vf=$(values_file "$(basename "$1")")
+  if [ -n "$vf" ]; then printf '%s\n' -f "$vf"; fi
 }
 
 for test in "$root"/*/tests/prometheusrules.test.yaml; do

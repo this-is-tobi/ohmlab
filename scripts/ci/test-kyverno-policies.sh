@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Unit-tests the CEL policies and exceptions the kyverno chart renders. The
-# chart is rendered the way production does (homelab instance values first,
-# the documented _example as fallback), the policies.kyverno.io objects are
+# chart is rendered the way production does (the values of a real instance of
+# INSTANCES_DIR first, the documented _example as fallback; see
+# scripts/lib/instances.sh), the policies.kyverno.io objects are
 # exported, and `kyverno test` runs every <chart>/tests/policies/<name>/.
 # Fixture files reference ../../rendered/policies.yaml and
 # ../../rendered/exceptions.yaml.
@@ -18,6 +19,10 @@
 # expressions instead (see kyverno.cel.scope).
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/lib/instances.sh
+source "$ROOT/scripts/lib/instances.sh"
+
 chart="${1:-argo-cd/apps/kyverno}"
 name=$(basename "$chart")
 work=$(mktemp -d)
@@ -33,13 +38,9 @@ fi
 command -v kyverno >/dev/null || { echo "kyverno CLI not found on PATH (v1.19.1 expected)" >&2; exit 2; }
 
 values_args() {
-  local inst scope vf
-  for inst in homelab _example; do
-    for scope in core tenant; do
-      vf="argo-cd/instances/$inst/values/$scope/$name.yaml"
-      if [ -f "$vf" ]; then printf '%s\n' -f "$vf"; return; fi
-    done
-  done
+  local vf
+  vf=$(values_file "$name")
+  if [ -n "$vf" ]; then printf '%s\n' -f "$vf"; fi
 }
 mapfile -t args < <(values_args)
 

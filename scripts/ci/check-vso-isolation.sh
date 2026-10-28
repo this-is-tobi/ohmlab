@@ -11,6 +11,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/lib/instances.sh
+source "$ROOT/scripts/lib/instances.sh"
 
 # check_stream <label>: reads manifests on stdin, prints one line per violation.
 check_stream() {
@@ -40,12 +42,8 @@ for chart in "$ROOT/utils/helm" "$ROOT"/argo-cd/apps/*/; do
   [ "$name" = instance-manager ] && continue
 
   args=()
-  for inst in homelab _example; do
-    for scope in core tenant; do
-      vf="$ROOT/argo-cd/instances/$inst/values/$scope/$name.yaml"
-      if [ -f "$vf" ]; then args=(-f "$vf"); break 2; fi
-    done
-  done
+  vf=$(values_file "$name")
+  [ -n "$vf" ] && args=(-f "$vf")
   if [ -f "$chart/Chart.lock" ] && [ ! -d "$chart/charts" ]; then
     helm dependency build "$chart" >/dev/null 2>&1 || { echo "FAIL $name: helm dependency build"; failures=$((failures + 1)); continue; }
   fi
