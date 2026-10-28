@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/this-is-tobi/homelab/compare/catalog-v0.9.0...catalog-v0.9.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **ohmlab-controller:** pull the image from the ohmlab project scope ([c2ab1f2](https://github.com/this-is-tobi/homelab/commit/c2ab1f2042fe8c1b6c6caba53396d3ebfa94b1db))
+
 ## [0.9.0](https://github.com/this-is-tobi/homelab/compare/catalog-v0.8.0...catalog-v0.9.0) (2026-10-28)
 
 
