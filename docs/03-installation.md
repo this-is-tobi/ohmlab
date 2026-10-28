@@ -555,6 +555,36 @@ homelab-private/                                # your private repo root
 
 Per-app overrides also exist if a single app needs a different layout — `valuesPath` overrides the whole path, useful for charts that ship in their own repository entirely.
 
+### Keeping the instance in a repository of its own
+
+The product (the charts and the `instance-manager` chart) and an instance (its `instance.yaml`, `core.yaml`, `tenant.yaml` and values) can live in two repositories, and the product can come from git or from the published OCI catalog. The root manager reads the instances from one repository and its chart from the other:
+
+```yaml
+# argo-cd/instances/<inst>/values/core/ohmlab.yaml (the bootstrap chart)
+rootManager:
+  repoURL:
+    sources: https://github.com/this-is-tobi/homelab.git # the instance-manager chart: a git URL, or oci://<registry>/<path>/catalog
+    values: https://github.com/<you>/<instance-repo>.git  # where argo-cd/instances/* lives
+  sourcesRevision: ""  # revision of `sources` alone: a git revision, or the exact version of an oci:// bundle
+  targetRevision: main # revision of the values repository
+```
+
+The instance then takes its tier files and values from its own repository and its charts from a catalog:
+
+```yaml
+# argo-cd/instances/<inst>/instance.yaml
+repoURL: https://github.com/<you>/<instance-repo>.git # this file, core.yaml, tenant.yaml and the values
+catalogs:
+  product:
+    repoURL: https://github.com/this-is-tobi/homelab.git # or oci://<registry>/<path>/catalog
+    version: main                                        # a git revision, or the exact bundle version
+defaultCatalog: product
+```
+
+- With an `oci://` source, `rootManager.repoURL.values` and an exact `rootManager.sourcesRevision` are required: a bundle cannot be listed for instances, and an unset version would follow the newest one. The render fails without them.
+- When `projects.<scope>.sourceRepos` is empty, an AppProject allows the `sources` and `values` repositories plus `projects.<scope>.extraSourceRepos` (a registry catalog, another bundle). A bundle is listed with its `oci://` scheme, a registry path without one. An explicit list is kept as written.
+- Bootstrap from a checkout of the product, pointing at the instance folders: `./run.sh -b <inst> -i ../<instance-repo>/argo-cd/instances`.
+
 ### Sync waves
 
 Apps are reconciled in `syncWave` order. Default ordering for the homelab instance:

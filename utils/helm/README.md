@@ -186,6 +186,7 @@ A Helm chart to deploy ohmlab.
 | projects.core.destinations[0].namespace | string | `"*"` |  |
 | projects.core.destinations[0].server | string | `"https://kubernetes.default.svc"` |  |
 | projects.core.enabled | bool | `true` | Render the `core` AppProject. |
+| projects.core.extraSourceRepos | list | `[]` | Added to the derived `sourceRepos` (registries, other catalogs). |
 | projects.core.name | string | `"admin-core"` | Project name (referenced by `argo-cd/instances/<inst>/instance.yaml.projects.core`). |
 | projects.core.namespaceResourceBlacklist | list | `[]` |  |
 | projects.core.namespaceResourceWhitelist[0].group | string | `"*"` |  |
@@ -195,7 +196,7 @@ A Helm chart to deploy ohmlab.
 | projects.core.roles[0].name | string | `"admin"` |  |
 | projects.core.roles[0].policies[0] | string | `"p, proj:admin-core:admin, applications, *, admin-core/*, allow"` |  |
 | projects.core.sourceNamespaces | list | `[]` |  |
-| projects.core.sourceRepos[0] | string | `"https://github.com/this-is-tobi/homelab.git"` |  |
+| projects.core.sourceRepos | list | `[]` | Repositories the project's Applications may take sources from. Empty: `rootManager.repoURL.sources`, `rootManager.repoURL.values` and `extraSourceRepos`, without duplicates. A bundle is listed with its `oci://` scheme, a registry path without one. |
 | projects.tenant.clusterResourceBlacklist | list | `[]` |  |
 | projects.tenant.clusterResourceWhitelist[0].group | string | `""` |  |
 | projects.tenant.clusterResourceWhitelist[0].kind | string | `"Namespace"` |  |
@@ -217,6 +218,7 @@ A Helm chart to deploy ohmlab.
 | projects.tenant.destinations[0].namespace | string | `"*"` |  |
 | projects.tenant.destinations[0].server | string | `"https://kubernetes.default.svc"` |  |
 | projects.tenant.enabled | bool | `true` | Render the `tenant` AppProject. |
+| projects.tenant.extraSourceRepos | list | `[]` | Added to the derived `sourceRepos`. |
 | projects.tenant.name | string | `"admin-tenant"` | Project name (referenced by `argo-cd/instances/<inst>/instance.yaml.projects.tenant`). |
 | projects.tenant.namespaceResourceBlacklist | list | `[]` |  |
 | projects.tenant.namespaceResourceWhitelist[0].group | string | `"*"` |  |
@@ -226,11 +228,12 @@ A Helm chart to deploy ohmlab.
 | projects.tenant.roles[0].name | string | `"admin"` |  |
 | projects.tenant.roles[0].policies[0] | string | `"p, proj:admin-tenant:admin, applications, *, admin-tenant/*, allow"` |  |
 | projects.tenant.sourceNamespaces | list | `[]` |  |
-| projects.tenant.sourceRepos[0] | string | `"https://github.com/this-is-tobi/homelab.git"` |  |
+| projects.tenant.sourceRepos | list | `[]` | Repositories the project's Applications may take sources from. Empty: derived like the `core` project's. |
 | rootManager.enabled | bool | `true` | Enable the root `manager` ApplicationSet that discovers every instance under `argo-cd/instances/*` and renders one per-instance Application pointing at the `instance-manager` chart. |
-| rootManager.repoURL.sources | string | `"https://github.com/this-is-tobi/homelab.git"` | Repo holding the `argo-cd/` tree (charts + instances + values). |
-| rootManager.repoURL.values | string | `""` | Repo holding the values tree. Defaults to `sources`. |
-| rootManager.targetRevision | string | `"main"` | Default git revision (branch, tag, commit) used to read the instance folders and the `instance-manager` chart. |
+| rootManager.repoURL.sources | string | `"https://github.com/this-is-tobi/homelab.git"` | Where the `instance-manager` chart comes from: a git repository, or an `oci://` bundle with the layout of this repository (the chart is read at `argo-cd/apps/instance-manager`). |
+| rootManager.repoURL.values | string | `""` | Git repository holding `argo-cd/instances/*`: the instances are discovered there and their `instance.yaml` read from it. Defaults to `sources`; required when `sources` is an `oci://` bundle. |
+| rootManager.sourcesRevision | string | `""` | Revision of `sources` alone: a git revision, or the exact version of an `oci://` bundle (required then). Defaults to `targetRevision`. |
+| rootManager.targetRevision | string | `"main"` | Git revision (branch, tag, commit) of the `values` repository, and of `sources` when `sourcesRevision` is empty. |
 | vso.enabled | bool | `false` | Enable VSO integration. Set to true in instance values AFTER vault-operator is deployed so VaultStaticSecret CRDs are available. |
 | vso.extraObjects | list | `[]` |  |
 | vso.vaultAuth.default.kubernetes.audiences | list | `["vault"]` | The audience of the token VSO logs in with: a token meant for Vault, not a Kubernetes API credential. The Vault role can require it. |

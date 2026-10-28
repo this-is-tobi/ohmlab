@@ -3,8 +3,9 @@
 Root `manager` ApplicationSet.
 
 Discovers every folder under `argo-cd/instances/*` (one folder per instance)
-and emits ONE Application per instance pointing at the `instance-manager` chart
-(under `argo-cd/apps/instance-manager`). That chart in turn renders the
+of the values repository and emits ONE Application per instance pointing at
+the `instance-manager` chart (under `argo-cd/apps/instance-manager` of the
+sources: a git repository or an oci:// bundle). That chart in turn renders the
 per-scope child AppSets (core + tenant) for the matched instance.
 
 Rendered directly by this chart: the ArgoCD ApplicationSet view (UI
@@ -19,8 +20,20 @@ Rendered directly by this chart: the ArgoCD ApplicationSet view (UI
                       └─> <name>-<app>  (Application)  -- tenant tier
 */ -}}
 {{- $repoSources := required ".Values.rootManager.repoURL.sources is required" .Values.rootManager.repoURL.sources -}}
+{{- $oci := hasPrefix "oci://" $repoSources -}}
+{{- /*
+An oci:// bundle cannot be listed by the git generator, and an unset version
+would follow the newest one: both have to be given.
+*/ -}}
+{{- if and $oci (not .Values.rootManager.repoURL.values) -}}
+{{- fail "rootManager.repoURL.values is required when rootManager.repoURL.sources is an oci:// bundle: instances are discovered in a git repository" -}}
+{{- end -}}
+{{- if and $oci (not .Values.rootManager.sourcesRevision) -}}
+{{- fail "rootManager.sourcesRevision is required when rootManager.repoURL.sources is an oci:// bundle: pin the exact version" -}}
+{{- end -}}
 {{- $repoValues := .Values.rootManager.repoURL.values | default $repoSources -}}
 {{- $rev := .Values.rootManager.targetRevision | default "main" -}}
+{{- $sourcesRev := .Values.rootManager.sourcesRevision | default $rev -}}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -36,7 +49,7 @@ spec:
   - missingkey=error
   generators:
   - git:
-      repoURL: {{ $repoSources | quote }}
+      repoURL: {{ $repoValues | quote }}
       revision: {{ $rev | quote }}
       directories:
       # All instance folders.
@@ -62,7 +75,7 @@ spec:
       revisionHistoryLimit: 3
       sources:
       - repoURL: {{ $repoSources | quote }}
-        targetRevision: {{ $rev | quote }}
+        targetRevision: {{ $sourcesRev | quote }}
         path: argo-cd/apps/instance-manager
         helm:
           releaseName: 'instance-{{ `{{ .path.basename }}` }}'

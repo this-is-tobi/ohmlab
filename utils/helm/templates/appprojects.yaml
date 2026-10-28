@@ -1,5 +1,10 @@
 {{- range $scope, $proj := .Values.projects }}
 {{- if $proj.enabled }}
+{{- /* No list given: the repositories the root manager reads, plus extras. */}}
+{{- $sourceRepos := $proj.sourceRepos }}
+{{- if not $sourceRepos }}
+{{- $sourceRepos = concat (list $.Values.rootManager.repoURL.sources $.Values.rootManager.repoURL.values) ($proj.extraSourceRepos | default list) | compact | uniq }}
+{{- end }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -15,7 +20,7 @@ metadata:
 spec:
   description: {{ $proj.description | default (printf "Homelab %s tier" $scope) | quote }}
   sourceRepos:
-    {{- toYaml $proj.sourceRepos | nindent 2 }}
+    {{- toYaml $sourceRepos | nindent 2 }}
   destinations:
     {{- toYaml $proj.destinations | nindent 2 }}
   clusterResourceWhitelist:
