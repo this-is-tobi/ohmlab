@@ -12,7 +12,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHART="$ROOT/argo-cd/apps/ohmlab-controller"
 DIGEST=sha256:0000000000000000000000000000000000000000000000000000000000000000
-IMAGE=ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.2.0@$DIGEST
+IMAGE=ghcr.io/this-is-tobi/ohmlab/controller:0.2.0@$DIGEST
 BASE=(--namespace ohmlab-system --set "image=$IMAGE" --set targets.vault.enabled=true --api-versions monitoring.coreos.com/v1)
 
 failures=0
@@ -28,7 +28,7 @@ fi
 # (The chart's own default image is a pin once the first release exists, so ask for none.)
 out=$(render --namespace ohmlab-system --set targets.vault.enabled=true --set image=)
 grep -q 'image is required' <<<"$out" || fail "a target without a pinned image must fail the render"
-out=$(render --namespace ohmlab-system --set targets.vault.enabled=true --set image=ghcr.io/this-is-tobi/homelab/ohmlab-controller:latest)
+out=$(render --namespace ohmlab-system --set targets.vault.enabled=true --set image=ghcr.io/this-is-tobi/ohmlab/controller:latest)
 grep -q 'not pinned by digest' <<<"$out" || fail "an image without a digest must fail the render"
 out=$(render --namespace ohmlab-system --set targets.vault.enabled=true --set image=ohmlab-controller:e2e --set unsafeAllowUnpinnedImage=true)
 grep -q 'image: ohmlab-controller:e2e' <<<"$out" || fail "the e2e knob must accept an unpinned image"

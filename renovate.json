@@ -22,8 +22,10 @@
       "groupName": "kyverno"
     },
     {
-      "description": "One release of utils/ publishes both images (the CLI toolbox and the controller): bump their pins in one change",
+      "description": "One release of utils/ publishes both images (the CLI toolbox and the controller): bump their pins in one change. The old names stay listed until no pin uses them",
       "matchPackageNames": [
+        "ghcr.io/this-is-tobi/ohmlab/cli",
+        "ghcr.io/this-is-tobi/ohmlab/controller",
         "ghcr.io/this-is-tobi/homelab/ohmlab",
         "ghcr.io/this-is-tobi/homelab/ohmlab-controller"
       ],
@@ -337,7 +339,7 @@
       "matchStrings": [
         "catalog: ohmlab\\n\\s+targetRevision: (?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\\s*\\n"
       ],
-      "depNameTemplate": "ghcr.io/this-is-tobi/homelab/charts/ohmlab",
+      "depNameTemplate": "ghcr.io/this-is-tobi/charts/ohmlab",
       "datasourceTemplate": "docker",
       "versioningTemplate": "semver"
     },

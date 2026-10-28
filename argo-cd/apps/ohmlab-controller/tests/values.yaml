@@ -1,7 +1,7 @@
 # Values for scripts/ci/test-prometheus-rules.sh: the chart renders nothing until
 # a target is on, so the rule test brings what it needs. The image is a
 # placeholder; nothing here is deployed.
-image: ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.0.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+image: ghcr.io/this-is-tobi/ohmlab/controller:0.0.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
 targets:
   vault:
     enabled: true

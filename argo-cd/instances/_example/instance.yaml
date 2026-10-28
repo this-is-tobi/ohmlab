@@ -66,7 +66,7 @@ targetRevision: main
 #   release:
 #     repoURL: https://github.com/this-is-tobi/homelab.git
 #     version: v0.1.0
-#   ohmlab: ghcr.io/this-is-tobi/homelab/charts
+#   ohmlab: ghcr.io/this-is-tobi/charts
 #
 # The catalog of every entry that names none (empty: git). An entry opts out
 # with `catalog: git`.

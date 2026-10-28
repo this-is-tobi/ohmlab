@@ -36,7 +36,7 @@ every enabled target exactly once, anything else fails the render.
 
 {{/* The pinned image; required once anything runs, and never a floating tag. */}}
 {{- define "ohmlab-controller.image" -}}
-{{- $image := required "image is required: pin the controller to an exact release and digest (ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.2.0@sha256:...)" .Values.image -}}
+{{- $image := required "image is required: pin the controller to an exact release and digest (ghcr.io/this-is-tobi/ohmlab/controller:0.2.0@sha256:...)" .Values.image -}}
 {{- if and (not .Values.unsafeAllowUnpinnedImage) (not (contains "@sha256:" $image)) -}}
 {{- fail (printf "image %q is not pinned by digest: add @sha256:..." $image) -}}
 {{- end -}}
