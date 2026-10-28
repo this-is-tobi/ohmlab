@@ -18,6 +18,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/lib/instances.sh
+source "$ROOT/scripts/lib/instances.sh"
 
 # check_stream <label> <namespace> <vault.json>: reads manifests on stdin,
 # prints one line per violation. vault.json is {mounts, roles, policies}:
@@ -80,7 +82,7 @@ fi
 # vault_json <instance>: the Vault description of an instance, from the
 # vault-operator chart rendered with that instance's values.
 vault_json() {
-  local vf="$ROOT/argo-cd/instances/$1/values/core/vault-operator.yaml" args=()
+  local vf="$INSTANCES_DIR/$1/values/core/vault-operator.yaml" args=()
   [ -f "$vf" ] && args=(-f "$vf")
   helm template check "$ROOT/argo-cd/apps/vault-operator" "${args[@]+"${args[@]}"}" 2>/dev/null \
     | yq ea -o=json -I=0 '[select(.kind == "Vault")][0].spec.externalConfig
@@ -90,7 +92,7 @@ vault_json() {
 }
 
 failures=0
-for dir in "$ROOT"/argo-cd/instances/*/; do
+for dir in "$INSTANCES_DIR"/*/; do
   inst="$(basename "$dir")"
   vault="${TMPDIR:-/tmp}/check-vault-access.$$.json"
   if ! vault_json "$inst" >"$vault" || ! jq -e '.roles | length > 0' "$vault" >/dev/null 2>&1; then

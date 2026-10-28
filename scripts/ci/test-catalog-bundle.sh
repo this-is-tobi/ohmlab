@@ -7,6 +7,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/lib/instances.sh
+source "$ROOT/scripts/lib/instances.sh"
 # shellcheck source=../lib/helm-repos.sh
 source "$ROOT/scripts/lib/helm-repos.sh"
 
@@ -97,11 +99,9 @@ mask() {
       else print }'
 }
 
-instances=(_example)
-for d in "$ROOT"/argo-cd/instances/*/; do
-  n=$(basename "$d")
-  [ "${n#_}" = "$n" ] && instances+=("$n")
-done
+# The example, then every real instance of INSTANCES_DIR.
+instances=("$EXAMPLE_DIR")
+while IFS= read -r d; do instances+=("$d"); done < <(instance_dirs)
 
 # The repository side builds its own dependencies, independently of the bundle's.
 repo_charts=()
@@ -121,16 +121,17 @@ for chartdir in utils/helm argo-cd/apps/*/; do
     bad "$name: helm dependency build in the repository"; continue
   fi
 
-  for inst in "${instances[@]}"; do
+  for inst_dir in "${instances[@]}"; do
+    inst=$(basename "$inst_dir")
     # The example renders every chart; a real instance only the ones it deploys.
     args=()
     if [ "$name" = instance-manager ]; then
       [ "$inst" = _example ] || continue
-      args=(-f "$ROOT/argo-cd/instances/_example/instance.yaml" --set instance.name=example)
+      args=(-f "$EXAMPLE_DIR/instance.yaml" --set instance.name=example)
     else
       vf=""
       for scope in core tenant; do
-        [ -f "$ROOT/argo-cd/instances/$inst/values/$scope/$name.yaml" ] && { vf="$ROOT/argo-cd/instances/$inst/values/$scope/$name.yaml"; break; }
+        [ -f "$inst_dir/values/$scope/$name.yaml" ] && { vf="$inst_dir/values/$scope/$name.yaml"; break; }
       done
       if [ -n "$vf" ]; then args=(-f "$vf"); elif [ "$inst" != _example ]; then continue; fi
     fi

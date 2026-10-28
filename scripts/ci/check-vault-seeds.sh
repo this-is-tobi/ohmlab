@@ -10,11 +10,13 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/lib/instances.sh
+source "$ROOT/scripts/lib/instances.sh"
 failures=0
 (cd "$ROOT/utils" && go build -o "${TMPDIR:-/tmp}/ohmlab-validate" .) || { echo "FAIL: cannot build the CLI" >&2; exit 1; }
 trap 'rm -f "${TMPDIR:-/tmp}/ohmlab-validate"' EXIT
 
-for values in "$ROOT"/argo-cd/instances/*/values/core/vault-operator.yaml; do
+for values in "$INSTANCES_DIR"/*/values/core/vault-operator.yaml; do
   instance="$(basename "$(dirname "$(dirname "$(dirname "$values")")")")"
   if ! rendered=$(helm template check "$ROOT/argo-cd/apps/vault-operator" -f "$values" --namespace vault-operator-system \
         --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false 2>&1); then
