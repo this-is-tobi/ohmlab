@@ -1,0 +1,72 @@
+name: Validate an instance
+
+# The checks that read an instance's values, for an instance kept in a
+# repository of its own: the caller's repository holds the instance folders,
+# and the checks come from the product at the revision the instance consumes,
+# so they always match the charts it deploys. This repository runs it on its
+# own instances too (ci.yml, job validate-instance).
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Revision of the product the instance consumes (main, a tag, catalog-vX.Y.Z for an OCI bundle at that version)
+        type: string
+        default: main
+      product-repository:
+        description: The product repository (owner/name)
+        type: string
+        default: this-is-tobi/homelab
+      instances-path:
+        description: Path of the instance folders in the caller's repository
+        type: string
+        default: argo-cd/instances
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      INSTANCES_DIR: ${{ github.workspace }}/instance/${{ inputs.instances-path }}
+    defaults:
+      run:
+        working-directory: ohmlab
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: instance
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.product-repository }}
+          ref: ${{ inputs.ref }}
+          path: ohmlab
+      - uses: azure/setup-helm@v5
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ohmlab/utils/go.mod
+          cache-dependency-path: ohmlab/utils/go.sum
+      - name: Build the chart dependencies
+        run: |
+          set -euo pipefail
+          source scripts/lib/helm-repos.sh
+          add_dependency_repos argo-cd/apps/*/Chart.yaml
+          locked=()
+          for chart in argo-cd/apps/*/; do
+            chart="${chart%/}"
+            [ -f "$chart/Chart.lock" ] && locked+=("$chart")
+          done
+          logs="$RUNNER_TEMP/deps"
+          mkdir -p "$logs"
+          if ! vendor_dependencies "$logs" "${locked[@]}"; then
+            while IFS= read -r chart; do
+              echo "::error::helm dependency build failed for $chart: $(tail -1 "$logs/$(printf '%s' "$chart" | tr / _).log")"
+            done <"$logs/failed"
+            exit 1
+          fi
+      - name: Check that every chart can read its secrets from Vault
+        run: scripts/ci/check-vault-access.sh
+      - name: Validate the VaultSeed objects each instance would deploy
+        run: scripts/ci/check-vault-seeds.sh
+      - name: Check that Vault-managed Secrets carry only their own keys
+        run: scripts/ci/check-vso-isolation.sh
