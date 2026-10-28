@@ -75,13 +75,24 @@ projects:
     name: admin-core
     # The chart default lists only the git repository. The registry holds the
     # published ohmlab chart (`catalogs` in instance.yaml); it has to be
-    # allowed before an app takes its chart from there.
+    # allowed before an app takes its chart from there. A source is allowed
+    # here before anything points at it: the shared charts registry, the
+    # product repository under its new name and the instance repository.
     sourceRepos:
     - "https://github.com/this-is-tobi/homelab.git"
     - "ghcr.io/this-is-tobi/homelab/charts"
+    - "ghcr.io/this-is-tobi/charts"
+    - "https://github.com/this-is-tobi/ohmlab.git"
+    - "https://github.com/this-is-tobi/homelab-instance.git"
   tenant:
     enabled: true
     name: admin-tenant
+    # Tenant apps take their charts from the product repository and their
+    # values from the instance repository, under the same names as above.
+    sourceRepos:
+    - "https://github.com/this-is-tobi/homelab.git"
+    - "https://github.com/this-is-tobi/ohmlab.git"
+    - "https://github.com/this-is-tobi/homelab-instance.git"
 
 argo-cd:
   enabled: true
