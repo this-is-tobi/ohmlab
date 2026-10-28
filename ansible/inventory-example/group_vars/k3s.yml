@@ -84,9 +84,12 @@ k3sResolvConfNameservers:
 k3sCni: flannel
 # Only read when k3sCni is 'cilium'. Values applied to the bootstrap render
 # — point this at the same cilium values your instance uses, so what gets
-# applied matches what ArgoCD reconciles afterwards. Repo-root relative;
-# leave empty to bootstrap with chart defaults.
+# applied matches what ArgoCD reconciles afterwards. Repo-root relative, or
+# absolute; leave empty to bootstrap with chart defaults.
 # e.g. argo-cd/instances/<your-instance>/values/core/cilium.yaml
+# With the inventory and the instance in a repository of their own, from that
+# repository's ansible/inventory:
+#   "{{ inventory_dir }}/../../argo-cd/instances/<your-instance>/values/core/cilium.yaml"
 k3sCniChartValues: ""
 
 # --- k3sServiceLb: true | false ---
