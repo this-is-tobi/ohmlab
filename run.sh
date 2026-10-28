@@ -99,6 +99,10 @@ USAGE:
 INFRASTRUCTURE (Ansible):
   -p <playbook>   Run ansible playbook for infrastructure setup.
                   Example: ./run.sh -p ./ansible/install.yml
+                  The inventory is ./ansible/inventory, or the directory in
+                  ANSIBLE_INVENTORY (laid out like ./ansible/inventory-example)
+                  for an inventory kept in a repository of its own:
+                    ANSIBLE_INVENTORY=../homelab/ansible/inventory ./run.sh -p ./ansible/install.yml
 
   -t <tags>       Tags to run with playbook, default is 'all'.
                   Multiple tags: -t 'gateway,k3s'
@@ -281,10 +285,12 @@ fetch_kubeconfig() {
   local gateway_ip
   local master_ip
   local user
+  # The inventory Ansible itself reads: ANSIBLE_INVENTORY wins over ansible.cfg.
+  local inventory="${ANSIBLE_INVENTORY:-$SCRIPT_PATH/ansible/inventory}"
 
-  gateway_ip=$(yq '[.gateway.hosts[][]][0]' "$SCRIPT_PATH/ansible/inventory/hosts.yml")
-  master_ip=$(yq '[.k3s.children.masters.hosts[][]][0]' "$SCRIPT_PATH/ansible/inventory/hosts.yml")
-  user=$(yq '.ansible_user' "$SCRIPT_PATH/ansible/inventory/group_vars/all.yml")
+  gateway_ip=$(yq '[.gateway.hosts[][]][0]' "$inventory/hosts.yml")
+  master_ip=$(yq '[.k3s.children.masters.hosts[][]][0]' "$inventory/hosts.yml")
+  user=$(yq '.ansible_user' "$inventory/group_vars/all.yml")
 
   mkdir -p "$HOME/.kube/config.d"
   scp "$user@$master_ip:/etc/rancher/k3s/k3s.yaml" "$HOME/.kube/config.d/homelab"
