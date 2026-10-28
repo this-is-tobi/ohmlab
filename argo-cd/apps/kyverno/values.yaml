@@ -148,9 +148,7 @@ policies:
     enabled: true
     failureAction: Enforce
     # The project scope of the images (ghcr.io/this-is-tobi/<project>/*).
-    # The old prefix stays listed until no pin uses it.
     images:
-    - "ghcr.io/this-is-tobi/homelab/*"
     - "ghcr.io/this-is-tobi/ohmlab/*"
     identities:
     - issuer: https://token.actions.githubusercontent.com
