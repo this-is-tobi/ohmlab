@@ -17,7 +17,7 @@ targetRevision: main
 # Helm registries an entry can take its chart from (`catalog:` in core.yaml).
 # The AppProject must allow the same string (values/core/ohmlab.yaml).
 catalogs:
-  ohmlab: ghcr.io/this-is-tobi/homelab/charts
+  ohmlab: ghcr.io/this-is-tobi/charts
 
 projects:
   core: admin-core
