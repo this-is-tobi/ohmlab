@@ -147,8 +147,11 @@ policies:
   verifyImages:
     enabled: true
     failureAction: Enforce
+    # The project scope of the images (ghcr.io/this-is-tobi/<project>/*).
+    # The old prefix stays listed until no pin uses it.
     images:
     - "ghcr.io/this-is-tobi/homelab/*"
+    - "ghcr.io/this-is-tobi/ohmlab/*"
     identities:
     - issuer: https://token.actions.githubusercontent.com
       subjectRegExp: '^https://github\.com/this-is-tobi/github-workflows/\.github/workflows/attest-docker\.yml@refs/tags/v[0-9]+(\.[0-9]+)*$'
@@ -156,6 +159,7 @@ policies:
     # rename, list both names until every running image is rebuilt.
     sourceRepositories:
     - https://github.com/this-is-tobi/homelab
+    - https://github.com/this-is-tobi/ohmlab
   # Generate a default LimitRange in every TENANT namespace
   # (ohmlab.fr/instance-scope=tenant) so containers without explicit
   # resources get sane defaults (prerequisite for flipping
