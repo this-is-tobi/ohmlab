@@ -584,6 +584,7 @@ defaultCatalog: product
 - With an `oci://` source, `rootManager.repoURL.values` and an exact `rootManager.sourcesRevision` are required: a bundle cannot be listed for instances, and an unset version would follow the newest one. The render fails without them.
 - When `projects.<scope>.sourceRepos` is empty, an AppProject allows the `sources` and `values` repositories plus `projects.<scope>.extraSourceRepos` (a registry catalog, another bundle). A bundle is listed with its `oci://` scheme, a registry path without one. An explicit list is kept as written.
 - Bootstrap from a checkout of the product, pointing at the instance folders: `./run.sh -b <inst> -i ../<instance-repo>/argo-cd/instances`.
+- The Ansible inventory can move with the instance. Point `ANSIBLE_INVENTORY` at a directory laid out like `ansible/inventory-example`: `ANSIBLE_INVENTORY=../<instance-repo>/ansible/inventory ./run.sh -p ./ansible/install.yml`. The files the roles generate (`.k3sToken`, `.k3sCaData`, `.pihole_password`, `.wireguard_password`, and `.pi_password` from `scripts/setup-pi.sh`) are written next to that inventory, so the instance repository has to ignore them. Set `ANSIBLE_VAULT_PASSWORD_FILE` when the vault password is not `ansible/.vault_password`, and give `k3sCniChartValues` an absolute path, such as `"{{ inventory_dir }}/../../argo-cd/instances/<inst>/values/core/cilium.yaml"`.
 
 ### Sync waves
 
