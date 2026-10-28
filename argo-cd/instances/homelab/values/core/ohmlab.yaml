@@ -80,7 +80,6 @@ projects:
     # product repository under its new name and the instance repository.
     sourceRepos:
     - "https://github.com/this-is-tobi/homelab.git"
-    - "ghcr.io/this-is-tobi/homelab/charts"
     - "ghcr.io/this-is-tobi/charts"
     - "https://github.com/this-is-tobi/ohmlab.git"
     - "https://github.com/this-is-tobi/homelab-instance.git"
