@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/this-is-tobi/homelab/compare/catalog-v0.8.0...catalog-v0.9.0) (2026-10-28)
+
+
+### Features
+
+* **kyverno:** verify the images published under the ohmlab project scope ([aa7fa5e](https://github.com/this-is-tobi/homelab/commit/aa7fa5e086c5c010bac7c9d195833cffc61aa761))
+
 ## [0.8.0](https://github.com/this-is-tobi/homelab/compare/catalog-v0.7.0...catalog-v0.8.0) (2026-10-28)
 
 
