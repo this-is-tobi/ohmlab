@@ -1,7 +1,7 @@
 sonarqube:
   community:
     enabled: true
-    buildNumber: 26.3.0.120487
+    buildNumber: 26.10.0.133078
   ingress:
     enabled: true
     ingressClassName: apisix
@@ -16,7 +16,7 @@ sonarqube:
       secretName: ""
   plugins:
     install:
-    - https://github.com/mc1arke/sonarqube-community-branch-plugin/releases/download/26.3.0/sonarqube-community-branch-plugin-26.3.0.jar
+    - https://github.com/mc1arke/sonarqube-community-branch-plugin/releases/download/26.5.0/sonarqube-community-branch-plugin-26.5.0.jar
     - https://github.com/sonar-auth-oidc/sonar-auth-oidc/releases/download/v3.0.0/sonar-auth-oidc-plugin-3.0.0.jar
     - https://github.com/cnescatlab/sonar-cnes-report/releases/download/5.0.4/sonar-cnes-report-5.0.4.jar
   resources:
@@ -47,8 +47,8 @@ sonarqube:
         memory: 128Mi
   monitoringPasscodeSecretName: sonarqube-admin
   monitoringPasscodeSecretKey: monitoringPasscode
-  jvmOpts: "-javaagent:/opt/sonarqube/extensions/plugins/sonarqube-community-branch-plugin-26.3.0.jar=web"
-  jvmCeOpts: "-javaagent:/opt/sonarqube/extensions/plugins/sonarqube-community-branch-plugin-26.3.0.jar=ce"
+  jvmOpts: "-javaagent:/opt/sonarqube/extensions/plugins/sonarqube-community-branch-plugin-26.5.0.jar=web"
+  jvmCeOpts: "-javaagent:/opt/sonarqube/extensions/plugins/sonarqube-community-branch-plugin-26.5.0.jar=ce"
   initSysctl:
     vmMaxMapCount: 262144
   prometheusMonitoring:
@@ -96,7 +96,7 @@ sonarqube:
     command:
     - sh
     - -c
-    - wget -O /tmp/sonarqube-webapp.zip https://github.com/mc1arke/sonarqube-community-branch-plugin/releases/download/26.3.0/sonarqube-webapp.zip && unzip -o /tmp/sonarqube-webapp.zip -d /web && chmod -R 755 /web && chown -R 1000:0 /web && rm -f /tmp/sonarqube-webapp.zip
+    - wget -O /tmp/sonarqube-webapp.zip https://github.com/mc1arke/sonarqube-community-branch-plugin/releases/download/26.5.0/sonarqube-webapp.zip && unzip -o /tmp/sonarqube-webapp.zip -d /web && chmod -R 755 /web && chown -R 1000:0 /web && rm -f /tmp/sonarqube-webapp.zip
 
 cnpg:
   fullnameOverride: sonarqube-pg-cluster
