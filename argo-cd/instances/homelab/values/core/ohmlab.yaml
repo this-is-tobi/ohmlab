@@ -49,8 +49,10 @@ gateway:
 rootManager:
   enabled: true
   repoURL:
-    sources: https://github.com/this-is-tobi/homelab.git
-    values: ""
+    # The instance-manager chart.
+    sources: https://github.com/this-is-tobi/ohmlab.git
+    # The instance folders (argo-cd/instances/*).
+    values: https://github.com/this-is-tobi/homelab-instance.git
   targetRevision: main
 
 # Dormant CoreDNS capability (templates/coredns.yaml) — coredns.enabled

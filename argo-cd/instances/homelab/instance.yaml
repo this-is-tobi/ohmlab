@@ -10,14 +10,21 @@ instance:
 destination:
   server: https://kubernetes.default.svc
 
-repoURL: https://github.com/this-is-tobi/homelab.git
+# The instance repository: this file, core.yaml, tenant.yaml and the values.
+repoURL: https://github.com/this-is-tobi/homelab-instance.git
 valuesRepoURL: ""
 targetRevision: main
 
-# Helm registries an entry can take its chart from (`catalog:` in core.yaml).
-# The AppProject must allow the same string (values/core/ohmlab.yaml).
+# Where the charts come from (`catalog:` in core.yaml / tenant.yaml). The
+# AppProjects must allow the same strings (values/core/ohmlab.yaml).
 catalogs:
+  # The published bootstrap chart, pinned in core.yaml.
   ohmlab: ghcr.io/this-is-tobi/charts
+  # Every other chart: argo-cd/apps of the ohmlab repository.
+  ohmlabCatalog:
+    repoURL: https://github.com/this-is-tobi/ohmlab.git
+    version: main
+defaultCatalog: ohmlabCatalog
 
 projects:
   core: admin-core
