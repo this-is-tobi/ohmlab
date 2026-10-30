@@ -15,7 +15,7 @@ on:
       product-repository:
         description: The product repository (owner/name)
         type: string
-        default: this-is-tobi/homelab
+        default: this-is-tobi/ohmlab
       instances-path:
         description: Path of the instance folders in the caller's repository
         type: string
