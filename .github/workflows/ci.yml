@@ -24,7 +24,7 @@ jobs:
     with:
       GROUPS: >-
         {"utils": ["utils/*", "scripts/ci/utils-test-env*"],
-        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
+        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
         "controller": ["utils/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/utils-test-env*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
@@ -207,6 +207,8 @@ jobs:
         run: scripts/ci/check-vault-seeds.sh
       - name: Test that the instance checks read INSTANCES_DIR
         run: scripts/ci/test-instances-dir.sh
+      - name: Test the render of every app an instance enables
+        run: scripts/ci/test-render-instance.sh
       - name: Check that every image pin is one Kyverno verifies
         run: scripts/ci/check-image-pins.sh
       - name: Check that every chart can read its secrets from Vault
@@ -379,6 +381,21 @@ jobs:
       ref: ${{ github.event.pull_request.head.sha || github.sha }}
       product-repository: ${{ github.repository }}
 
+  # The homelab instance takes its charts from this repository's main: its
+  # values are checked against this change before the merge brings it to that
+  # cluster.
+  validate-homelab:
+    needs: classify
+    if: ${{ fromJSON(needs.classify.outputs.groups).charts || fromJSON(needs.classify.outputs.groups).shell || fromJSON(needs.classify.outputs.groups).ci }}
+    uses: ./.github/workflows/validate-instance.yml
+    permissions:
+      contents: read
+    with:
+      ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      product-repository: ${{ github.repository }}
+      instance-repository: this-is-tobi/homelab-instance
+      instance-ref: main
+
   # The controller image is the `controller` stage of the same Dockerfile.
   build-controller-image:
     needs: classify
@@ -478,6 +495,7 @@ jobs:
       - scan-controller-image
       - e2e-controller
       - validate-instance
+      - validate-homelab
       - gitleaks
       - lint-commits
       - workflow-permissions
