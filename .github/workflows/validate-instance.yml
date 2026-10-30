@@ -4,7 +4,9 @@ name: Validate an instance
 # repository of its own: the caller's repository holds the instance folders,
 # and the checks come from the product at the revision the instance consumes,
 # so they always match the charts it deploys. This repository runs it on its
-# own instances too (ci.yml, job validate-instance).
+# own instances too (ci.yml, job validate-instance), and on an instance
+# repository that follows its main (job validate-homelab), against each change
+# before it is merged.
 on:
   workflow_call:
     inputs:
@@ -17,9 +19,17 @@ on:
         type: string
         default: this-is-tobi/ohmlab
       instances-path:
-        description: Path of the instance folders in the caller's repository
+        description: Path of the instance folders in the instance repository
         type: string
         default: argo-cd/instances
+      instance-repository:
+        description: The instance repository (owner/name); empty for the caller's
+        type: string
+        default: ""
+      instance-ref:
+        description: Revision of the instance repository; empty for the event's own (the caller) or the default branch
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -35,6 +45,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          repository: ${{ inputs.instance-repository || github.repository }}
+          ref: ${{ inputs.instance-ref }}
           path: instance
       - uses: actions/checkout@v7
         with:
@@ -70,3 +82,5 @@ jobs:
         run: scripts/ci/check-vault-seeds.sh
       - name: Check that Vault-managed Secrets carry only their own keys
         run: scripts/ci/check-vso-isolation.sh
+      - name: Render every app the instance enables with its values
+        run: scripts/ci/render-instance.sh
