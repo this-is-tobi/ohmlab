@@ -21,7 +21,7 @@ Following tools need to be installed on the computer running the deployment:
 
 ```sh
 # Clone the repository
-git clone --depth 1 https://github.com/this-is-tobi/homelab.git && cd ./homelab && rm -rf ./.git
+git clone --depth 1 https://github.com/this-is-tobi/ohmlab.git && cd ./ohmlab && rm -rf ./.git
 
 # Copy inventory example to inventory
 cp -R ./ansible/inventory-example ./ansible/inventory
@@ -123,7 +123,7 @@ Where the charts come from is the instance's choice, declared once in `instance.
 # argo-cd/instances/<instance>/instance.yaml
 catalogs:
   release:
-    repoURL: https://github.com/this-is-tobi/homelab.git
+    repoURL: https://github.com/this-is-tobi/ohmlab.git
     version: v0.1.0
 defaultCatalog: release # every entry without `catalog:` comes from it
 
@@ -531,7 +531,7 @@ If you need to keep the chart catalog public while keeping per-instance values (
 
 ```yaml
 # argo-cd/instances/<inst>/instance.yaml
-repoURL: https://github.com/this-is-tobi/homelab.git # public: charts + this file
+repoURL: https://github.com/this-is-tobi/ohmlab.git # public: charts + this file
 valuesRepoURL: https://github.com/<you>/homelab-private.git # private: values tree only
 targetRevision: main
 ```
@@ -563,7 +563,7 @@ The product (the charts and the `instance-manager` chart) and an instance (its `
 # argo-cd/instances/<inst>/values/core/ohmlab.yaml (the bootstrap chart)
 rootManager:
   repoURL:
-    sources: https://github.com/this-is-tobi/homelab.git # the instance-manager chart: a git URL, or oci://<registry>/<path>/catalog
+    sources: https://github.com/this-is-tobi/ohmlab.git # the instance-manager chart: a git URL, or oci://<registry>/<path>/catalog
     values: https://github.com/<you>/<instance-repo>.git  # where argo-cd/instances/* lives
   sourcesRevision: ""  # revision of `sources` alone: a git revision, or the exact version of an oci:// bundle
   targetRevision: main # revision of the values repository
@@ -576,7 +576,7 @@ The instance then takes its tier files and values from its own repository and it
 repoURL: https://github.com/<you>/<instance-repo>.git # this file, core.yaml, tenant.yaml and the values
 catalogs:
   product:
-    repoURL: https://github.com/this-is-tobi/homelab.git # or oci://<registry>/<path>/catalog
+    repoURL: https://github.com/this-is-tobi/ohmlab.git # or oci://<registry>/<path>/catalog
     version: main                                        # a git revision, or the exact bundle version
 defaultCatalog: product
 ```
