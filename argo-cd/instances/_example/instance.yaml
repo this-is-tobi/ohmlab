@@ -40,7 +40,7 @@ destination:
 # Git source for the chart catalog (argo-cd/apps/) AND the metadata files
 # (instance.yaml + core.yaml + tenant.yaml). By default values also live in
 # this repo, alongside this file under ./values/{core,tenant}/.
-repoURL: https://github.com/this-is-tobi/homelab.git
+repoURL: https://github.com/this-is-tobi/ohmlab.git
 
 # Optional: separate git repository holding only the values tree. When set,
 # the child AppSets attach a second `$values` source pointing at this repo.
@@ -64,7 +64,7 @@ targetRevision: main
 # (see values/core/ohmlab.yaml).
 # catalogs:
 #   release:
-#     repoURL: https://github.com/this-is-tobi/homelab.git
+#     repoURL: https://github.com/this-is-tobi/ohmlab.git
 #     version: v0.1.0
 #   ohmlab: ghcr.io/this-is-tobi/charts
 #

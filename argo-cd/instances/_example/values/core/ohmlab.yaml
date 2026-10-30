@@ -28,7 +28,7 @@ rootManager:
   enabled: true
   repoURL:
     # Repo holding the `argo-cd/` tree (charts + instances + values).
-    sources: https://github.com/this-is-tobi/homelab.git
+    sources: https://github.com/this-is-tobi/ohmlab.git
     # Optional separate values repo. Defaults to `sources`.
     values: ""
   targetRevision: main

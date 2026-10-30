@@ -15,7 +15,7 @@ Make sure all prerequisites are met (check the installation section if needed).
 __Setup directory:__
 ```sh
 # Clone the repository
-git clone --depth 1 https://github.com/this-is-tobi/homelab.git && cd ./homelab && rm -rf ./.git && git init
+git clone --depth 1 https://github.com/this-is-tobi/ohmlab.git && cd ./ohmlab && rm -rf ./.git && git init
 
 # Copy inventory example to inventory
 cp -R ./ansible/inventory-example ./ansible/inventory
