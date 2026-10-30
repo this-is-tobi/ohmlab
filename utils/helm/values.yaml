@@ -341,7 +341,7 @@ rootManager:
     # -- Where the `instance-manager` chart comes from: a git repository, or an
     # `oci://` bundle with the layout of this repository (the chart is read at
     # `argo-cd/apps/instance-manager`).
-    sources: "https://github.com/this-is-tobi/homelab.git"
+    sources: "https://github.com/this-is-tobi/ohmlab.git"
     # -- Git repository holding `argo-cd/instances/*`: the instances are
     # discovered there and their `instance.yaml` read from it. Defaults to
     # `sources`; required when `sources` is an `oci://` bundle.
