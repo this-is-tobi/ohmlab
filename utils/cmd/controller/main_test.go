@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/this-is-tobi/homelab/utils/internal/buildinfo"
+	"github.com/this-is-tobi/ohmlab/utils/internal/buildinfo"
 )
 
 func runArgs(t *testing.T, args ...string) (int, string, string) {

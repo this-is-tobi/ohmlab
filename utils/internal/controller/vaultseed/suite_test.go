@@ -25,9 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	v1alpha1 "github.com/this-is-tobi/homelab/utils/api/v1alpha1"
-	"github.com/this-is-tobi/homelab/utils/internal/controller/metrics"
-	"github.com/this-is-tobi/homelab/utils/internal/seed/seedtest"
+	v1alpha1 "github.com/this-is-tobi/ohmlab/utils/api/v1alpha1"
+	"github.com/this-is-tobi/ohmlab/utils/internal/controller/metrics"
+	"github.com/this-is-tobi/ohmlab/utils/internal/seed/seedtest"
 )
 
 // The suite runs a real API server (envtest) against the generated CRD and the

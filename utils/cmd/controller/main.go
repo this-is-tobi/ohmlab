@@ -20,12 +20,12 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	v1alpha1 "github.com/this-is-tobi/homelab/utils/api/v1alpha1"
-	"github.com/this-is-tobi/homelab/utils/internal/buildinfo"
-	"github.com/this-is-tobi/homelab/utils/internal/controller/config"
-	"github.com/this-is-tobi/homelab/utils/internal/controller/metrics"
-	ctrlruntime "github.com/this-is-tobi/homelab/utils/internal/controller/runtime"
-	"github.com/this-is-tobi/homelab/utils/internal/controller/vaultseed"
+	v1alpha1 "github.com/this-is-tobi/ohmlab/utils/api/v1alpha1"
+	"github.com/this-is-tobi/ohmlab/utils/internal/buildinfo"
+	"github.com/this-is-tobi/ohmlab/utils/internal/controller/config"
+	"github.com/this-is-tobi/ohmlab/utils/internal/controller/metrics"
+	ctrlruntime "github.com/this-is-tobi/ohmlab/utils/internal/controller/runtime"
+	"github.com/this-is-tobi/ohmlab/utils/internal/controller/vaultseed"
 )
 
 func main() {

@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/this-is-tobi/homelab/utils/internal/seed/seedtest"
-	"github.com/this-is-tobi/homelab/utils/internal/vault"
+	"github.com/this-is-tobi/ohmlab/utils/internal/seed/seedtest"
+	"github.com/this-is-tobi/ohmlab/utils/internal/vault"
 )
 
 const (

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	harborclient "github.com/this-is-tobi/homelab/utils/internal/harbor"
-	"github.com/this-is-tobi/homelab/utils/internal/k8s"
+	harborclient "github.com/this-is-tobi/ohmlab/utils/internal/harbor"
+	"github.com/this-is-tobi/ohmlab/utils/internal/k8s"
 )
 
 var configCmd = &cobra.Command{

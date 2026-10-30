@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/this-is-tobi/homelab/utils/internal/check"
-	"github.com/this-is-tobi/homelab/utils/internal/k8s"
+	"github.com/this-is-tobi/ohmlab/utils/internal/check"
+	"github.com/this-is-tobi/ohmlab/utils/internal/k8s"
 )
 
 var checkKubeconfig string

@@ -25,10 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/recorder"
 
-	v1alpha1 "github.com/this-is-tobi/homelab/utils/api/v1alpha1"
-	"github.com/this-is-tobi/homelab/utils/internal/controller/metrics"
-	"github.com/this-is-tobi/homelab/utils/internal/seed"
-	"github.com/this-is-tobi/homelab/utils/internal/vault"
+	v1alpha1 "github.com/this-is-tobi/ohmlab/utils/api/v1alpha1"
+	"github.com/this-is-tobi/ohmlab/utils/internal/controller/metrics"
+	"github.com/this-is-tobi/ohmlab/utils/internal/seed"
+	"github.com/this-is-tobi/ohmlab/utils/internal/vault"
 )
 
 const (

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/this-is-tobi/homelab/utils/cmd"
+	"github.com/this-is-tobi/ohmlab/utils/cmd"
 )
 
 func main() {

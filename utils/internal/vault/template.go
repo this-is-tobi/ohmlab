@@ -3,7 +3,7 @@ package vault
 import (
 	"fmt"
 
-	"github.com/this-is-tobi/homelab/utils/internal/secretgen"
+	"github.com/this-is-tobi/ohmlab/utils/internal/secretgen"
 )
 
 // TemplateEngine processes placeholder strings in secret data.

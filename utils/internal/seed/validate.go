@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/this-is-tobi/homelab/utils/internal/secretgen"
+	"github.com/this-is-tobi/ohmlab/utils/internal/secretgen"
 )
 
 // Validate checks a declaration without reading or writing anything: the

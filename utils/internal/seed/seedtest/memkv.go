@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/this-is-tobi/homelab/utils/internal/vault"
+	"github.com/this-is-tobi/ohmlab/utils/internal/vault"
 )
 
 type entry struct {

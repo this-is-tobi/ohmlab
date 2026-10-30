@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/this-is-tobi/homelab/utils/internal/k8s"
-	sonarqubeclient "github.com/this-is-tobi/homelab/utils/internal/sonarqube"
+	"github.com/this-is-tobi/ohmlab/utils/internal/k8s"
+	sonarqubeclient "github.com/this-is-tobi/ohmlab/utils/internal/sonarqube"
 )
 
 var configCmd = &cobra.Command{

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/this-is-tobi/homelab/utils/internal/vault"
+	"github.com/this-is-tobi/ohmlab/utils/internal/vault"
 )
 
 // A real Vault, for the tests that check what the in-memory KV only imitates.

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/this-is-tobi/homelab/utils/cmd/vault"
+	"github.com/this-is-tobi/ohmlab/utils/cmd/vault"
 )
 
 func init() {
