@@ -1,11 +1,14 @@
 ---
+# vars_files come from the inventory in use (ansible.cfg's ./inventory, or the
+# directory in ANSIBLE_INVENTORY): a path relative to this playbook would read
+# the product's copy, and vars_files outrank the inventory's own group_vars.
 # All
 - name: OS Upgrade
   hosts: all
   become: true
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
   serial: 1
   roles:
     - role: common/upgrade
@@ -18,8 +21,8 @@
   hosts: all
   become: true
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
   serial: 1
   roles:
     - role: common/dist-upgrade
@@ -32,9 +35,9 @@
   hosts: gateway
   become: true
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
-    - ./inventory/group_vars/gateway.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/gateway.yml"
   pre_tasks:
     - name: Gather facts
       ansible.builtin.setup:
@@ -66,9 +69,9 @@
   hosts: k3s
   become: true
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
-    - ./inventory/group_vars/k3s.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   pre_tasks:
     - name: Gather facts
       ansible.builtin.setup:
@@ -100,9 +103,9 @@
   become: true
   serial: 1
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
-    - ./inventory/group_vars/k3s.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   roles:
     - role: k3s/deploy/masters
   tags:
@@ -118,9 +121,9 @@
   hosts: masters[0]
   become: true
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
-    - ./inventory/group_vars/k3s.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   roles:
     - role: k3s/cni
       when: k3sCni | default('flannel') == 'cilium'
@@ -134,9 +137,9 @@
   become: true
   serial: 1
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
-    - ./inventory/group_vars/k3s.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   roles:
     - role: k3s/deploy/workers
   tags:
@@ -150,11 +153,11 @@
   environment:
     K8S_AUTH_KUBECONFIG: "{{ K8S_AUTH_KUBECONFIG }}"
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
     # localhost is not in the k3s group: load its group_vars explicitly for
     # k3sApiServerEndpoint / k3sCaData used by the kubeconfig template.
-    - ./inventory/group_vars/k3s.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   roles:
     - role: k3s/users
   tags:
@@ -170,9 +173,9 @@
   hosts: k3s
   become: true
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
-    - ./inventory/group_vars/k3s.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   roles:
     - role: k3s/destroy
   tags:
@@ -185,9 +188,9 @@
   hosts: k3s
   become: true
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
-    - ./inventory/group_vars/k3s.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   tasks:
     # include_role (NOT include_tasks): preserves role context so the
     # templates/ lookup resolves — include_tasks from a play searches only
@@ -207,9 +210,9 @@
   become: true
   serial: 1
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
-    - ./inventory/group_vars/k3s.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   tasks:
     # include_role (NOT include_tasks): same template-resolution reason
     # as the watchdog play above.
@@ -229,8 +232,8 @@
   become: true
   serial: 1
   vars_files:
-    - ./inventory/group_vars/vault.yml
-    - ./inventory/group_vars/all.yml
+    - "{{ ansible_inventory_sources | first }}/group_vars/vault.yml"
+    - "{{ ansible_inventory_sources | first }}/group_vars/all.yml"
   roles:
     - role: common/kernel-upgrade
   tags:
