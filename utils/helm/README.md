@@ -14,7 +14,7 @@ A Helm chart to deploy ohmlab.
 
 ## Source Code
 
-* <https://github.com/this-is-tobi/homelab>
+* <https://github.com/this-is-tobi/ohmlab>
 
 ## Requirements
 
@@ -230,7 +230,7 @@ A Helm chart to deploy ohmlab.
 | projects.tenant.sourceNamespaces | list | `[]` |  |
 | projects.tenant.sourceRepos | list | `[]` | Repositories the project's Applications may take sources from. Empty: derived like the `core` project's. |
 | rootManager.enabled | bool | `true` | Enable the root `manager` ApplicationSet that discovers every instance under `argo-cd/instances/*` and renders one per-instance Application pointing at the `instance-manager` chart. |
-| rootManager.repoURL.sources | string | `"https://github.com/this-is-tobi/homelab.git"` | Where the `instance-manager` chart comes from: a git repository, or an `oci://` bundle with the layout of this repository (the chart is read at `argo-cd/apps/instance-manager`). |
+| rootManager.repoURL.sources | string | `"https://github.com/this-is-tobi/ohmlab.git"` | Where the `instance-manager` chart comes from: a git repository, or an `oci://` bundle with the layout of this repository (the chart is read at `argo-cd/apps/instance-manager`). |
 | rootManager.repoURL.values | string | `""` | Git repository holding `argo-cd/instances/*`: the instances are discovered there and their `instance.yaml` read from it. Defaults to `sources`; required when `sources` is an `oci://` bundle. |
 | rootManager.sourcesRevision | string | `""` | Revision of `sources` alone: a git revision, or the exact version of an `oci://` bundle (required then). Defaults to `targetRevision`. |
 | rootManager.targetRevision | string | `"main"` | Git revision (branch, tag, commit) of the `values` repository, and of `sources` when `sourcesRevision` is empty. |
