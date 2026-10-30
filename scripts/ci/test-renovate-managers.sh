@@ -57,7 +57,7 @@ projects:
 check "a git bundle is left alone" "" \
   'catalogs:
   release:
-    repoURL: https://github.com/this-is-tobi/homelab.git
+    repoURL: https://github.com/this-is-tobi/ohmlab.git
     version: 0.1.0'
 
 check "a registry catalog (a string) is left alone" "" \
