@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/this-is-tobi/homelab/utils/internal/controller/metrics"
-	"github.com/this-is-tobi/homelab/utils/internal/seed"
-	"github.com/this-is-tobi/homelab/utils/internal/vault"
+	"github.com/this-is-tobi/ohmlab/utils/internal/controller/metrics"
+	"github.com/this-is-tobi/ohmlab/utils/internal/seed"
+	"github.com/this-is-tobi/ohmlab/utils/internal/vault"
 )
 
 // KV is what the reconciler asks of Vault. *vault.Client implements it.

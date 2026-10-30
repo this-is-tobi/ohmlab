@@ -23,16 +23,16 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-s -w \
-      -X github.com/this-is-tobi/homelab/utils/cmd.version=${VERSION} \
-      -X github.com/this-is-tobi/homelab/utils/cmd.commit=${COMMIT} \
-      -X github.com/this-is-tobi/homelab/utils/cmd.date=${BUILD_DATE}" \
+      -X github.com/this-is-tobi/ohmlab/utils/cmd.version=${VERSION} \
+      -X github.com/this-is-tobi/ohmlab/utils/cmd.commit=${COMMIT} \
+      -X github.com/this-is-tobi/ohmlab/utils/cmd.date=${BUILD_DATE}" \
     -o /ohmlab .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -trimpath \
     -ldflags="-s -w \
-      -X github.com/this-is-tobi/homelab/utils/internal/buildinfo.Version=${VERSION} \
-      -X github.com/this-is-tobi/homelab/utils/internal/buildinfo.Commit=${COMMIT} \
-      -X github.com/this-is-tobi/homelab/utils/internal/buildinfo.Date=${BUILD_DATE}" \
+      -X github.com/this-is-tobi/ohmlab/utils/internal/buildinfo.Version=${VERSION} \
+      -X github.com/this-is-tobi/ohmlab/utils/internal/buildinfo.Commit=${COMMIT} \
+      -X github.com/this-is-tobi/ohmlab/utils/internal/buildinfo.Date=${BUILD_DATE}" \
     -o /ohmlab-controller ./cmd/controller
 
 # =============================================================================

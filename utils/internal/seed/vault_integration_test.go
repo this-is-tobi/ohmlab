@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/this-is-tobi/homelab/utils/internal/secretgen"
-	"github.com/this-is-tobi/homelab/utils/internal/vault"
+	"github.com/this-is-tobi/ohmlab/utils/internal/secretgen"
+	"github.com/this-is-tobi/ohmlab/utils/internal/vault"
 )
 
 func TestVaultCreatesThenSettlesUnderTheControllerPolicy(t *testing.T) {

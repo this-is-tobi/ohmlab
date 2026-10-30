@@ -10,7 +10,7 @@ import (
 // be able to reach the credentials of another: the Harbor and SonarQube
 // packages may not import anything of Vault's, and Vault's may not import
 // theirs. The module path is stable (it is the module's, see go.mod).
-const module = "github.com/this-is-tobi/homelab/utils/"
+const module = "github.com/this-is-tobi/ohmlab/utils/"
 
 var vaultSide = []string{
 	"internal/vault", "internal/seed", "internal/secretgen",

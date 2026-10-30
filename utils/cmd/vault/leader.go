@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/spf13/cobra"
-	vaultclient "github.com/this-is-tobi/homelab/utils/internal/vault"
+	vaultclient "github.com/this-is-tobi/ohmlab/utils/internal/vault"
 )
 
 var leaderCmd = &cobra.Command{

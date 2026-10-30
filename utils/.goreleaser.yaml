@@ -18,9 +18,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/this-is-tobi/homelab/utils/cmd.version={{ .Version }}
-      - -X github.com/this-is-tobi/homelab/utils/cmd.commit={{ .FullCommit }}
-      - -X github.com/this-is-tobi/homelab/utils/cmd.date={{ .Date }}
+      - -X github.com/this-is-tobi/ohmlab/utils/cmd.version={{ .Version }}
+      - -X github.com/this-is-tobi/ohmlab/utils/cmd.commit={{ .FullCommit }}
+      - -X github.com/this-is-tobi/ohmlab/utils/cmd.date={{ .Date }}
 
 archives:
   - formats:

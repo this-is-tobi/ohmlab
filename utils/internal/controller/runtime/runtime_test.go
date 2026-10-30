@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	v1alpha1 "github.com/this-is-tobi/homelab/utils/api/v1alpha1"
+	v1alpha1 "github.com/this-is-tobi/ohmlab/utils/api/v1alpha1"
 )
 
 var (

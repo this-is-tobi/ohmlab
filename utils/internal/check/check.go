@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/this-is-tobi/homelab/utils/internal/k8s"
+	"github.com/this-is-tobi/ohmlab/utils/internal/k8s"
 )
 
 // Finding is one detected problem.

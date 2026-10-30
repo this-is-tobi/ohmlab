@@ -1,4 +1,4 @@
-module github.com/this-is-tobi/homelab/utils
+module github.com/this-is-tobi/ohmlab/utils
 
 go 1.26.0
 

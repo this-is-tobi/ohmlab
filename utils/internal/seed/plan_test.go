@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/this-is-tobi/homelab/utils/internal/secretgen"
+	"github.com/this-is-tobi/ohmlab/utils/internal/secretgen"
 )
 
 const owner = "vault-operator-system/keycloak"

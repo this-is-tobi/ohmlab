@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/this-is-tobi/homelab/utils/internal/secretgen"
+	"github.com/this-is-tobi/ohmlab/utils/internal/secretgen"
 )
 
 // Markers the controller keeps in the custom_metadata of a path.

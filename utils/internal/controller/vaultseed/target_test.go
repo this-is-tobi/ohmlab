@@ -10,8 +10,8 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1alpha1 "github.com/this-is-tobi/homelab/utils/api/v1alpha1"
-	"github.com/this-is-tobi/homelab/utils/internal/controller/metrics"
+	v1alpha1 "github.com/this-is-tobi/ohmlab/utils/api/v1alpha1"
+	"github.com/this-is-tobi/ohmlab/utils/internal/controller/metrics"
 )
 
 func TestACRDAtAnotherRevisionRaisesTheMismatchGauge(t *testing.T) {

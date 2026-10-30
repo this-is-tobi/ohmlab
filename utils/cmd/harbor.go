@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/this-is-tobi/homelab/utils/cmd/harbor"
+	"github.com/this-is-tobi/ohmlab/utils/cmd/harbor"
 )
 
 func init() {
