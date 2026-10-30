@@ -29,7 +29,7 @@ case "$1" in
     echo '[]' ;;
   verify-attestation)
     [ "${COSIGN_FAIL:-}" = provenance ] && { echo "no matching attestations" >&2; exit 1; }
-    printf '{"payload":"%s"}\n' "$(jq -nc --arg d "${STATEMENT_DIGEST:-$FIXTURE_DIGEST}" --arg r "${STATEMENT_REPO:-https://github.com/this-is-tobi/homelab}" \
+    printf '{"payload":"%s"}\n' "$(jq -nc --arg d "${STATEMENT_DIGEST:-$FIXTURE_DIGEST}" --arg r "${STATEMENT_REPO:-https://github.com/this-is-tobi/ohmlab}" \
       '{subject:[{digest:{sha256:$d}}],predicate:{buildDefinition:{externalParameters:{workflow:{repository:$r}}}}}' | base64 | tr -d '\n')" ;;
 esac
 STUB
@@ -47,7 +47,7 @@ reset() {
   unset ORAS_FAIL COSIGN_FAIL STATEMENT_REPO STATEMENT_DIGEST
 }
 run() { # run <ref> <version> -> $out, $rc
-  out=$(PATH="$dir/bin:$PATH" FIXTURES="$dir" FIXTURE_DIGEST="$DIGEST" REPO=this-is-tobi/homelab DOCKER_CONFIG="$dir/credentials" "$SCRIPT" "$1" "$2" 2>&1)
+  out=$(PATH="$dir/bin:$PATH" FIXTURES="$dir" FIXTURE_DIGEST="$DIGEST" REPO=this-is-tobi/ohmlab DOCKER_CONFIG="$dir/credentials" "$SCRIPT" "$1" "$2" 2>&1)
   rc=$?
 }
 expect() { # expect <label> <exit> [pattern in the output]
@@ -61,7 +61,7 @@ expect() { # expect <label> <exit> [pattern in the output]
 }
 
 reset; run "$REF" 0.2.0
-expect "a signed, attested, multi-platform image passes" 0 "build provenance names this-is-tobi/homelab"
+expect "a signed, attested, multi-platform image passes" 0 "build provenance names this-is-tobi/ohmlab"
 
 reset; run "ghcr.io/this-is-tobi/ohmlab/controller:0.2.0" 0.2.0
 expect "a tag instead of a digest is refused" 1 "pinned by digest"
@@ -92,9 +92,9 @@ reset; COSIGN_FAIL=provenance run "$REF" 0.2.0
 expect "an image without provenance is refused" 1 "provenance does not verify"
 
 reset; STATEMENT_REPO=https://github.com/someone/else run "$REF" 0.2.0
-expect "a provenance naming another repository is refused" 1 "must name this-is-tobi/homelab"
+expect "a provenance naming another repository is refused" 1 "must name this-is-tobi/ohmlab"
 
 reset; STATEMENT_DIGEST=$(printf 'b%.0s' $(seq 64)) run "$REF" 0.2.0
-expect "a provenance for another digest is refused" 1 "must name this-is-tobi/homelab"
+expect "a provenance for another digest is refused" 1 "must name this-is-tobi/ohmlab"
 
 exit "$fail"
