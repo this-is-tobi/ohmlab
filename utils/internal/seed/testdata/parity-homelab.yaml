@@ -1,5 +1,5 @@
 # The secrets a real instance declares (the homelab, which lives in
-# this-is-tobi/homelab-instance): the parity test runs both seeding engines on
+# this-is-tobi/homelab): the parity test runs both seeding engines on
 # them. Declarations only (paths, generators, references), no secret value.
 ohmlab:
   vault:

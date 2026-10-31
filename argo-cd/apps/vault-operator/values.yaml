@@ -459,7 +459,7 @@ vault:
     # Role: 'admin' — only members of the Keycloak '/admin' group can log in.
     # Disabled by default — instances turn it on and provide discovery URL +
     # redirect URIs (see values/core/vault-operator.yaml of the homelab
-    # instance, https://github.com/this-is-tobi/homelab-instance).
+    # instance, https://github.com/this-is-tobi/homelab).
     oidcEnabled: false
     oidcDiscoveryUrl: ""
     oidcClientId: "vault-core"

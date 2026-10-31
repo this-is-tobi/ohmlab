@@ -6,7 +6,7 @@ ohmlab is a GitOps kit to run a self-hosted platform on Kubernetes:
 - a **catalog** of charts (identity, secrets, storage, observability, security, developer tools) that each instance enables and configures
 - a **controller** that seeds the secrets the apps need into Vault
 
-A cluster's own configuration lives in an instance: which apps it runs, with which values, on which machines. An instance can sit in a clone of this repository or in a repository of its own; [this-is-tobi/homelab-instance](https://github.com/this-is-tobi/homelab-instance) is the reference deployment.
+A cluster's own configuration lives in an instance: which apps it runs, with which values, on which machines. An instance can sit in a clone of this repository or in a repository of its own; [this-is-tobi/homelab](https://github.com/this-is-tobi/homelab) is the reference deployment.
 
 The two halves are independent: if you already have a cluster (managed Kubernetes or otherwise), skip Ansible and use the GitOps layer on its own — it only needs a kubeconfig. See [Using an existing cluster](./docs/03-installation.md#using-an-existing-cluster).
 
