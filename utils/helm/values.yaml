@@ -65,7 +65,7 @@ argo-cd:
       # then the cert-manager issued `argocd-server-tls` secret once the ingress
       # is enabled). Instance ingress must set the APISIX upstream-scheme
       # annotation — see values/core/ohmlab.yaml of the homelab instance,
-      # https://github.com/this-is-tobi/homelab-instance.
+      # https://github.com/this-is-tobi/homelab.
       server.insecure: false
       # Feature gate for ApplicationSet RollingSync. Inert until an
       # instance-manager release opts in via `progressiveSync.enabled: true`

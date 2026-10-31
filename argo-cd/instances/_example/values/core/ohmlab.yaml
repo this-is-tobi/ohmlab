@@ -1,5 +1,5 @@
 # ohmlab wrapper values — TEMPLATE (see values/core/ohmlab.yaml of the homelab
-# instance, https://github.com/this-is-tobi/homelab-instance, for a real, working example).
+# instance, https://github.com/this-is-tobi/homelab, for a real, working example).
 #
 # Owns:
 # - The CORE ArgoCD installation (in argocd-system namespace)

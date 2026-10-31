@@ -100,7 +100,7 @@ k3sCniChartValues: ""
 #
 # false: no LoadBalancer controller at all. Expose ingress another way —
 #   e.g. a static `spec.externalIPs` list on the ingress Service (see
-#   values/core/traefik.yaml of the homelab instance, https://github.com/this-is-tobi/homelab-instance,
+#   values/core/traefik.yaml of the homelab instance, https://github.com/this-is-tobi/homelab,
 #   for a worked example), MetalLB, or Cilium's own LB-IPAM.
 #   Worth knowing if you run Cilium: ServiceLB publishes every node IP into
 #   each LoadBalancer Service's status, and Cilium ingests those as LB VIPs,

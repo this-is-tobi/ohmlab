@@ -2,7 +2,7 @@
 
 ## Hardware
 
-Any equipment can be used, arm64 or amd64. The reference deployment runs on Raspberry Pi 4 boards with USB disks for Longhorn; its hardware is described in the [homelab instance](https://github.com/this-is-tobi/homelab-instance/blob/main/docs/hardware.md).
+Any equipment can be used, arm64 or amd64. The reference deployment runs on Raspberry Pi 4 boards with USB disks for Longhorn; its hardware is described in the [homelab instance](https://github.com/this-is-tobi/homelab/blob/main/docs/hardware.md).
 
 ## Operating System
 
