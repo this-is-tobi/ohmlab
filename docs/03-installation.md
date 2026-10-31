@@ -175,6 +175,23 @@ The chart name is the entry's `chart` (default: the app name) and the values sti
 - The manager chart reads `catalogs` from `instance.yaml` while the ApplicationSet reads the entries from `core.yaml` / `tenant.yaml`, on separate refreshes. An entry added in the same commit as its catalog can therefore show `Unknown` (invalid, nothing deployed or removed) for a few minutes until both have caught up. Declaring the catalog in an earlier change avoids it.
 - The `ohmlab` pin of an instance is bumped by Renovate (`renovate.json` watches the registry): merging its pull request is what updates the self-managed Argo CD.
 
+#### Names
+
+A few names the product gives are hard to change on a running cluster: the Vault KV mount that holds the platform secrets (a new mount starts empty), the Gateways (a renamed Gateway is recreated, with its address and certificates), and the realm name Keycloak shows. An instance can set them once in `instance.yaml`, and they then stay the same whatever the product's defaults become:
+
+```yaml
+# argo-cd/instances/<instance>/instance.yaml
+names:
+  vaultMount: homelab                       # KV v2 mount: policies, secrets engine, VSO and controller mounts
+  gateway: homelab-gateway                  # APISIX or Cilium Gateway, and the default parent of every route
+  traefikGateway: homelab-gateway-traefik   # Traefik Gateway
+  keycloakRealmDisplayName: Homelab         # realm name on the Keycloak pages
+```
+
+- Every Application of the instance gets them as Helm parameters, `global.ohmlab.names.<key>`. A chart takes its own explicit value first (for example `gateway.gatewayName` in an app's values), then the instance's name, then its default.
+- A key the product does not read, an empty name, or a name with quotes, backslashes or braces fails the render of the manager chart instead of leaving a default in place.
+- Set the names an existing cluster already uses before upgrading to a version that changes a default. Every pull request of this repository renders the reference instance with the charts before and after the change, and fails on any object that would be deleted or renamed.
+
 > **`syncWave` semantics**: on an AppSet-generated Application, the sync-wave annotation alone orders **nothing** — apps sync in parallel and converge by retry. To actually enforce the ordering, enable progressive sync (`progressiveSync.enabled: true` in the `instance-manager` chart values); it maps waves onto ApplicationSet `RollingSync` steps. Requires the alpha `ApplicationSetProgressiveSyncs` feature gate, which the `ohmlab` chart enables on the core ArgoCD. It also turns automated sync off on the generated Applications: the ApplicationSet controller syncs an app again only when its revision changes, so drift at the same commit (a hand edit, a chart that renders more once a CRD exists) waits for the next commit or a manual sync.
 
 ### What the apps expect from each other

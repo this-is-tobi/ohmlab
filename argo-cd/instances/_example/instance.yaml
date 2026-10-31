@@ -72,6 +72,15 @@ targetRevision: main
 # with `catalog: git`.
 # defaultCatalog: release
 
+# Names the instance keeps whatever the product's defaults are: the Vault KV
+# mount of the secrets, the Gateways, the realm name Keycloak shows. A new
+# instance can leave them out; a running cluster pins the ones it uses.
+# names:
+#   vaultMount: mylab
+#   gateway: mylab-gateway
+#   traefikGateway: mylab-gateway-traefik
+#   keycloakRealmDisplayName: My lab
+
 # AppProject bindings for the two child AppSets. Both projects are created by
 # the `ohmlab` chart at bootstrap time.
 projects:
