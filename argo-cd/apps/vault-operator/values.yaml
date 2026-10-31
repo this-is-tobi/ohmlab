@@ -147,6 +147,10 @@ vault:
     #     # tier is the EXISTING core/tenant split, scoped to this one app's
     #     # KV path — unrelated to this being a spoke cluster entry.
     #     # tier: tenant           # default "+" (any tier)
+    # Each policy's rules go through tpl with .kvMount, the KV mount of the
+    # platform secrets (global.ohmlab.names.vaultMount, else homelab): write a
+    # path as "{{ .kvMount }}/data/...". Vault's own templating has to be
+    # escaped: {{ "{{identity.entity.id}}" }}.
     policies:
     - name: admin
       rules: |
@@ -157,125 +161,125 @@ vault:
         }
     - name: argo-cd
       rules: |
-        path "homelab/data/platforms/+/+/argo-cd" {
+        path "{{ .kvMount }}/data/platforms/+/+/argo-cd" {
           capabilities = ["read", "list"]
         }
     - name: argo-cd-core
       rules: |
         # Same as argo-cd but bound to argocd-system SA (core ArgoCD VSO)
-        path "homelab/data/platforms/+/+/argo-cd" {
+        path "{{ .kvMount }}/data/platforms/+/+/argo-cd" {
           capabilities = ["read", "list"]
         }
     - name: vault
       rules: |
-        path "homelab/data/platforms/+/+/keycloak" {
+        path "{{ .kvMount }}/data/platforms/+/+/keycloak" {
           capabilities = ["read", "list"]
         }
     - name: cert-manager
       rules: |
-        path "homelab/data/platforms/+/+/cert-manager" {
+        path "{{ .kvMount }}/data/platforms/+/+/cert-manager" {
           capabilities = ["read", "list"]
         }
     - name: coder
       rules: |
-        path "homelab/data/platforms/+/+/coder" {
+        path "{{ .kvMount }}/data/platforms/+/+/coder" {
           capabilities = ["read", "list"]
         }
     - name: gitea
       rules: |
-        path "homelab/data/platforms/+/+/gitea" {
+        path "{{ .kvMount }}/data/platforms/+/+/gitea" {
           capabilities = ["read", "list"]
         }
     - name: harbor
       rules: |
-        path "homelab/data/platforms/+/+/harbor" {
+        path "{{ .kvMount }}/data/platforms/+/+/harbor" {
           capabilities = ["read", "list"]
         }
     - name: keycloak
       rules: |
         # Keycloak reads its own secret only — client credentials are centralized
         # under keycloak's path at .clients.<app>.{clientId,clientSecret}
-        path "homelab/data/platforms/+/+/keycloak" {
+        path "{{ .kvMount }}/data/platforms/+/+/keycloak" {
           capabilities = ["read", "list"]
         }
     - name: mattermost
       rules: |
-        path "homelab/data/platforms/+/+/mattermost" {
+        path "{{ .kvMount }}/data/platforms/+/+/mattermost" {
           capabilities = ["read", "list"]
         }
     - name: rustfs
       rules: |
-        path "homelab/data/platforms/+/+/rustfs" {
+        path "{{ .kvMount }}/data/platforms/+/+/rustfs" {
           capabilities = ["read", "list"]
         }
     - name: outline
       rules: |
-        path "homelab/data/platforms/+/+/outline" {
+        path "{{ .kvMount }}/data/platforms/+/+/outline" {
           capabilities = ["read", "list"]
         }
     - name: prometheus-stack
       rules: |
-        path "homelab/data/platforms/+/+/prometheus-stack" {
+        path "{{ .kvMount }}/data/platforms/+/+/prometheus-stack" {
           capabilities = ["read", "list"]
         }
     - name: argo-workflows
       rules: |
-        path "homelab/data/platforms/+/+/argo-workflows" {
+        path "{{ .kvMount }}/data/platforms/+/+/argo-workflows" {
           capabilities = ["read", "list"]
         }
     - name: mlflow
       rules: |
-        path "homelab/data/platforms/+/+/mlflow" {
+        path "{{ .kvMount }}/data/platforms/+/+/mlflow" {
           capabilities = ["read", "list"]
         }
     - name: vaultwarden
       rules: |
-        path "homelab/data/platforms/+/+/vaultwarden" {
+        path "{{ .kvMount }}/data/platforms/+/+/vaultwarden" {
           capabilities = ["read", "list"]
         }
     - name: sonarqube
       rules: |
-        path "homelab/data/platforms/+/+/sonarqube" {
+        path "{{ .kvMount }}/data/platforms/+/+/sonarqube" {
           capabilities = ["read", "list"]
         }
     - name: actions-runner-controller
       rules: |
-        path "homelab/data/platforms/+/+/actions-runner-controller" {
+        path "{{ .kvMount }}/data/platforms/+/+/actions-runner-controller" {
           capabilities = ["read", "list"]
         }
     - name: sops
       rules: |
-        path "homelab/data/platforms/+/+/sops" {
+        path "{{ .kvMount }}/data/platforms/+/+/sops" {
           capabilities = ["read", "list"]
         }
     - name: crowdsec
       rules: |
-        path "homelab/data/platforms/+/+/crowdsec" {
+        path "{{ .kvMount }}/data/platforms/+/+/crowdsec" {
           capabilities = ["read", "list"]
         }
     - name: longhorn
       rules: |
-        path "homelab/data/platforms/+/+/longhorn" {
+        path "{{ .kvMount }}/data/platforms/+/+/longhorn" {
           capabilities = ["read", "list"]
         }
     - name: apisix
       rules: |
-        path "homelab/data/platforms/+/+/apisix" {
+        path "{{ .kvMount }}/data/platforms/+/+/apisix" {
           capabilities = ["read", "list"]
         }
     - name: traefik
       rules: |
-        path "homelab/data/platforms/+/+/traefik" {
+        path "{{ .kvMount }}/data/platforms/+/+/traefik" {
           capabilities = ["read", "list"]
         }
     - name: traefik-dashboard
       rules: |
-        path "homelab/data/platforms/+/+/traefik-dashboard" {
+        path "{{ .kvMount }}/data/platforms/+/+/traefik-dashboard" {
           capabilities = ["read", "list"]
         }
     - name: hubble
       rules: |
-        path "homelab/data/platforms/+/+/hubble" {
+        path "{{ .kvMount }}/data/platforms/+/+/hubble" {
           capabilities = ["read", "list"]
         }
     auth:
@@ -468,10 +472,11 @@ vault:
     oidcBoundGroups:
     - "/admin"
     oidcRedirectUris: []
+    # Rendered through tpl like the policies.
     secrets:
-    - path: homelab
+    - path: "{{ .kvMount }}"
       type: kv
-      description: Homelab secrets KV store
+      description: "{{ .kvMount | title }} secrets KV store"
       options:
         version: 2
   startupSecrets: []
@@ -545,7 +550,9 @@ vaultOidcCredentials:
   # from core/keycloak.clients.vault.clientSecret (generated by initSecrets).
   # The Vault pod picks up VAULT_OIDC_CLIENT_SECRET via extraEnvsConfig (optional: true).
   enabled: true
-  mount: homelab
+  # Empty: the KV mount of the platform secrets (global.ohmlab.names.vaultMount,
+  # else homelab).
+  mount: ""
   path: platforms/production/core/keycloak
 
 vso:
@@ -692,7 +699,9 @@ ohmlab:
     # ohmlab-controller-<deployment>: with a custom grouping, name that one.
     namespace: ohmlab-system
     serviceAccount: ohmlab-controller-vault
-    kvMount: homelab
+    # Empty: the KV mount of the platform secrets (global.ohmlab.names.vaultMount,
+    # else homelab).
+    kvMount: ""
     # Grants delete on the metadata path, for deletionPolicy: Delete. Pair it
     # with targets.vault.allowDelete in the controller's chart.
     allowDelete: false

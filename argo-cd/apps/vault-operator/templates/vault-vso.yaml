@@ -42,7 +42,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   type: kv-v2
-  mount: {{ .Values.vaultOidcCredentials.mount | quote }}
+  mount: {{ .Values.vaultOidcCredentials.mount | default (include "vault-operator.kvMount" .) | quote }}
   path: {{ .Values.vaultOidcCredentials.path | quote }}
   vaultAuthRef: vault-operator-vso-default
   refreshAfter: 1h

@@ -1,4 +1,14 @@
 {{/*
+The KV v2 mount of the platform secrets: the instance's name
+(global.ohmlab.names.vaultMount), else the product default. The policies, the
+secrets engine and the VSO and controller mounts all follow it, unless they
+set their own.
+*/}}
+{{- define "vault-operator.kvMount" -}}
+{{- dig "ohmlab" "names" "vaultMount" "homelab" (.Values.global | default dict) -}}
+{{- end -}}
+
+{{/*
 The Vault policy of the ohmlab controller's Vault target: KV data and metadata
 under platforms/+/+/*, nothing else. No identity, no sys, no policies, no
 mounts, no auth, no tokens. Delete is on the metadata path alone, because
@@ -8,7 +18,7 @@ utils/internal/seed/testdata/controller-policy*.hcl hold the same text, and
 scripts/ci/check-controller-policy.sh keeps the two equal.
 */}}
 {{- define "vault-operator.controllerPolicy" -}}
-{{- $mount := .Values.ohmlab.controller.kvMount -}}
+{{- $mount := .Values.ohmlab.controller.kvMount | default (include "vault-operator.kvMount" .) -}}
 path "{{ $mount }}/data/platforms/+/+/*" {
   capabilities = ["create", "update", "read"]
 }
