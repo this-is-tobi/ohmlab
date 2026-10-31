@@ -57,6 +57,12 @@ while IFS= read -r dir; do
   prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
   suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
   default_catalog=$(yq '.defaultCatalog // "git"' "$dir/instance.yaml")
+  # The names of the instance, given to every app as the manager gives them:
+  # string parameters, commas escaped.
+  names=()
+  while IFS= read -r name; do
+    [ -n "$name" ] && names+=(--set-string "$name")
+  done < <(yq -r '.names // {} | to_entries | .[] | "global.ohmlab.names." + .key + "=" + (.value | sub(","; "\\,"))' "$dir/instance.yaml")
   for tier in core tenant; do
     [ -f "$dir/$tier.yaml" ] || continue
     # '|' separates the fields: unlike a tab it is not whitespace to read,
@@ -81,7 +87,7 @@ while IFS= read -r dir; do
       else
         ref=("$APPS_DIR/$chart")
       fi
-      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" 2>&1 >"$work/manifest"); then
+      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" "${names[@]+"${names[@]}"}" 2>&1 >"$work/manifest"); then
         echo "ok   $id"
         rendered=$((rendered + 1))
         [ -z "${RENDER_OUT:-}" ] || record "$work/manifest" "$namespace" "$RENDER_OUT/$id.objects"
