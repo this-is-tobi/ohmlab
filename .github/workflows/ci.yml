@@ -86,13 +86,12 @@ jobs:
         run: |
           pip install ansible-lint
           ansible-galaxy collection install -r ansible/collections/requirements.yml
-      - name: Provide a dummy vault password + plaintext example vault
-        # The committed vault.yml is AES256-encrypted with the operator's key;
-        # CI can't (and must not) decrypt it. Substitute the documented
-        # plaintext example so lint never depends on decryption behaviour.
+      - name: Provide the example inventory and a dummy vault password
+        # The playbook reads ./inventory, which an operator creates from the
+        # example (its vault.yml is plaintext, so lint never decrypts anything).
         run: |
           echo ci-dummy > ansible/.vault_password
-          cp ansible/inventory-example/group_vars/vault.yml ansible/inventory/group_vars/vault.yml
+          cp -R ansible/inventory-example ansible/inventory
       - name: Run ansible-lint
         working-directory: ansible
         run: ansible-lint
