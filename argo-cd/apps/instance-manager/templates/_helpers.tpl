@@ -103,6 +103,31 @@ go-template `list`.
 {{- end -}}
 
 {{/*
+The names of the instance as Helm parameters, one `global.ohmlab.names.<key>`
+each, for every generated Application. An unknown key or an empty name fails
+the render: either would leave the product default in place unnoticed. So do
+quotes, backslashes and braces: Argo CD evaluates the Application template,
+and charts insert names into JSON and Vault policies as they are.
+*/}}
+{{- define "instance-manager.namesParameters" -}}
+{{- $known := list "gateway" "keycloakRealmDisplayName" "traefikGateway" "vaultMount" -}}
+{{- range $key, $name := .Values.names | default dict }}
+{{- if not (has $key $known) }}
+{{- fail (printf "names.%s is not a name the product reads (%s)" $key (join ", " $known)) }}
+{{- end }}
+{{- if or (not (kindIs "string" $name)) (not $name) }}
+{{- fail (printf "names.%s must be a non-empty string" $key) }}
+{{- end }}
+{{- if regexMatch `["\\{}]` $name }}
+{{- fail (printf "names.%s cannot contain quotes, backslashes or braces" $key) }}
+{{- end }}
+- name: {{ printf "global.ohmlab.names.%s" $key | quote }}
+  value: {{ $name | quote }}
+  forceString: true
+{{- end }}
+{{- end -}}
+
+{{/*
 Refuses a catalog section that cannot work, so that the render of the manager
 fails instead of Applications quietly coming from somewhere else.
 */}}

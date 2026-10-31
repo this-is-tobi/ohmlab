@@ -44,6 +44,19 @@ catalogs: {}
 # (empty means git). An entry opts out with `catalog: git`.
 defaultCatalog: ""
 
+# Names the instance keeps whatever the product's defaults are. Each one goes
+# to every generated Application as the Helm parameter
+# `global.ohmlab.names.<key>`; a chart takes its own explicit value first, then
+# this name, then its default. A running cluster pins the names it already
+# uses: a renamed KV mount no longer holds the secrets, a renamed Gateway is
+# recreated.
+#   names:
+#     vaultMount: homelab                       # Vault KV v2 mount of the secrets
+#     gateway: homelab-gateway                  # APISIX or Cilium Gateway, the routes' default parent
+#     traefikGateway: homelab-gateway-traefik   # Traefik Gateway
+#     keycloakRealmDisplayName: Homelab         # realm name shown by Keycloak
+names: {}
+
 projects:
   core: admin-core
   tenant: admin-tenant

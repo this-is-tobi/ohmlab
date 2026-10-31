@@ -176,6 +176,17 @@ for scope in core tenant; do
     "$(source_json "$scope" mine "$GIT" argo-cd/apps/mine release)" "$(printf '%s\n' "$out" | sed -n 2p)"
 done
 
+# The names of the instance reach every Application, from git or a registry
+# catalog alike, as string Helm parameters the charts read under
+# global.ohmlab.names.
+for scope in core tenant; do
+  out=$(render_sources "$scope" '[{"app":"plain"},{"app":"ohmlab","catalog":"ohmlab","targetRevision":"0.1.3"}]' \
+    --set-json "catalogs={\"ohmlab\":\"$REGISTRY\"}" --set-json 'names={"vaultMount":"homelab","gateway":"homelab-gateway","keycloakRealmDisplayName":"Home, lab"}')
+  params='[{"name":"global.ohmlab.names.gateway","value":"homelab-gateway","forceString":true},{"name":"global.ohmlab.names.keycloakRealmDisplayName","value":"Home, lab","forceString":true},{"name":"global.ohmlab.names.vaultMount","value":"homelab","forceString":true}]'
+  check "$scope: the names of the instance become Helm parameters" "$params" "$(printf '%s\n' "$out" | sed -n 1p | jq -c '.helm.parameters')"
+  check "$scope: a registry chart gets the same parameters" "$params" "$(printf '%s\n' "$out" | sed -n 2p | jq -c '.helm.parameters')"
+done
+
 # A catalog section that cannot work must fail the render of the manager, not
 # produce Applications that quietly come from somewhere else.
 refuse() { # label helm-args...
@@ -191,6 +202,10 @@ refuse() { # label helm-args...
 refuse "a default catalog that is not declared is refused" --set defaultCatalog=nope
 refuse "a catalog named git is refused (reserved)" --set-json "catalogs={\"git\":{\"repoURL\":\"$BUNDLE\"}}"
 refuse "a bundle catalog without repoURL is refused" --set-json 'catalogs={"bundle":{"version":"0.2.0"}}'
+refuse "a name the product does not read is refused" --set-json 'names={"vaultmount":"homelab"}'
+refuse "an empty name is refused" --set-json 'names={"gateway":""}'
+refuse "a name with a quote is refused" --set-json 'names={"keycloakRealmDisplayName":"My \"lab\""}'
+refuse "a name with braces is refused" --set-json 'names={"keycloakRealmDisplayName":"{{ .app }}"}'
 helm template t "$CHART" --set instance.name=t --set "repoURL=$GIT" --set-json "catalogs=$bundles" --set defaultCatalog=bundle >/dev/null 2>&1 \
   && echo "ok   a declared default catalog renders" || { echo "FAIL a declared default catalog renders"; fail=1; }
 
