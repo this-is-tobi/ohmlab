@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.3.0...chart-v0.3.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **ohmlab:** default the root manager to the ohmlab repository ([fd7e725](https://github.com/this-is-tobi/ohmlab/commit/fd7e7250d7e7f5d4309a1ac12195b8730eb9006b))
+* **ohmlab:** name the AppProjects' default descriptions after ohmlab ([dbc19df](https://github.com/this-is-tobi/ohmlab/commit/dbc19dfbf0a5cf53457550fc792c14e235ee96ab))
+
 ## [0.3.0](https://github.com/this-is-tobi/homelab/compare/chart-v0.2.1...chart-v0.3.0) (2026-10-28)
 
 
