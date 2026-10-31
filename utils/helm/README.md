@@ -4,7 +4,7 @@
 
 A Helm chart to deploy ohmlab.
 
-**Homepage:** <https://this-is-tobi.com/homelab>
+**Homepage:** <https://this-is-tobi.com/ohmlab>
 
 ## Maintainers
 
@@ -182,7 +182,7 @@ A Helm chart to deploy ohmlab.
 | projects.core.clusterResourceWhitelist[8].kind | string | `"CSIDriver"` |  |
 | projects.core.clusterResourceWhitelist[9].group | string | `"networking.k8s.io"` |  |
 | projects.core.clusterResourceWhitelist[9].kind | string | `"IngressClass"` |  |
-| projects.core.description | string | `"Homelab platform/core tier (infra, identity, observability, security)"` |  |
+| projects.core.description | string | `"ohmlab platform/core tier (infra, identity, observability, security)"` |  |
 | projects.core.destinations[0].namespace | string | `"*"` |  |
 | projects.core.destinations[0].server | string | `"https://kubernetes.default.svc"` |  |
 | projects.core.enabled | bool | `true` | Render the `core` AppProject. |
@@ -214,7 +214,7 @@ A Helm chart to deploy ohmlab.
 | projects.tenant.clusterResourceWhitelist[6].kind | string | `"CustomResourceDefinition"` |  |
 | projects.tenant.clusterResourceWhitelist[7].group | string | `"gateway.networking.k8s.io"` |  |
 | projects.tenant.clusterResourceWhitelist[7].kind | string | `"*"` |  |
-| projects.tenant.description | string | `"Homelab tenant/apps tier (user-facing services)"` |  |
+| projects.tenant.description | string | `"ohmlab tenant/apps tier (user-facing services)"` |  |
 | projects.tenant.destinations[0].namespace | string | `"*"` |  |
 | projects.tenant.destinations[0].server | string | `"https://kubernetes.default.svc"` |  |
 | projects.tenant.enabled | bool | `true` | Render the `tenant` AppProject. |

@@ -18,7 +18,7 @@ metadata:
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:
-  description: {{ $proj.description | default (printf "Homelab %s tier" $scope) | quote }}
+  description: {{ $proj.description | default (printf "ohmlab %s tier" $scope) | quote }}
   sourceRepos:
     {{- toYaml $sourceRepos | nindent 2 }}
   destinations:

@@ -362,7 +362,7 @@ projects:
     enabled: true
     # -- Project name (referenced by `argo-cd/instances/<inst>/instance.yaml.projects.core`).
     name: admin-core
-    description: "Homelab platform/core tier (infra, identity, observability, security)"
+    description: "ohmlab platform/core tier (infra, identity, observability, security)"
     # -- Repositories the project's Applications may take sources from. Empty:
     # `rootManager.repoURL.sources`, `rootManager.repoURL.values` and
     # `extraSourceRepos`, without duplicates. A bundle is listed with its
@@ -441,7 +441,7 @@ projects:
     # from clusterResourceWhitelist, constrain `destinations` to the tenant
     # namespace pattern, and blacklist ResourceQuota/LimitRange in
     # namespaceResourceBlacklist so tenants cannot lift their own limits.
-    description: Homelab tenant/apps tier (user-facing services)
+    description: ohmlab tenant/apps tier (user-facing services)
     # -- Repositories the project's Applications may take sources from. Empty:
     # derived like the `core` project's.
     sourceRepos: []
