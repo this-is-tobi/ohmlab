@@ -15,14 +15,6 @@
   },
   "packageRules": [
     {
-      "description": "The homelab instance is read from this-is-tobi/homelab-instance, which tracks its own dependencies; the copy left here until it is removed gets no updates",
-      "matchFileNames": [
-        "argo-cd/instances/homelab/**",
-        "ansible/inventory/**"
-      ],
-      "enabled": false
-    },
-    {
       "description": "Group all kyverno-related updates",
       "matchPackageNames": [
         "/kyverno/"
