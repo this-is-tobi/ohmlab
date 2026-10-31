@@ -116,7 +116,9 @@ etcd:
 
 gateway:
   enabled: false
-  name: homelab-gateway
+  # Empty: the instance's name (global.ohmlab.names.gateway), else
+  # homelab-gateway.
+  name: ""
   namespace: kube-system
   domain: ""
   clusterIssuer: letsencrypt-dns-prod

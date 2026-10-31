@@ -10,7 +10,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: {{ .Values.ciliumGateway.name | default "homelab-gateway" }}
+  name: {{ .Values.ciliumGateway.name | default (dig "ohmlab" "names" "gateway" "homelab-gateway" (.Values.global | default dict)) }}
   namespace: {{ .Release.Namespace }}
   annotations:
     cert-manager.io/cluster-issuer: {{ .Values.ciliumGateway.clusterIssuer | default "letsencrypt-dns-prod" }}
@@ -85,7 +85,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   parentRefs:
-    - name: {{ .Values.ciliumGateway.name | default "homelab-gateway" }}
+    - name: {{ .Values.ciliumGateway.name | default (dig "ohmlab" "names" "gateway" "homelab-gateway" (.Values.global | default dict)) }}
       namespace: {{ .Release.Namespace }}
       sectionName: http
   rules:
