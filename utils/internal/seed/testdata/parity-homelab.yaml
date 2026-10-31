@@ -1,0 +1,269 @@
+# The secrets a real instance declares (the homelab, which lives in
+# this-is-tobi/homelab-instance): the parity test runs both seeding engines on
+# them. Declarations only (paths, generators, references), no secret value.
+ohmlab:
+  vault:
+    secrets:
+      - path: homelab/platforms/production/core/cert-manager
+        data:
+          email: this-is-tobi@proton.me
+          scaleway:
+            accessKey: ""
+            secretKey: ""
+            projectId: ""
+            domain: ohmlab.fr
+      # Keycloak MUST come before apps that use <ref:...> to its clients
+      - path: homelab/platforms/production/core/keycloak
+        data:
+          admin:
+            username: admin
+            password: "<random:24>"
+          # Admin user in the homelab realm (for OIDC login into apps).
+          # This is distinct from the Keycloak service-admin (above).
+          # Password is injected by VSO into keycloak-config secret → used by
+          # keycloak-config-cli to create the user on first deploy.
+          adminUser:
+            username: admin@ohmlab.fr
+            password: "<random:24>"
+          domain: sso.core.ohmlab.fr
+          realm: homelab
+          rootDomain: ohmlab.fr
+          # Centralized OIDC client credentials — each app references these via
+          # <ref:homelab/platforms/production/core/keycloak#clients.<app>.clientSecret>
+          # so keycloak policy only needs access to its own path.
+          clients:
+            # Core services — must use distinct clientIds to avoid collision with
+            # tenant apps that share the same 'homelab' realm.
+            argo-cd-core:
+              clientId: argo-cd-core
+              clientSecret: "<random:32>"
+            vault-core:
+              clientId: vault-core
+              clientSecret: "<random:32>"
+            grafana-core:
+              clientId: grafana-core
+              clientSecret: "<random:32>"
+            longhorn-core:
+              clientId: longhorn-core
+              clientSecret: "<random:32>"
+            hubble-core:
+              clientId: hubble-core
+              clientSecret: "<random:32>"
+            traefik-dashboard-core:
+              clientId: traefik-dashboard-core
+              clientSecret: "<random:32>"
+            # Tenant services
+            argo-cd:
+              clientId: argo-cd
+              clientSecret: "<random:32>"
+            gitea:
+              clientId: gitea
+              clientSecret: "<random:32>"
+            rustfs:
+              clientId: rustfs
+              clientSecret: "<random:32>"
+          postgres:
+            admin:
+              username: postgres
+              password: "<random:24>"
+            app:
+              username: keycloak
+              password: "<random:24>"
+            database: keycloak
+            host: keycloak-pg-cluster-rw
+            port: "5432"
+            s3:
+              accessKey: ""
+              bucketName: ohmlab-backups
+              bucketPrefix: cnpg
+              endpoint: "https://s3.fr-par.scw.cloud"
+              region: fr-par
+              secretKey: ""
+      - path: homelab/platforms/production/core/argo-cd
+        # Core ArgoCD (bootstrapped via run.sh into argocd-system).
+        # Password is set at bootstrap time via $ARGOCD_ADMIN_PASSWORD; this entry
+        # serves as the Vault source-of-truth for rotation and auditing.
+        # OIDC is enabled after Keycloak is up — injected via VSO into argocd-system.
+        data:
+          admin:
+            username: admin
+            password: "<random:24>"
+            passwordHashed: "<bcrypt:admin.password>"
+          keycloak:
+            clientId: argo-cd-core
+            clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.argo-cd-core.clientSecret>"
+      - path: homelab/platforms/production/tenant/argo-cd
+        # Tenant ArgoCD instance (deployed as an ArgoCD app into argo-cd namespace).
+        # Credentials are injected at runtime via VSO into the argo-cd namespace.
+        data:
+          admin:
+            username: admin
+            password: "<random:24>"
+            passwordHashed: "<bcrypt:admin.password>"
+          keycloak:
+            clientId: argo-cd
+            clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.argo-cd.clientSecret>"
+      - path: homelab/platforms/production/tenant/gitea
+        data:
+          admin:
+            username: admin
+            password: "<random:24>"
+          valkey:
+            password: "<random:32>"
+          postgres:
+            admin:
+              username: postgres
+              password: "<random:24>"
+            app:
+              username: gitea
+              password: "<random:24>"
+            database: gitea
+            host: gitea-pg-cluster-rw
+            port: "5432"
+            s3:
+              accessKey: ""
+              bucketName: ohmlab-backups
+              bucketPrefix: cnpg
+              endpoint: "https://s3.fr-par.scw.cloud"
+              region: fr-par
+              secretKey: ""
+          keycloak:
+            clientId: gitea
+            clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.gitea.clientSecret>"
+      - path: homelab/platforms/production/tenant/mattermost
+        data:
+          admin:
+            username: admin
+            password: "<random:24>"
+          postgres:
+            admin:
+              username: postgres
+              password: "<random:24>"
+            app:
+              username: mattermost
+              password: "<random:24>"
+            database: mattermost
+            host: mattermost-pg-cluster-rw
+            port: "5432"
+            s3:
+              accessKey: ""
+              bucketName: ohmlab-backups
+              bucketPrefix: cnpg
+              endpoint: "https://s3.fr-par.scw.cloud"
+              region: fr-par
+              secretKey: ""
+          s3:
+            accessKey: ""
+            bucketName: ohmlab-backups
+            bucketPrefix: cnpg
+            endpoint: "https://s3.fr-par.scw.cloud"
+            region: fr-par
+            secretKey: ""
+      - path: homelab/platforms/production/tenant/rustfs
+        data:
+          admin:
+            accessKey: "<random:16>"
+            secretKey: "<random:32>"
+          keycloak:
+            clientId: rustfs
+            clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.rustfs.clientSecret>"
+      - path: homelab/platforms/production/core/longhorn
+        data:
+          keycloak:
+            clientId: longhorn-core
+            clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.longhorn-core.clientSecret>"
+      - path: homelab/platforms/production/core/hubble
+        data:
+          keycloak:
+            clientId: hubble-core
+            clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.hubble-core.clientSecret>"
+            cookieSecret: "<random:32>"
+      - path: homelab/platforms/production/core/traefik-dashboard
+        data:
+          keycloak:
+            clientId: traefik-dashboard-core
+            clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.traefik-dashboard-core.clientSecret>"
+            cookieSecret: "<random:32>"
+      - path: homelab/platforms/production/core/prometheus-stack
+        data:
+          # Set manually in Vault with `vault kv patch` (Mattermost generates
+          # the hook id): the in-cluster form
+          # http://mattermost.mattermost.svc.cluster.local:8065/hooks/<id>.
+          # Empty means every Alertmanager notification fails.
+          alertmanagerMattermostWebhookUrl: ""
+          admin:
+            username: admin
+            password: "<random:24>"
+          keycloak:
+            clientId: grafana-core
+            clientSecret: "<ref:homelab/platforms/production/core/keycloak#clients.grafana-core.clientSecret>"
+          postgres:
+            admin:
+              username: postgres
+              password: "<random:24>"
+            app:
+              username: grafana
+              password: "<random:24>"
+            database: grafana
+            host: prometheus-stack-pg-cluster-rw
+            port: "5432"
+            s3:
+              accessKey: ""
+              bucketName: ohmlab-backups
+              bucketPrefix: cnpg
+              endpoint: "https://s3.fr-par.scw.cloud"
+              region: fr-par
+              secretKey: ""
+      - path: homelab/platforms/production/tenant/actions-runner-controller
+        # GitHub App of the runner scale sets: set the three values by hand in
+        # Vault (they are not generated), VSO delivers them to the
+        # actions-runner-controller/github-app Secret.
+        data:
+          githubApp:
+            id: ""
+            installationId: ""
+            privateKey: ""
+      - path: homelab/platforms/production/core/apisix
+        # APISIX admin API credentials — delivered by VSO into apisix/apisix-admin.
+        # Rotation: change here is NOT enough — the apisix pods read the key via
+        # env, so restart the apisix deployment after a rotate.
+        data:
+          admin:
+            adminKey: "<random:32>"
+            viewerKey: "<random:32>"
+      - path: homelab/platforms/production/core/traefik
+        # Shared credential between traefik (bouncer plugin, reads it via VSO
+        # as a mounted key file) and crowdsec (LAPI pre-registers the bouncer
+        # from it, via the <ref:> below) — traefik's path is the source of
+        # truth, keeping each app's Vault policy scoped to its own path (same
+        # pattern as the keycloak client secrets).
+        data:
+          crowdsecBouncer:
+            lapiKey: "<random:32>"
+      - path: homelab/platforms/production/core/crowdsec
+        data:
+          console:
+            enrollKey: "" # Set manually in Vault (from https://app.crowdsec.net/security-engines)
+            instanceName: homelab-k8s
+            tags: k8s homelab production
+          bouncers:
+            # Mirrors traefik's bouncer key at seed time (refs resolve in
+            # entry order — the traefik path above is written first).
+            traefik: "<ref:homelab/platforms/production/core/traefik#crowdsecBouncer.lapiKey>"
+          postgres:
+            admin:
+              username: postgres
+              password: "<random:24>"
+            app:
+              username: crowdsec
+              password: "<random:24>"
+            database: crowdsec
+            host: crowdsec-pg-cluster-rw
+            port: "5432"
+            s3:
+              accessKey: ""
+              bucketName: ohmlab-backups
+              bucketPrefix: cnpg
+              endpoint: "https://s3.fr-par.scw.cloud"
+              region: fr-par
+              secretKey: ""
