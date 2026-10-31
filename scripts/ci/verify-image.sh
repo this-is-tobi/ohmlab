@@ -8,7 +8,7 @@
 #   - is a multi-platform index with linux/amd64 and linux/arm64, and
 #   - is signed by the shared attest-docker workflow and carries a build
 #     provenance naming this repository and this digest.
-# The first is what the nodes need (the homelab is arm64, CI is amd64); the
+# The first is what the nodes need (the reference deployment is arm64, CI is amd64); the
 # second is what Kyverno's verify-images policy checks before it admits a pod.
 # Needs oras, cosign and jq; REPO (default $GITHUB_REPOSITORY) is the repository
 # that must have built it.

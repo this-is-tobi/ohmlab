@@ -3,7 +3,7 @@ name: ohmlab
 type: application
 version: 0.3.0
 description: A Helm chart to deploy ohmlab.
-home: https://this-is-tobi.com/homelab
+home: https://this-is-tobi.com/ohmlab
 deprecated: false
 annotations: {}
 keywords: []

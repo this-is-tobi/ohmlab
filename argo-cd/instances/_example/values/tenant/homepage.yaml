@@ -7,7 +7,7 @@ homepage:
     enabled: true
   config:
     settings:
-      title: Homelab Dashboard
+      title: Dashboard
       theme: dark
       color: slate
       headerStyle: clean

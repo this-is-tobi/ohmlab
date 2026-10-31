@@ -113,7 +113,7 @@ SecureRandom.urlsafe_base64(30)
 
 # Use the AWS CLI against the RustFS S3 endpoint
 aws --endpoint-url https://s3.domain.com \
-  --profile homelab \
+  --profile mylab \
   s3 ls
 ```
 
