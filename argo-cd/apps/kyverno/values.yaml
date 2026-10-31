@@ -156,7 +156,6 @@ policies:
     # Repositories allowed to build these images. During a repository
     # rename, list both names until every running image is rebuilt.
     sourceRepositories:
-    - https://github.com/this-is-tobi/homelab
     - https://github.com/this-is-tobi/ohmlab
   # Generate a default LimitRange in every TENANT namespace
   # (ohmlab.fr/instance-scope=tenant) so containers without explicit
