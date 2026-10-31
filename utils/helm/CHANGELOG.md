@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.3.1...chart-v0.4.0) (2026-10-31)
+
+
+### Features
+
+* take the gateway names from the instance, with today's names as defaults ([a8f949c](https://github.com/this-is-tobi/ohmlab/commit/a8f949c25ef70a9df5329cde7647106a82be91ec))
+
 ## [0.3.1](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.3.0...chart-v0.3.1) (2026-10-31)
 
 
