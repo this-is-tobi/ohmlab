@@ -142,7 +142,13 @@ spec:
       so an instance that replaces `policies` or `auth` wholesale (arrays are
       replaced, not merged) cannot lose them.
     */}}
-    {{- $policies := deepCopy (.Values.vault.externalConfig.policies | default list) }}
+    {{- $kv := dict "kvMount" (include "vault-operator.kvMount" .) "Template" .Template }}
+    {{- $policies := list }}
+    {{- range $p := .Values.vault.externalConfig.policies | default list }}
+    {{- $p = deepCopy $p }}
+    {{- if $p.rules }}{{ $_ := set $p "rules" (tpl $p.rules $kv) }}{{ end }}
+    {{- $policies = append $policies $p }}
+    {{- end }}
     {{- $auth := deepCopy (.Values.vault.externalConfig.auth | default list) }}
     {{- if .Values.ohmlab.controller.enabled }}
     {{- $policies = append $policies (dict "name" "ohmlab-controller-vault" "rules" (include "vault-operator.controllerPolicy" .)) }}
@@ -173,7 +179,7 @@ spec:
       {{- range $app := $cluster.apps }}
       - name: {{ printf "%s-%s" $cluster.name $app.name | quote }}
         rules: |
-          path "homelab/data/platforms/{{ $cluster.name }}/{{ $app.tier | default "+" }}/{{ $app.name }}" {
+          path "{{ $kv.kvMount }}/data/platforms/{{ $cluster.name }}/{{ $app.tier | default "+" }}/{{ $app.name }}" {
             capabilities = ["read"]
           }
       {{- end }}
@@ -291,7 +297,7 @@ spec:
     {{- end }}
     {{- if .Values.vault.externalConfig.secrets }}
     secrets:
-      {{- toYaml .Values.vault.externalConfig.secrets | nindent 6 }}
+      {{- tpl (toYaml .Values.vault.externalConfig.secrets) $kv | nindent 6 }}
     {{- end }}
     {{- if .Values.vault.externalConfig.startupSecrets }}
     startupSecrets:
