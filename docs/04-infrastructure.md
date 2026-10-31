@@ -68,11 +68,9 @@ Two decisions are made at install time in `inventory/group_vars/k3s.yml`, and bo
 Neither choice is one-way, and both are covered on a fresh install:
 
 - **Starting on Cilium** — setting `k3sCni: cilium` makes the `k3s/cni` role apply Cilium immediately after the first master is up, before workers join and before the GitOps bootstrap. That ordering is mandatory rather than cosmetic: with no CNI every node stays `NotReady` and ordinary pods cannot schedule — ArgoCD's included — so the GitOps bootstrap can never be what installs the CNI. Cilium breaks the cycle because its agent and operator run on the host network and tolerate `NotReady` nodes. ArgoCD adopts the objects on its first sync; the role skips itself once a CNI is present. Set `k3sCniChartValues` to your instance's cilium values so the bootstrap render matches what ArgoCD reconciles afterwards.
-- **Starting on flannel, moving later** — the shortest path to a working cluster. `scripts/cilium-migrate-node.sh` then moves a *running* cluster onto Cilium one node at a time, with per-node rollback (`scripts/cilium-rollback-node.sh`) while the window is open. This is what this repo's own cluster did.
+- **Starting on flannel, moving later** — the shortest path to a working cluster. `scripts/cilium-migrate-node.sh` then moves a *running* cluster onto Cilium one node at a time, with per-node rollback (`scripts/cilium-rollback-node.sh`) while the window is open.
 
 See the comments in [inventory-example/group_vars/k3s.yml](../ansible/inventory-example/group_vars/k3s.yml) for the full trade-offs and the ordering constraints (`--flannel-backend` is a K3s *critical* flag — all servers must agree).
-
-This repo's own cluster runs `cilium` with ServiceLB disabled, exposing Traefik through a static `externalIPs` list; the gateway HAProxy forwards public 80/443 onto the node IPs.
 
 [system-upgrade-controller](https://github.com/rancher/system-upgrade-controller) is deployed cluster-wide to perform K3s upgrades through two plans (control-plane nodes one at a time, then the workers), inside a nightly maintenance window, to the version pinned in the instance values (see [K3s version updates](./03-installation.md#k3s-version-updates)).
 

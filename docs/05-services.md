@@ -54,7 +54,7 @@ Gateway web interface services are deployed and accessible for admin purpose, th
 
 ### Services
 
-The app catalog under [argo-cd/apps/](../argo-cd/apps/) provides the following charts; each instance enables its own subset via the `enabled` flag in its [core.yaml](../argo-cd/instances/homelab/core.yaml) / [tenant.yaml](../argo-cd/instances/homelab/tenant.yaml) catalogs :
+The app catalog under [argo-cd/apps/](../argo-cd/apps/) provides the following charts; each instance enables its own subset via the `enabled` flag in its [core.yaml](../argo-cd/instances/_example/core.yaml) / [tenant.yaml](../argo-cd/instances/_example/tenant.yaml) catalogs :
 
 | Name                                                                              | Description                                                                                                  | Helm chart                                                                                                                                                                                                |
 | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -91,9 +91,9 @@ The app catalog under [argo-cd/apps/](../argo-cd/apps/) provides the following c
 
 All services helm charts and versions are managed through ArgoCD ApplicationSets with configuration stored in:
 - **App charts**: [./argo-cd/apps/](../argo-cd/apps/) — each app has its own `Chart.yaml` defining the chart version and dependencies.
-- **Per-instance metadata**: [./argo-cd/instances/\<instance\>/instance.yaml](../argo-cd/instances/homelab/instance.yaml) — cluster destination, env, repos, AppProject bindings.
-- **Per-instance app catalog**: [./argo-cd/instances/\<instance\>/core.yaml](../argo-cd/instances/homelab/core.yaml) and [tenant.yaml](../argo-cd/instances/homelab/tenant.yaml) — enable/disable apps + per-app overrides (sync wave, namespace, release name, ...).
-- **Per-instance values**: [./argo-cd/instances/\<instance\>/values/core/\<app\>.yaml](../argo-cd/instances/homelab/values/core/) and [tenant/\<app\>.yaml](../argo-cd/instances/homelab/values/tenant/) — values overrides applied on top of the chart defaults.
+- **Per-instance metadata**: [./argo-cd/instances/\<instance\>/instance.yaml](../argo-cd/instances/_example/instance.yaml) — cluster destination, env, repos, AppProject bindings.
+- **Per-instance app catalog**: [./argo-cd/instances/\<instance\>/core.yaml](../argo-cd/instances/_example/core.yaml) and [tenant.yaml](../argo-cd/instances/_example/tenant.yaml) — enable/disable apps + per-app overrides (sync wave, namespace, release name, ...).
+- **Per-instance values**: [./argo-cd/instances/\<instance\>/values/core/\<app\>.yaml](../argo-cd/instances/_example/values/core/) and [tenant/\<app\>.yaml](../argo-cd/instances/_example/values/tenant/) — values overrides applied on top of the chart defaults.
 
 ### Management
 
@@ -102,13 +102,13 @@ Services are managed by a **two-level** ApplicationSet hierarchy declared by the
 - The root `manager` AppSet discovers each instance folder and emits one Application per instance pointing at the `instance-manager` chart.
 - That chart renders two child AppSets per instance — `core-<instance>` (platform tier, bound to `admin-core` AppProject) and `tenant-<instance>` (apps tier, bound to `admin-tenant` AppProject).
 
-To enable or disable a service, edit the relevant entry in [argo-cd/instances/homelab/core.yaml](../argo-cd/instances/homelab/core.yaml) or [tenant.yaml](../argo-cd/instances/homelab/tenant.yaml) and flip `enabled: "true"` / `enabled: "false"`.
+To enable or disable a service, edit the relevant entry in [argo-cd/instances/\<instance\>/core.yaml](../argo-cd/instances/_example/core.yaml) or [tenant.yaml](../argo-cd/instances/_example/tenant.yaml) and flip `enabled: "true"` / `enabled: "false"`.
 
 ```mermaid
 flowchart LR
     subgraph git["Git repository"]
         direction TB
-        subgraph instFolder["argo-cd/instances/homelab/"]
+        subgraph instFolder["argo-cd/instances/&lt;instance&gt;/"]
             direction TB
             subgraph valsTree["values/"]
                 direction LR

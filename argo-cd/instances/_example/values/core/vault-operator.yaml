@@ -44,7 +44,7 @@ vault:
 # The secrets the ohmlab controller writes to Vault (once ohmlab.controller and
 # ohmlab.vault.seeds below are enabled, docs/08-controller.md), one entry per
 # path an enabled app reads (the keys each app expects are in the homelab
-# instance: argo-cd/instances/homelab/values/core/vault-operator.yaml).
+# instance: values/core/vault-operator.yaml of https://github.com/this-is-tobi/homelab-instance).
 # Generated values are templated (`<random:24>`, `<age:secret>`,
 # `<ref:path#key>`), credentials that cannot be generated are empty
 # placeholders to set by hand in Vault.

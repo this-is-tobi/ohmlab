@@ -1,6 +1,7 @@
 # APISIX instance overrides — TEMPLATE.
 # Gateway API-based ingress; replacement for ingress-nginx (enable one at a time).
-# See instances/homelab/values/core/apisix.yaml for a real, working example
+# See values/core/apisix.yaml of the homelab instance
+# (https://github.com/this-is-tobi/homelab-instance) for a real, working example
 # (extra listeners, TLS passthrough for Teleport, CrowdSec-friendly log format).
 
 apisix:

@@ -2,15 +2,11 @@
 
 ## Hardware
 
-Any equipment can be used, but it has been tested with the following items :
-- 9 x Raspberry (Pi 4 model B - 8GB)
-- 1 x Raspberry (Pi 4 model B - 4GB)
-- 3 x Switch TP-Link (TL-SG 105E)
-- 4 x 2TB HDD (HDTP320EK3AA)
+Any equipment can be used, arm64 or amd64. The reference deployment runs on Raspberry Pi 4 boards with USB disks for Longhorn; its hardware is described in the [homelab instance](https://github.com/this-is-tobi/homelab-instance/blob/main/docs/hardware.md).
 
 ## Operating System
 
-The cluster nodes run Debian 13 (trixie) on the Debian generic arm64 kernel (installed by the opt-in `kernel-upgrade` Ansible tag), upgraded in place from `Raspberry Pi OS (64-bit)`. Any Debian based system should work: tested with Debian 12 (bookworm) and Debian 13 (trixie). In-place major version upgrades are supported via the `dist-upgrade` Ansible tag (see `Maintenance`).
+Any Debian based system should work: tested with Debian 12 (bookworm) and Debian 13 (trixie), including `Raspberry Pi OS (64-bit)` upgraded in place to Debian 13 on the Debian generic arm64 kernel (the opt-in `kernel-upgrade` Ansible tag). In-place major version upgrades are supported via the `dist-upgrade` Ansible tag (see `Maintenance`).
 
 For Raspberry, see :
 - <https://www.raspberrypi.com/software>
