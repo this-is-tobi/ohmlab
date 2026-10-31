@@ -114,7 +114,8 @@ INFRASTRUCTURE (Ansible):
                     - os-upgrade    : Upgrade OS on all hosts
                     - dist-upgrade  : Debian major version upgrade (e.g. bookworm→trixie)
 
-  -k              Fetch kubeconfig from cluster and configure local kubectl.
+  -k              Fetch kubeconfig from cluster and configure local kubectl
+                  (Ansible, with become, on the first master).
                   Kubeconfig saved to: ~/.kube/config.d/<name>, and a
                   cluster, user and context <name> are added to
                   ~/.kube/config (KUBE_CONTEXT_NAME, default 'homelab').
@@ -284,20 +285,28 @@ fetch_kubeconfig() {
     exit 1
   fi
 
+  if ! command -v ansible &> /dev/null; then
+    error "ansible is not installed"
+    exit 1
+  fi
+
   local gateway_ip
-  local master_ip
-  local user
   # The inventory Ansible itself reads: ANSIBLE_INVENTORY wins over ansible.cfg.
   local inventory="${ANSIBLE_INVENTORY:-$SCRIPT_PATH/ansible/inventory}"
   # The name of the cluster, user and context in the local kubeconfig.
   local name="${KUBE_CONTEXT_NAME:-homelab}"
 
   gateway_ip=$(yq '[.gateway.hosts[][]][0]' "$inventory/hosts.yml")
-  master_ip=$(yq '[.k3s.children.masters.hosts[][]][0]' "$inventory/hosts.yml")
-  user=$(yq '.ansible_user' "$inventory/group_vars/all.yml")
 
   mkdir -p "$HOME/.kube/config.d"
-  scp "$user@$master_ip:/etc/rancher/k3s/k3s.yaml" "$HOME/.kube/config.d/$name"
+  # k3s writes its kubeconfig for root only (--write-kubeconfig-mode 600):
+  # fetch it with become, through the inventory and vault the roles use.
+  if ! ansible 'masters[0]' --become -m ansible.builtin.fetch \
+      -a "src=/etc/rancher/k3s/k3s.yaml dest=$HOME/.kube/config.d/$name flat=true" \
+      -e "@$inventory/group_vars/vault.yml" >/dev/null; then
+    error "Could not fetch /etc/rancher/k3s/k3s.yaml from the first master"
+    exit 1
+  fi
   chmod 600 "$HOME/.kube/config.d/$name"
 
   # Point the API server at the gateway (HAProxy fronts :6443) and rename
