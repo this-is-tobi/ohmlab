@@ -73,6 +73,10 @@ spec:
           releaseName: '{{ `{{ default .app .releaseName }}` }}'
           valueFiles:
           - '$values/{{ printf "{{ default (printf \"argo-cd/instances/%s/values/tenant/%%s.yaml\" .app) .valuesPath }}" $instance }}'
+          {{- with include "instance-manager.namesParameters" . | trim }}
+          parameters:
+            {{- . | nindent 10 }}
+          {{- end }}
       - repoURL: {{ $valuesRepo | quote }}
         ref: values
         targetRevision: {{ $rev | quote }}
