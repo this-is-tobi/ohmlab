@@ -10,7 +10,10 @@
 #
 # Needs helm and yq (mikefarah). APPS_DIR (default argo-cd/apps of this
 # repository) is where the git and bundle catalogs' charts are read; registry
-# charts are pulled anonymously.
+# charts are pulled anonymously. With RENDER_OUT set, each app's objects are
+# recorded in RENDER_OUT/<instance>/<tier>/<app>.objects, one line per object:
+# kind/namespace/name and a hash of its content (never the content itself,
+# some objects are Secrets), for compare-instance-renders.sh.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -26,6 +29,25 @@ export HELM_REGISTRY_CONFIG="$work/registry.json" HELM_CACHE_HOME="$work/cache"
 failures=0
 rendered=0
 fail() { echo "FAIL $1"; failures=$((failures + 1)); }
+
+# record <manifest> <release namespace> <file>: the identity and content hash
+# of every object of a rendered manifest, sorted. Values a chart generates at
+# every render are left out of the hash so that only real changes show: the
+# values of a Secret (its keys still count) and checksum/* annotations.
+record() {
+  mkdir -p "$(dirname "$3")"
+  yq -o=json -I=0 'select(. != null and .kind != null)' "$1" \
+    | jq -r --arg ns "$2" '
+        def blank: if type == "object" then map_values("") else . end;
+        def nochecksums: if type == "object" then with_entries(select(.key | startswith("checksum/") | not)) else . end;
+        (if .kind == "Secret" then (.data |= blank) | (.stringData |= blank) else . end)
+        | (if .metadata.annotations then .metadata.annotations |= nochecksums else . end)
+        | (if .spec.template.metadata.annotations then .spec.template.metadata.annotations |= nochecksums else . end)
+        | "\(.kind)/\(.metadata.namespace // $ns)/\(.metadata.name)\t\(tojson)"' \
+    | while IFS=$'\t' read -r id object; do
+        printf '%s %s\n' "$id" "$(printf '%s' "$object" | shasum -a 256 | cut -c1-16)"
+      done | sort >"$3"
+}
 
 while IFS= read -r dir; do
   instance="${dir##*/}"
@@ -59,9 +81,10 @@ while IFS= read -r dir; do
       else
         ref=("$APPS_DIR/$chart")
       fi
-      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" 2>&1 >/dev/null); then
+      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" 2>&1 >"$work/manifest"); then
         echo "ok   $id"
         rendered=$((rendered + 1))
+        [ -z "${RENDER_OUT:-}" ] || record "$work/manifest" "$namespace" "$RENDER_OUT/$id.objects"
       else
         fail "$id: $(grep -m1 -i 'error' <<<"$out" | cut -c1-240)"
       fi
