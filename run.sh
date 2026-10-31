@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Homelab Management Script
-# =========================
-# This script provides a unified interface for managing the homelab infrastructure
+# ohmlab Management Script
+# ========================
+# This script provides a unified interface for managing an ohmlab platform's infrastructure
 # and GitOps-based Kubernetes deployments.
 #
 # Infrastructure (Ansible):
@@ -52,19 +52,19 @@ YES="false"
 # =============================================================================
 
 log() {
-  echo -e "${BLUE}[homelab]${NC} $*"
+  echo -e "${BLUE}[ohmlab]${NC} $*"
 }
 
 warn() {
-  echo -e "${YELLOW}[homelab]${NC} $*" >&2
+  echo -e "${YELLOW}[ohmlab]${NC} $*" >&2
 }
 
 error() {
-  echo -e "${RED}[homelab]${NC} $*" >&2
+  echo -e "${RED}[ohmlab]${NC} $*" >&2
 }
 
 success() {
-  echo -e "${GREEN}[homelab]${NC} $*"
+  echo -e "${GREEN}[ohmlab]${NC} $*"
 }
 
 confirm() {
@@ -72,7 +72,7 @@ confirm() {
   if [[ "$YES" == "true" ]]; then
     return 0
   fi
-  echo -e "${YELLOW}[homelab]${NC} $message (Y/n)"
+  echo -e "${YELLOW}[ohmlab]${NC} $message (Y/n)"
   read -r ANSWER
   if [[ "$ANSWER" =~ ^[Nn] ]]; then
     return 1
@@ -87,10 +87,10 @@ confirm() {
 print_help() {
   cat << 'EOF'
 
-Homelab Management Script
-=========================
+ohmlab Management Script
+========================
 
-This script manages homelab infrastructure (via Ansible) and Kubernetes
+This script manages an ohmlab platform's infrastructure (via Ansible) and Kubernetes
 applications (via GitOps/ArgoCD).
 
 USAGE:
@@ -102,7 +102,7 @@ INFRASTRUCTURE (Ansible):
                   The inventory is ./ansible/inventory, or the directory in
                   ANSIBLE_INVENTORY (laid out like ./ansible/inventory-example)
                   for an inventory kept in a repository of its own:
-                    ANSIBLE_INVENTORY=../homelab/ansible/inventory ./run.sh -p ./ansible/install.yml
+                    ANSIBLE_INVENTORY=../mylab/ansible/inventory ./run.sh -p ./ansible/install.yml
 
   -t <tags>       Tags to run with playbook, default is 'all'.
                   Multiple tags: -t 'gateway,k3s'
@@ -115,7 +115,9 @@ INFRASTRUCTURE (Ansible):
                     - dist-upgrade  : Debian major version upgrade (e.g. bookworm→trixie)
 
   -k              Fetch kubeconfig from cluster and configure local kubectl.
-                  Kubeconfig saved to: ~/.kube/config.d/homelab
+                  Kubeconfig saved to: ~/.kube/config.d/<name>, and a
+                  cluster, user and context <name> are added to
+                  ~/.kube/config (KUBE_CONTEXT_NAME, default 'homelab').
 
   -u              Update ansible galaxy collections before running playbook.
 
@@ -130,11 +132,11 @@ GITOPS (ArgoCD):
                   AppSets reading `core.yaml` and `tenant.yaml`).
                   Per-app values are read from:
                     ./argo-cd/instances/<instance>/values/{core,tenant}/<app>.yaml
-                  Example: ./run.sh -b homelab
+                  Example: ./run.sh -b mylab
 
   -i <dir>        Directory holding the instance folders, for an instance kept
                   in a repository of its own (default: ./argo-cd/instances).
-                  Example: ./run.sh -b homelab -i ../homelab/argo-cd/instances
+                  Example: ./run.sh -b mylab -i ../mylab/argo-cd/instances
 
                   An optional admin password may be provided via the
                   ARGOCD_ADMIN_PASSWORD environment variable. The script will
@@ -163,7 +165,7 @@ EXAMPLES:
   ./run.sh -p ./ansible/install.yml -u -k         # Full infra + fetch kubeconfig
 
   # Bootstrap GitOps
-  ./run.sh -b homelab                              # Bootstrap homelab instance
+  ./run.sh -b mylab                                # Bootstrap the mylab instance
 
   # Secrets management
   ./run.sh -d                                      # Decrypt secrets
@@ -255,7 +257,7 @@ run_playbook() {
   # default for wiping a cluster — require a literal "yes".
   if [[ ",$tags," == *",k3s-destroy,"* && "$YES" != "true" ]]; then
     warn "Tag 'k3s-destroy' will REMOVE k3s (binaries, data, /var/lib/rancher) from every node."
-    echo -e "${YELLOW}[homelab]${NC} Type 'yes' to destroy the cluster: "
+    echo -e "${YELLOW}[ohmlab]${NC} Type 'yes' to destroy the cluster: "
     read -r ANSWER
     if [[ "$ANSWER" != "yes" ]]; then
       error "Aborted."
@@ -287,46 +289,48 @@ fetch_kubeconfig() {
   local user
   # The inventory Ansible itself reads: ANSIBLE_INVENTORY wins over ansible.cfg.
   local inventory="${ANSIBLE_INVENTORY:-$SCRIPT_PATH/ansible/inventory}"
+  # The name of the cluster, user and context in the local kubeconfig.
+  local name="${KUBE_CONTEXT_NAME:-homelab}"
 
   gateway_ip=$(yq '[.gateway.hosts[][]][0]' "$inventory/hosts.yml")
   master_ip=$(yq '[.k3s.children.masters.hosts[][]][0]' "$inventory/hosts.yml")
   user=$(yq '.ansible_user' "$inventory/group_vars/all.yml")
 
   mkdir -p "$HOME/.kube/config.d"
-  scp "$user@$master_ip:/etc/rancher/k3s/k3s.yaml" "$HOME/.kube/config.d/homelab"
-  chmod 600 "$HOME/.kube/config.d/homelab"
+  scp "$user@$master_ip:/etc/rancher/k3s/k3s.yaml" "$HOME/.kube/config.d/$name"
+  chmod 600 "$HOME/.kube/config.d/$name"
 
   # Point the API server at the gateway (HAProxy fronts :6443) and rename
   # the default k3s identifiers so several clusters can coexist locally.
-  local tmp_cfg="$HOME/.kube/config.d/homelab"
+  local tmp_cfg="$HOME/.kube/config.d/$name"
   yq -i '.clusters[0].cluster.server = "https://'"$gateway_ip"':6443"' "$tmp_cfg"
-  yq -i '.clusters[0].name = "homelab"
-         | .users[0].name = "homelab"
-         | .contexts[0].name = "homelab"
-         | .contexts[0].context.cluster = "homelab"
-         | .contexts[0].context.user = "homelab"
-         | .current-context = "homelab"' "$tmp_cfg"
+  NAME="$name" yq -i '.clusters[0].name = strenv(NAME)
+         | .users[0].name = strenv(NAME)
+         | .contexts[0].name = strenv(NAME)
+         | .contexts[0].context.cluster = strenv(NAME)
+         | .contexts[0].context.user = strenv(NAME)
+         | .current-context = strenv(NAME)' "$tmp_cfg"
 
   # Merge into the main kubeconfig with kubectl itself: set-cluster /
   # set-credentials / set-context are create-or-update, so this works on a
-  # brand-new machine too (the previous yq `select(.name == "homelab")`
+  # brand-new machine too (the previous yq `select(.name == ...)`
   # edits silently did NOTHING when the entries didn't exist yet).
   if [[ -f "$HOME/.kube/config" ]]; then
     cp "$HOME/.kube/config" "$HOME/.kube/config.bak"
     log "Backed up ~/.kube/config to ~/.kube/config.bak"
   fi
-  kubectl config set-cluster homelab \
+  kubectl config set-cluster "$name" \
     --server="https://$gateway_ip:6443" \
     --certificate-authority=<(yq '.clusters[0].cluster.certificate-authority-data' "$tmp_cfg" | base64 -d) \
     --embed-certs=true >/dev/null
-  kubectl config set-credentials homelab \
+  kubectl config set-credentials "$name" \
     --client-certificate=<(yq '.users[0].user.client-certificate-data' "$tmp_cfg" | base64 -d) \
     --client-key=<(yq '.users[0].user.client-key-data' "$tmp_cfg" | base64 -d) \
     --embed-certs=true >/dev/null
-  kubectl config set-context homelab --cluster=homelab --user=homelab >/dev/null
+  kubectl config set-context "$name" --cluster="$name" --user="$name" >/dev/null
 
   success "Kubeconfig fetched and configured"
-  log "Context 'homelab' is available. Use: kubectl config use-context homelab"
+  log "Context '$name' is available. Use: kubectl config use-context $name"
 }
 
 # =============================================================================
