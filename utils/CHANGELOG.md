@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/this-is-tobi/ohmlab/compare/v0.3.0...v0.3.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **utils:** name the product ohmlab in the CLI help ([2723a68](https://github.com/this-is-tobi/ohmlab/commit/2723a6883a4344d456902e78e92ddc9578bc0eda))
+
 ## [0.3.0](https://github.com/this-is-tobi/homelab/compare/v0.2.0...v0.3.0) (2026-10-25)
 
 
