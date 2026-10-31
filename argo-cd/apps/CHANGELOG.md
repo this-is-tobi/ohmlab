@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.9.1...catalog-v0.10.0) (2026-10-31)
+
+
+### Features
+
+* **instance-manager:** pass the instance's names to every app as Helm parameters ([eb97308](https://github.com/this-is-tobi/ohmlab/commit/eb973089f9e25046eaf72945ba8cf8322a82d9fb))
+* **keycloak:** take the realm display name from the instance, with Homelab as default ([1197e69](https://github.com/this-is-tobi/ohmlab/commit/1197e691f5acdd150a370609b245173c4994cdde))
+* take the gateway names from the instance, with today's names as defaults ([a8f949c](https://github.com/this-is-tobi/ohmlab/commit/a8f949c25ef70a9df5329cde7647106a82be91ec))
+* **vault-operator:** take the KV mount from the instance, with homelab as default ([6116407](https://github.com/this-is-tobi/ohmlab/commit/61164074c08b1b36fdb4a98ded555f4be62052ae))
+
+
+### Bug Fixes
+
+* **ohmlab-controller:** run the 0.3.1 controller built by the renamed repository ([3e8e6f8](https://github.com/this-is-tobi/ohmlab/commit/3e8e6f8954de9717d8bc39afb3ff08487b3c1264))
+
 ## [0.9.1](https://github.com/this-is-tobi/homelab/compare/catalog-v0.9.0...catalog-v0.9.1) (2026-10-28)
 
 
