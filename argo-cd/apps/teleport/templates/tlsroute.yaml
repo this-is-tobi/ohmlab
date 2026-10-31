@@ -1,5 +1,5 @@
 {{- if .Values.gateway.enabled }}
-{{- $gatewayName := .Values.gateway.gatewayName | default "homelab-gateway" }}
+{{- $gatewayName := .Values.gateway.gatewayName | default (dig "ohmlab" "names" "gateway" "homelab-gateway" (.Values.global | default dict)) }}
 {{- $gatewayNamespace := .Values.gateway.gatewayNamespace | default "kube-system" }}
 {{- range .Values.gateway.tlsRoutes }}
 ---

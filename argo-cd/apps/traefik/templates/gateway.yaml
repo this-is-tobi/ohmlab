@@ -1,5 +1,5 @@
 {{- if .Values.gateway.enabled -}}
-{{- $gwName := .Values.gateway.name | default "homelab-gateway-traefik" }}
+{{- $gwName := .Values.gateway.name | default (dig "ohmlab" "names" "traefikGateway" "homelab-gateway-traefik" (.Values.global | default dict)) }}
 {{- $gwNs := .Values.gateway.namespace | default "kube-system" }}
 {{- $httpPort := .Values.gateway.httpPort | default 8000 }}
 {{- $httpsPort := .Values.gateway.httpsPort | default 8443 }}

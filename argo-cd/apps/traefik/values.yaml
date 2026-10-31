@@ -143,7 +143,9 @@ traefik:
 # Gateway API resources rendered by templates/gateway.yaml.
 gateway:
   enabled: false
-  name: homelab-gateway-traefik
+  # Empty: the instance's name (global.ohmlab.names.traefikGateway), else
+  # homelab-gateway-traefik.
+  name: ""
   namespace: kube-system
   domain: ""
   # Must match the traefik entryPoint container ports above.
