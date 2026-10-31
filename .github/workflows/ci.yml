@@ -394,7 +394,7 @@ jobs:
     with:
       ref: ${{ github.event.pull_request.head.sha || github.sha }}
       product-repository: ${{ github.repository }}
-      instance-repository: this-is-tobi/homelab-instance
+      instance-repository: this-is-tobi/homelab
       instance-ref: main
       base-ref: ${{ github.event.pull_request.base.sha }}
 
