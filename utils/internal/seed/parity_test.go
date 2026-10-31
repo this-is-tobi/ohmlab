@@ -26,7 +26,7 @@ import (
 const mountToken = "@mount@"
 
 var parityFiles = []string{
-	"../../../argo-cd/instances/homelab/values/core/vault-operator.yaml",
+	"testdata/parity-homelab.yaml",
 	"../../../argo-cd/instances/_example/values/core/vault-operator.yaml",
 }
 
