@@ -12,8 +12,8 @@ var logLevel string
 
 var rootCmd = &cobra.Command{
 	Use:   "ohmlab",
-	Short: "Homelab platform management toolkit",
-	Long: `ohmlab is a CLI toolkit for managing homelab platform infrastructure.
+	Short: "ohmlab platform management toolkit",
+	Long: `ohmlab is a CLI toolkit for managing an ohmlab platform's infrastructure.
 
 It provides commands for:
   - Vault secret initialization and rotation
@@ -21,7 +21,7 @@ It provides commands for:
   - SonarQube admin group setup
 
 Designed to run as a Kubernetes Job or locally for platform management.
-Can be extended into an operator/controller in the future.`,
+The ohmlab controller runs the same seeding engine in the cluster.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		initLogger()
 	},
