@@ -91,12 +91,12 @@ Configuration is split per instance and per scope:
 
 | Path                                                                                                             | Purpose                                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [./argo-cd/instances/\<instance\>/instance.yaml](../argo-cd/instances/homelab/instance.yaml)                     | Per-instance metadata: cluster destination, env, repos, AppProject bindings.                                  |
-| [./argo-cd/instances/\<instance\>/core.yaml](../argo-cd/instances/homelab/core.yaml)                             | Core tier app catalog (platform/infra/identity/observability/security).                                       |
-| [./argo-cd/instances/\<instance\>/tenant.yaml](../argo-cd/instances/homelab/tenant.yaml)                         | Tenant tier app catalog (user-facing services).                                                               |
-| [./argo-cd/instances/\<instance\>/values/core/\<app\>.yaml](../argo-cd/instances/homelab/values/core/)           | Per-instance Helm values for each core app.                                                                   |
-| [./argo-cd/instances/\<instance\>/values/tenant/\<app\>.yaml](../argo-cd/instances/homelab/values/tenant/)       | Per-instance Helm values for each tenant app.                                                                 |
-| [./argo-cd/instances/\<instance\>/values/core/ohmlab.yaml](../argo-cd/instances/homelab/values/core/ohmlab.yaml) | Bootstrap values for core ArgoCD + the root `manager` AppSet + the `admin-core` / `admin-tenant` AppProjects. |
+| [./argo-cd/instances/\<instance\>/instance.yaml](../argo-cd/instances/_example/instance.yaml)                     | Per-instance metadata: cluster destination, env, repos, AppProject bindings.                                  |
+| [./argo-cd/instances/\<instance\>/core.yaml](../argo-cd/instances/_example/core.yaml)                             | Core tier app catalog (platform/infra/identity/observability/security).                                       |
+| [./argo-cd/instances/\<instance\>/tenant.yaml](../argo-cd/instances/_example/tenant.yaml)                         | Tenant tier app catalog (user-facing services).                                                               |
+| [./argo-cd/instances/\<instance\>/values/core/\<app\>.yaml](../argo-cd/instances/_example/values/core/)           | Per-instance Helm values for each core app.                                                                   |
+| [./argo-cd/instances/\<instance\>/values/tenant/\<app\>.yaml](../argo-cd/instances/_example/values/tenant/)       | Per-instance Helm values for each tenant app.                                                                 |
+| [./argo-cd/instances/\<instance\>/values/core/ohmlab.yaml](../argo-cd/instances/_example/values/core/ohmlab.yaml) | Bootstrap values for core ArgoCD + the root `manager` AppSet + the `admin-core` / `admin-tenant` AppProjects. |
 | [./argo-cd/apps/\<app\>/](../argo-cd/apps/)                                                                      | Helm chart catalog (chart sources only — values live in the trees above).                                     |
 
 To enable or disable a service for an instance, edit the matching `core.yaml` or `tenant.yaml` and flip the `"enabled"` field on the relevant entry.
@@ -291,13 +291,13 @@ sequenceDiagram
 >
 > *Bootstrap admin password: pass `ARGOCD_ADMIN_PASSWORD=mypass ./run.sh -b homelab` to set it explicitly. Without this var, the ArgoCD chart auto-generates a password and stores it in `argocd-initial-admin-secret`; the script prints it at the end of the run.*
 >
-> *OIDC for the core ArgoCD is intentionally disabled at bootstrap. Enable it in [argo-cd/instances/homelab/values/core/ohmlab.yaml](../argo-cd/instances/homelab/values/core/ohmlab.yaml) once Keycloak is ready (uncomment the `oidc.config` block and provide the client secret out-of-band).*
+> *OIDC for the core ArgoCD is intentionally disabled at bootstrap. Enable it in [argo-cd/instances/\<instance\>/values/core/ohmlab.yaml](../argo-cd/instances/_example/values/core/ohmlab.yaml) once Keycloak is ready (uncomment the `oidc.config` block and provide the client secret out-of-band).*
 
 ### Using an existing cluster
 
 The GitOps layer (`argo-cd/`) is independent of how the cluster was created — it only needs a kubeconfig with cluster-admin. On managed Kubernetes (EKS/GKE/AKS/...) or any pre-existing cluster, skip the Ansible phase entirely and run `./run.sh -b <instance>` against your context.
 
-Create your own instance folder rather than reusing `homelab` (which is this repo's own cluster, full of environment-specific values) — copy [argo-cd/instances/_example](../argo-cd/instances/_example) and see [Adding a new instance](#topologies). Points worth checking for a non-K3s cluster:
+Create your own instance folder — copy [argo-cd/instances/_example](../argo-cd/instances/_example) and see [Adding a new instance](#topologies). Points worth checking for a non-K3s cluster:
 
 - **Storage** — `longhorn` assumes bare-metal disks. On a cloud provider, disable it and use the provider's own `StorageClass` (set it as default, or set `storageClass` explicitly on the apps that request one).
 - **Ingress exposure** — the `traefik` app's Service is type `LoadBalancer`. A cloud provider assigns a real external IP automatically, so drop the `spec.externalIPs` list this repo uses (that exists only because it runs bare metal without an LB controller).
@@ -379,7 +379,7 @@ Image versions for gateway services (HAProxy, PiHole, WireGuard) are managed in 
 
 The K3s version is pinned in two places that Renovate bumps together in one PR:
 
-- `system-upgrade.k3s.version` in [argo-cd/instances/\<instance\>/values/core/system-upgrade.yaml](../argo-cd/instances/homelab/values/core/system-upgrade.yaml): the version the running cluster is upgraded to. The [system-upgrade-controller](https://github.com/rancher/system-upgrade-controller) applies it in-cluster, control-plane nodes one at a time then the agents, inside the maintenance window set in [argo-cd/apps/system-upgrade/values.yaml](../argo-cd/apps/system-upgrade/values.yaml) (every night, 02:00–06:00 Europe/Paris).
+- `system-upgrade.k3s.version` in [argo-cd/instances/\<instance\>/values/core/system-upgrade.yaml](../argo-cd/instances/_example/values/core/system-upgrade.yaml): the version the running cluster is upgraded to. The [system-upgrade-controller](https://github.com/rancher/system-upgrade-controller) applies it in-cluster, control-plane nodes one at a time then the agents, inside the maintenance window set in [argo-cd/apps/system-upgrade/values.yaml](../argo-cd/apps/system-upgrade/values.yaml) (every night, 02:00–06:00 Europe/Paris).
 - `k3sVersion` in `inventory/group_vars/k3s.yml` (plus the example inventory and the role default): the version ansible installs on new or re-provisioned nodes.
 
 Merging the PR is the upgrade: it starts in the next window, or right away if merged during one. Follow it with `kubectl -n system-upgrade get plans,jobs` and `kubectl get nodes`.

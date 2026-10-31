@@ -65,8 +65,7 @@ k3sResolvConfNameservers:
 #   bootstrap render matches what ArgoCD will later reconcile.
 #   The alternative, if you would rather not do this on day one: install
 #   with `flannel`, bootstrap GitOps normally, then move to Cilium
-#   node-by-node with the migration path below. That is what this repo's
-#   own cluster did.
+#   node-by-node with the migration path below.
 #   ⚠ ALSO: `--flannel-backend` is a k3s CRITICAL flag — every server must
 #   agree on it. Flip the cluster-init master FIRST (it updates the stored
 #   reference config), then the other masters, then workers.
@@ -101,8 +100,8 @@ k3sCniChartValues: ""
 #
 # false: no LoadBalancer controller at all. Expose ingress another way —
 #   e.g. a static `spec.externalIPs` list on the ingress Service (see
-#   argo-cd/instances/homelab/values/core/traefik.yaml for a worked
-#   example), MetalLB, or Cilium's own LB-IPAM.
+#   values/core/traefik.yaml of the homelab instance, https://github.com/this-is-tobi/homelab-instance,
+#   for a worked example), MetalLB, or Cilium's own LB-IPAM.
 #   Worth knowing if you run Cilium: ServiceLB publishes every node IP into
 #   each LoadBalancer Service's status, and Cilium ingests those as LB VIPs,
 #   installing a wildcard nodeIP:0/ANY frontend with no backends. Pods

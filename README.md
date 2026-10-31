@@ -53,10 +53,10 @@ __Install:__
 
 __Setup configuration:__
 - Pick (or create) an instance under [./argo-cd/instances/](./argo-cd/instances/) (e.g. `homelab/`):
-  - [`instance.yaml`](./argo-cd/instances/homelab/instance.yaml) — cluster destination, env, repos, project bindings.
-  - [`core.yaml`](./argo-cd/instances/homelab/core.yaml) — platform/core tier app catalog.
-  - [`tenant.yaml`](./argo-cd/instances/homelab/tenant.yaml) — user-facing apps catalog.
-- Configure values in [./argo-cd/instances/homelab/values/core/](./argo-cd/instances/homelab/values/core/) and [./argo-cd/instances/homelab/values/tenant/](./argo-cd/instances/homelab/values/tenant/).
+  - [`instance.yaml`](./argo-cd/instances/_example/instance.yaml) — cluster destination, env, repos, project bindings.
+  - [`core.yaml`](./argo-cd/instances/_example/core.yaml) — platform/core tier app catalog.
+  - [`tenant.yaml`](./argo-cd/instances/_example/tenant.yaml) — user-facing apps catalog.
+- Configure values in [./argo-cd/instances/\<instance\>/values/core/](./argo-cd/instances/_example/values/core/) and [./argo-cd/instances/\<instance\>/values/tenant/](./argo-cd/instances/_example/values/tenant/).
 - For a brand-new instance, copy the documented template at [./argo-cd/instances/_example/](./argo-cd/instances/_example/) (folders prefixed with `_` are excluded by the root manager and treated as templates). See [Installation > Tier-flexible apps](./docs/03-installation.md#tier-flexible-apps) for apps (ingress, cert-manager, keycloak, prometheus-stack, ...) that can live in either tier depending on topology.
 
 __Install:__

@@ -17,7 +17,7 @@ coredns:
     limits:
       memory: 170Mi
   # Cluster-specific — leave empty in this generic chart default. Populate
-  # per-instance (e.g. instances/homelab/values/core/ohmlab.yaml) with your
+  # per-instance (argo-cd/instances/<instance>/values/core/ohmlab.yaml) with your
   # actual node IPs/hostnames: [{ip: 192.168.1.100, name: node0}, ...].
   nodeHosts: []
 
@@ -64,7 +64,8 @@ argo-cd:
       # TLS end-to-end: argocd-server serves TLS itself (self-signed at bootstrap,
       # then the cert-manager issued `argocd-server-tls` secret once the ingress
       # is enabled). Instance ingress must set the APISIX upstream-scheme
-      # annotation — see instances/homelab/values/core/ohmlab.yaml.
+      # annotation — see values/core/ohmlab.yaml of the homelab instance,
+      # https://github.com/this-is-tobi/homelab-instance.
       server.insecure: false
       # Feature gate for ApplicationSet RollingSync. Inert until an
       # instance-manager release opts in via `progressiveSync.enabled: true`
