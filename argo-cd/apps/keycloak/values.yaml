@@ -651,8 +651,10 @@ keycloakConfigCli:
       inline:
         realm: "$(env:KEYCLOAK_REALM)"
         enabled: true
-        displayName: Homelab
-        displayNameHtml: <b>Homelab</b> Identity
+        # The instance's name (global.ohmlab.names.keycloakRealmDisplayName),
+        # else Homelab: keycloak-config-cli renders the realm through tpl.
+        displayName: '{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Homelab` (.Values.global | default dict) }}'
+        displayNameHtml: '<b>{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Homelab` (.Values.global | default dict) }}</b> Identity'
         registrationAllowed: false
         registrationEmailAsUsername: true
         editUsernameAllowed: false
