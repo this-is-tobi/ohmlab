@@ -249,8 +249,8 @@ Once the infrastructure is ready, bootstrap the GitOps stack with a single comma
 # Set kubectl context
 kubectl config use-context homelab
 
-# Bootstrap (or upgrade) the homelab instance
-./run.sh -b homelab
+# Bootstrap (or upgrade) the mylab instance
+./run.sh -b mylab
 ```
 
 This installs the `ohmlab` Helm release in the `argocd-system` namespace, which contains:
@@ -269,7 +269,7 @@ sequenceDiagram
     participant Core as core ArgoCD<br/>(argocd-system)
     participant Git as Git repo
     participant K8s as Kubernetes
-    Op->>Helm: ./run.sh -b homelab
+    Op->>Helm: ./run.sh -b mylab
     Helm->>K8s: install ohmlab release<br/>(ArgoCD + root manager AppSet + AppProjects)
     Core->>Git: discover argo-cd/instances/*/
     loop For each instance folder
@@ -289,7 +289,7 @@ sequenceDiagram
 >
 > *First gateway init can take a long time to run because of OpenVPN key generation (5-10min).*
 >
-> *Bootstrap admin password: pass `ARGOCD_ADMIN_PASSWORD=mypass ./run.sh -b homelab` to set it explicitly. Without this var, the ArgoCD chart auto-generates a password and stores it in `argocd-initial-admin-secret`; the script prints it at the end of the run.*
+> *Bootstrap admin password: pass `ARGOCD_ADMIN_PASSWORD=mypass ./run.sh -b mylab` to set it explicitly. Without this var, the ArgoCD chart auto-generates a password and stores it in `argocd-initial-admin-secret`; the script prints it at the end of the run.*
 >
 > *OIDC for the core ArgoCD is intentionally disabled at bootstrap. Enable it in [argo-cd/instances/\<instance\>/values/core/ohmlab.yaml](../argo-cd/instances/_example/values/core/ohmlab.yaml) once Keycloak is ready (uncomment the `oidc.config` block and provide the client secret out-of-band).*
 
@@ -423,7 +423,7 @@ Both instances are deployed from the same chart at [argo-cd/apps/argo-cd/](../ar
 ```mermaid
 flowchart TB
     subgraph cli["Operator (CLI)"]
-        runsh["./run.sh -b homelab"]
+        runsh["./run.sh -b mylab"]
     end
 
     subgraph bootstrap["Helm release: ohmlab (argocd-system)"]
@@ -434,9 +434,9 @@ flowchart TB
     end
 
     subgraph generated["Per-instance generated"]
-        instApp["Application: instance-homelab"]
-        coreAS["AppSet: core-homelab"]
-        tenantAS["AppSet: tenant-homelab"]
+        instApp["Application: instance-mylab"]
+        coreAS["AppSet: core-mylab"]
+        tenantAS["AppSet: tenant-mylab"]
     end
 
     subgraph apps["Leaf Applications"]
@@ -446,12 +446,12 @@ flowchart TB
     end
 
     subgraph git["Git repository"]
-        instYaml["argo-cd/instances/<br/>homelab/instance.yaml"]
-        coreJson["argo-cd/instances/<br/>homelab/core.yaml"]
-        tenantJson["argo-cd/instances/<br/>homelab/tenant.yaml"]
+        instYaml["argo-cd/instances/<br/>mylab/instance.yaml"]
+        coreJson["argo-cd/instances/<br/>mylab/core.yaml"]
+        tenantJson["argo-cd/instances/<br/>mylab/tenant.yaml"]
         appCharts["argo-cd/apps/&lt;app&gt;/"]
-        coreVals["argo-cd/instances/<br/>homelab/values/core/"]
-        tenantVals["argo-cd/instances/<br/>homelab/values/tenant/"]
+        coreVals["argo-cd/instances/<br/>mylab/values/core/"]
+        tenantVals["argo-cd/instances/<br/>mylab/values/tenant/"]
     end
 
     runsh -->|helm install| bootstrap
@@ -484,8 +484,8 @@ The two-level pattern accommodates very different deployment models, all driven 
 
 ```mermaid
 flowchart TB
-    subgraph t1["All-in-one (homelab)"]
-        h1(["folder: homelab/<br/>core.yaml + tenant.yaml"]) --> c1["single cluster"]
+    subgraph t1["All-in-one"]
+        h1(["folder: mylab/<br/>core.yaml + tenant.yaml"]) --> c1["single cluster"]
     end
     subgraph t2["SaaS shared core"]
         a2(["folder: saas-admin/<br/>core.yaml"]) --> ca["admin cluster"]
@@ -500,7 +500,7 @@ flowchart TB
 
 | Topology             | Folders on disk                                                  | Where things run                                                                   |
 | -------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| All-in-one (homelab) | `homelab/` with both `core.yaml` and `tenant.yaml`               | Single cluster, single ArgoCD, both AppSets land on `in-cluster`.                  |
+| All-in-one           | `mylab/` with both `core.yaml` and `tenant.yaml`                 | Single cluster, single ArgoCD, both AppSets land on `in-cluster`.                  |
 | SaaS shared core     | `saas-admin/` (core only) + N × `saas-customer-*/` (tenant only) | Admin cluster runs the core stack; each customer gets its own cluster for tenants. |
 | Dedicated core       | One pair per org: `<org>-admin/` (core) + `<org>-prod/` (tenant) | Strict per-org isolation: dedicated admin cluster + dedicated app cluster.         |
 
@@ -532,7 +532,7 @@ If you need to keep the chart catalog public while keeping per-instance values (
 ```yaml
 # argo-cd/instances/<inst>/instance.yaml
 repoURL: https://github.com/this-is-tobi/ohmlab.git # public: charts + this file
-valuesRepoURL: https://github.com/<you>/homelab-private.git # private: values tree only
+valuesRepoURL: https://github.com/<you>/mylab-private.git # private: values tree only
 targetRevision: main
 ```
 
@@ -544,7 +544,7 @@ When `valuesRepoURL` is set, the child AppSets attach **two** git sources to eve
 In the values repository, mirror the path layout exactly:
 
 ```
-homelab-private/                                # your private repo root
+mylab-private/                                # your private repo root
 └─ argo-cd/
    └─ instances/
       └─ <inst>/
@@ -589,7 +589,7 @@ defaultCatalog: product
 
 ### Sync waves
 
-Apps are reconciled in `syncWave` order. Default ordering for the homelab instance:
+Apps are reconciled in `syncWave` order. The ordering of the reference deployment:
 
 | Wave | Tier   | Apps                                     |
 | ---- | ------ | ---------------------------------------- |

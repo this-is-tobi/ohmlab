@@ -1,6 +1,6 @@
 # Projects
 
-This page describes how to interact with the homelab depending on your role.
+This page describes how to interact with an ohmlab platform depending on your role.
 
 ```mermaid
 flowchart LR
@@ -30,14 +30,14 @@ The admin owns the cluster lifecycle: provisioning hosts, bootstrapping ArgoCD, 
 3. Bootstrap the GitOps stack:
    ```sh
    kubectl config use-context homelab
-   ARGOCD_ADMIN_PASSWORD=<choose-a-password> ./run.sh -b homelab
+   ARGOCD_ADMIN_PASSWORD=<choose-a-password> ./run.sh -b mylab
    ```
 4. Once `keycloak` is healthy, enable OIDC for the core ArgoCD by uncommenting the `oidc.config` block in [argo-cd/instances/\<instance\>/values/core/ohmlab.yaml](../argo-cd/instances/_example/values/core/ohmlab.yaml).
 
 ### Enable / disable services
 
 1. Edit [argo-cd/instances/\<instance\>/core.yaml](../argo-cd/instances/_example/core.yaml) (platform tier) or [tenant.yaml](../argo-cd/instances/_example/tenant.yaml) (apps tier) and flip `enabled` on the relevant entry.
-2. Commit & push. The corresponding child AppSet (`core-homelab` or `tenant-homelab`) reconciles automatically (no helm/kubectl needed).
+2. Commit & push. The corresponding child AppSet (`core-mylab` or `tenant-mylab`) reconciles automatically (no helm/kubectl needed).
 
 ### Tune service values
 
@@ -155,7 +155,7 @@ The user-facing ArgoCD instance lives at <https://gitops.\<your-domain\>> (in na
 
 ## Contributor
 
-Contributors propose changes to the homelab itself (charts, values, scripts, docs).
+Contributors propose changes to ohmlab itself (charts, values, scripts, docs).
 
 ### Workflow
 
@@ -163,7 +163,7 @@ Contributors propose changes to the homelab itself (charts, values, scripts, doc
 flowchart LR
     fork[Fork & branch]
     edit[Edit chart / values /<br/>instance JSON or YAML]
-    test[helm template +<br/>./run.sh -b homelab<br/>against test cluster]
+    test[helm template +<br/>./run.sh -b mylab<br/>against test cluster]
     pr[Open PR]
     merge[Merge to main]
     sync[Manager reconciles<br/>(root + child AppSets)]

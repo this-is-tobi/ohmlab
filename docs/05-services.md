@@ -22,7 +22,7 @@ Using the web interface, you can enable/disable ad and tracker blocking, add a l
 
 [WireGuard](https://www.wireguard.com/) is a communication protocol and free and open-source software that implements encrypted virtual private networks (VPNs), and was designed with the goals of ease of use, high speed performance, and low attack surface.
 
-Wireguard's web interface lets you create / delete / activate / deactivate VPN users, download their configuration file and display the user's QrCode. With this user configuration file, a user can access the homelab network to perform an ssh connection to the machines and then request the Kubernetes api server.
+Wireguard's web interface lets you create / delete / activate / deactivate VPN users, download their configuration file and display the user's QrCode. With this user configuration file, a user can access the local network to perform an ssh connection to the machines and then request the Kubernetes api server.
 
 The gateway role deploys [wg-easy](https://github.com/wg-easy/wg-easy) v15: the admin account and network settings are seeded from the inventory (`wireguard.*`) on the container's first start and afterwards live in wg-easy's own database — later changes are made in the UI (or by wiping `/services/wireguard/.wg-easy`). The UI is bound to `127.0.0.1:51821` on the gateway; reach it through an SSH tunnel (`ssh -L 51821:127.0.0.1:51821 <gateway>`). Every `adminUsers` entry gets a VPN client of the same name; `state: absent` deletes it.
 
@@ -128,16 +128,16 @@ flowchart LR
     subgraph engine["core ArgoCD (argocd-system)"]
         direction TB
         rootAS["AppSet: manager (root)"]
-        instApp["Application: instance-homelab"]
+        instApp["Application: instance-mylab"]
         subgraph childAS["child AppSets"]
             direction LR
-            coreAS["core-homelab<br/>(AppProject: admin-core)"]
-            tenantAS["tenant-homelab<br/>(AppProject: admin-tenant)"]
+            coreAS["core-mylab<br/>(AppProject: admin-core)"]
+            tenantAS["tenant-mylab<br/>(AppProject: admin-tenant)"]
         end
         subgraph leafApps["leaf Applications"]
             direction LR
-            coreApp["homelab-&lt;coreApp&gt;"]
-            tenantApp["homelab-&lt;tenantApp&gt;"]
+            coreApp["mylab-&lt;coreApp&gt;"]
+            tenantApp["mylab-&lt;tenantApp&gt;"]
         end
     end
 
@@ -195,14 +195,14 @@ Kubernetes services that are available through user interfaces are centralized o
 
 Users and access levels are managed via the Keycloak interface (cf. [keycloak service url](#kubernetes)) using the admin credentials from Vault (`keycloak.username` / `keycloak.password` under the `keycloak` secret path).
 
-> Don't forget to select the `homelab` realm.
+> Don't forget to select your realm (the `realm` key of Keycloak's secret in Vault).
 
 A default `admin` group grants admin-level access on every connected service; users not in this group get standard access.
 
 ```mermaid
 flowchart LR
     user([User])
-    kc[Keycloak<br/>realm: homelab]
+    kc[Keycloak<br/>realm: &lt;realm&gt;]
     subgraph apps[Connected services]
         argo[ArgoCD]
         gitea[Gitea]
