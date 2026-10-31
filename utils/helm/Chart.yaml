@@ -1,7 +1,7 @@
 apiVersion: v2
 name: ohmlab
 type: application
-version: 0.3.0
+version: 0.3.1
 description: A Helm chart to deploy ohmlab.
 home: https://this-is-tobi.com/ohmlab
 deprecated: false
