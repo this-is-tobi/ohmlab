@@ -72,6 +72,21 @@ defaultCatalog: bundle" '- {app: probe, enabled: true}')
 printf 'expectRelease: probe\nexpectNamespace: probe\n' >"$d/values/core/probe.yaml"
 out=$(run "$d"); expect "a bundle catalog renders from APPS_DIR; a boolean enabled counts" 0 "1 app(s) rendered, 0 failure(s)" "$out" $?
 
+mkdir -p "$work/apps/named/templates"
+printf 'apiVersion: v2\nname: named\nversion: 0.1.0\n' >"$work/apps/named/Chart.yaml"
+cat >"$work/apps/named/templates/cm.yaml" <<'YAML'
+{{- $names := dig "ohmlab" "names" dict (.Values.global | default dict) }}
+{{- if ne (toJson $names) .Values.expectNames }}{{ fail (printf "names %s" (toJson $names)) }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: named}
+YAML
+d=$(instance n "names:
+  gateway: lab-gateway
+  keycloakRealmDisplayName: My lab, Inc" '- {app: named, enabled: "true"}')
+printf '%s\n' "expectNames: '{\"gateway\":\"lab-gateway\",\"keycloakRealmDisplayName\":\"My lab, Inc\"}'" >"$d/values/core/named.yaml"
+out=$(run "$d"); expect "the names of the instance reach every app as global.ohmlab.names, commas included" 0 "ok   n/core/named" "$out" $?
+
 mkdir -p "$work/apps/gen/templates"
 printf 'apiVersion: v2\nname: gen\nversion: 0.1.0\n' >"$work/apps/gen/Chart.yaml"
 cat >"$work/apps/gen/templates/all.yaml" <<'YAML'
