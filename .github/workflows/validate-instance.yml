@@ -30,6 +30,10 @@ on:
         description: Revision of the instance repository; empty for the event's own (the caller) or the default branch
         type: string
         default: ""
+      base-ref:
+        description: A revision of the product to compare with (a pull request's base); the instance is rendered from both, and an object the base renders but `ref` does not fails
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -58,6 +62,12 @@ jobs:
         with:
           go-version-file: ohmlab/utils/go.mod
           cache-dependency-path: ohmlab/utils/go.sum
+      - uses: actions/checkout@v7
+        if: inputs.base-ref != ''
+        with:
+          repository: ${{ inputs.product-repository }}
+          ref: ${{ inputs.base-ref }}
+          path: ohmlab-base
       - name: Build the chart dependencies
         run: |
           set -euo pipefail
@@ -76,6 +86,23 @@ jobs:
             done <"$logs/failed"
             exit 1
           fi
+      - name: Build the chart dependencies of the base
+        if: inputs.base-ref != ''
+        working-directory: ohmlab-base
+        run: |
+          set -euo pipefail
+          source ../ohmlab/scripts/lib/helm-repos.sh
+          add_dependency_repos argo-cd/apps/*/Chart.yaml
+          locked=()
+          for chart in argo-cd/apps/*/; do
+            chart="${chart%/}"
+            [ -f "$chart/Chart.lock" ] && locked+=("$chart")
+          done
+          logs="$RUNNER_TEMP/deps-base"
+          mkdir -p "$logs"
+          # A base that no longer builds is reported by the comparison (apps
+          # that no longer render), not here.
+          vendor_dependencies "$logs" "${locked[@]}" || true
       - name: Check that every chart can read its secrets from Vault
         run: scripts/ci/check-vault-access.sh
       - name: Validate the VaultSeed objects each instance would deploy
@@ -83,4 +110,16 @@ jobs:
       - name: Check that Vault-managed Secrets carry only their own keys
         run: scripts/ci/check-vso-isolation.sh
       - name: Render every app the instance enables with its values
+        env:
+          RENDER_OUT: ${{ runner.temp }}/render-head
         run: scripts/ci/render-instance.sh
+      - name: Render the instance with the base's charts
+        if: inputs.base-ref != ''
+        env:
+          APPS_DIR: ${{ github.workspace }}/ohmlab-base/argo-cd/apps
+          RENDER_OUT: ${{ runner.temp }}/render-base
+        # What the base itself cannot render is not this change's doing.
+        run: scripts/ci/render-instance.sh || true
+      - name: Check that the change deletes or renames nothing on the instance
+        if: inputs.base-ref != ''
+        run: scripts/ci/compare-instance-renders.sh "$RUNNER_TEMP/render-base" "$RUNNER_TEMP/render-head"

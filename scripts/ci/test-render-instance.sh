@@ -72,4 +72,37 @@ defaultCatalog: bundle" '- {app: probe, enabled: true}')
 printf 'expectRelease: probe\nexpectNamespace: probe\n' >"$d/values/core/probe.yaml"
 out=$(run "$d"); expect "a bundle catalog renders from APPS_DIR; a boolean enabled counts" 0 "1 app(s) rendered, 0 failure(s)" "$out" $?
 
+mkdir -p "$work/apps/gen/templates"
+printf 'apiVersion: v2\nname: gen\nversion: 0.1.0\n' >"$work/apps/gen/Chart.yaml"
+cat >"$work/apps/gen/templates/all.yaml" <<'YAML'
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: gen}
+data: {password: {{ randAlphaNum 16 | b64enc | quote }}}
+---
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: gen}
+spec:
+  selector: {matchLabels: {app: gen}}
+  template:
+    metadata:
+      labels: {app: gen}
+      annotations: {checksum/secret: {{ randAlphaNum 16 | quote }}}
+    spec: {containers: [{name: gen, image: busybox}]}
+YAML
+d=$(instance r "" '- {app: gen, enabled: "true"}')
+printf 'x: 1\n' >"$d/values/core/gen.yaml"
+APPS_DIR="$work/apps" INSTANCES_DIR="$(dirname "$d")" RENDER_OUT="$work/out1" "$SCRIPT" >/dev/null 2>&1
+APPS_DIR="$work/apps" INSTANCES_DIR="$(dirname "$d")" RENDER_OUT="$work/out2" "$SCRIPT" >/dev/null 2>&1
+rec="$work/out1/r/core/gen.objects"
+if [ -f "$rec" ] && [ "$(wc -l <"$rec" | tr -d ' ')" = 2 ] && grep -q '^Secret/gen/gen ' "$rec" && grep -q '^Deployment/gen/gen ' "$rec" \
+    && ! grep -q '^null' "$rec" && cmp -s "$rec" "$work/out2/r/core/gen.objects"; then
+  echo "ok   RENDER_OUT records each object once (empty documents skipped), stable across renders of generated values"
+else
+  echo "FAIL RENDER_OUT recording"; sed 's/^/     /' "$rec" "$work/out2/r/core/gen.objects" 2>&1; fail=1
+fi
+
 exit "$fail"
