@@ -1,8 +1,19 @@
-{{- if .Values.gateway.enabled }}
+{{- /*
+The upstream chart's applicationset NetworkPolicy only admits the metrics
+port, so a route to the webhook (7000) would be dropped. This admits it from
+the ingress controller namespace only, and only while a route reaches the
+controller: without one, the open port would serve nothing but exposure. The
+controller's Service carries the release's prefix (argo-cd-argocd-... for a
+release named argo-cd), hence the suffix.
+*/}}
+{{- $routed := false }}
+{{- range .Values.gateway.routes }}
+{{- range .rules }}
+{{- if hasSuffix "argocd-applicationset-controller" (toString .backendService) }}{{ $routed = true }}{{ end }}
+{{- end }}
+{{- end }}
+{{- if and .Values.gateway.enabled $routed }}
 ---
-# The upstream chart's applicationset NetworkPolicy only admits the metrics
-# port, so the webhook (7000) is unreachable through the gateway. Admit it
-# from the ingress controller namespace only.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
