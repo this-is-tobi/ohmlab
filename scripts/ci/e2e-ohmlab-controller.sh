@@ -60,7 +60,7 @@ eventually() {
   done
 }
 ready() { [ "$(k -n "$NS_VAULT" get vaultseed "$1" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')" = True ]; }
-kvget() { vexec kv get -format=json -mount=homelab "platforms/production/core/$1" | jq -c '.data'; }
+kvget() { vexec kv get -format=json -mount=ohmlab "platforms/production/core/$1" | jq -c '.data'; }
 kvfield() { kvget "$1" | jq -r ".data.$2"; }
 kvversion() { kvget "$1" | jq -r '.metadata.version'; }
 # Conditions for `eventually`, evaluated each time it polls.
@@ -115,7 +115,7 @@ metadata: {name: vault, namespace: $NS_VAULT}
 spec: {selector: {app: vault}, ports: [{port: 8200}]}
 YAML
 k -n "$NS_VAULT" rollout status deploy/vault --timeout=120s >/dev/null
-vexec secrets enable -path=homelab -version=2 kv >/dev/null
+vexec secrets enable -path=ohmlab -version=2 kv >/dev/null
 vexec auth enable kubernetes >/dev/null
 vexec write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc >/dev/null
 vexec_in policy write ohmlab-controller-vault - <"$POLICY" >/dev/null
@@ -153,7 +153,7 @@ eventually 90 "grafana Ready" ready grafana
 [ "$(kvfield keycloak admin.password | wc -c)" -eq 25 ] || fail "admin.password length"
 [ "$(kvfield grafana oidc.clientSecret)" = "$(kvfield keycloak clients.grafana.clientSecret)" ] || fail "the reference differs from its source"
 [ "$(kvfield grafana age.secret | cut -c1-15)" = AGE-SECRET-KEY- ] || fail "age secret"
-OWNER=$(vexec kv metadata get -format=json -mount=homelab platforms/production/core/keycloak | jq -r '.data.custom_metadata["ohmlab.fr/owner"]')
+OWNER=$(vexec kv metadata get -format=json -mount=ohmlab platforms/production/core/keycloak | jq -r '.data.custom_metadata["ohmlab.fr/owner"]')
 [ "$OWNER" = "$NS_VAULT/keycloak" ] || fail "owner marker is '$OWNER'"
 
 step "the role takes a token meant for Vault and refuses the API token"
@@ -177,10 +177,10 @@ sleep 50   # more than three resyncs at 15s
 step "drift: a hand-edited reference is put back, a placeholder survives, a deleted key returns"
 good=$(kvfield grafana oidc.clientSecret)
 edited=$(kvget grafana | jq -c '.data | .oidc.clientSecret="hand-edited"')
-vexec_in kv put -mount=homelab platforms/production/core/grafana - <<<"$edited" >/dev/null
+vexec_in kv put -mount=ohmlab platforms/production/core/grafana - <<<"$edited" >/dev/null
 eventually 60 "the reference to be put back" field_is grafana oidc.clientSecret "$good"
 kvdata=$(kvget keycloak | jq -c '.data | .webhook="https://hooks.example/x" | del(.clients.grafana.clientId)')
-vexec_in kv put -mount=homelab platforms/production/core/keycloak - <<<"$kvdata" >/dev/null
+vexec_in kv put -mount=ohmlab platforms/production/core/keycloak - <<<"$kvdata" >/dev/null
 eventually 60 "the deleted key to come back" field_is_not keycloak clients.grafana.clientId null
 [ "$(kvfield keycloak webhook)" = "https://hooks.example/x" ] || fail "a hand-filled placeholder was overwritten"
 
@@ -201,7 +201,7 @@ k apply -f - >/dev/null <<YAML
 apiVersion: ohmlab.fr/v1alpha1
 kind: VaultSeed
 metadata: {name: refused, namespace: $NS_VAULT}
-spec: {path: homelab/platforms/production/core/refused, deletionPolicy: Delete, data: {a: "<random:8>"}}
+spec: {path: ohmlab/platforms/production/core/refused, deletionPolicy: Delete, data: {a: "<random:8>"}}
 YAML
 eventually 60 "refused Ready" ready refused
 k -n "$NS_VAULT" delete vaultseed refused --wait=false >/dev/null
@@ -209,23 +209,23 @@ eventually 60 "the refusal to be reported" test "$(k -n "$NS_VAULT" get vaultsee
 # ... and works once the policy grants it. The finalizer was kept, so the same object finishes.
 vexec_in policy write ohmlab-controller-vault - <"$POLICY_DELETE" >/dev/null
 eventually 90 "the refused object to be removed" bash -c "! kubectl --context $CTX -n $NS_VAULT get vaultseed refused"
-vexec kv get -mount=homelab platforms/production/core/refused >/dev/null 2>&1 && fail "the path outlived its object"
+vexec kv get -mount=ohmlab platforms/production/core/refused >/dev/null 2>&1 && fail "the path outlived its object"
 k apply -f - >/dev/null <<YAML
 apiVersion: ohmlab.fr/v1alpha1
 kind: VaultSeed
 metadata: {name: doomed, namespace: $NS_VAULT}
-spec: {path: homelab/platforms/production/core/doomed, deletionPolicy: Delete, data: {a: "<random:8>"}}
+spec: {path: ohmlab/platforms/production/core/doomed, deletionPolicy: Delete, data: {a: "<random:8>"}}
 ---
 apiVersion: ohmlab.fr/v1alpha1
 kind: VaultSeed
 metadata: {name: kept, namespace: $NS_VAULT}
-spec: {path: homelab/platforms/production/core/kept, data: {a: "<random:8>"}}
+spec: {path: ohmlab/platforms/production/core/kept, data: {a: "<random:8>"}}
 YAML
 eventually 60 "doomed Ready" ready doomed
 eventually 60 "kept Ready" ready kept
 k -n "$NS_VAULT" delete vaultseed doomed kept --wait=true --timeout=60s >/dev/null || fail "deleting blocked"
-vexec kv get -mount=homelab platforms/production/core/doomed >/dev/null 2>&1 && fail "deletionPolicy Delete left the path"
-vexec kv get -mount=homelab platforms/production/core/kept >/dev/null 2>&1 || fail "Retain removed the path"
+vexec kv get -mount=ohmlab platforms/production/core/doomed >/dev/null 2>&1 && fail "deletionPolicy Delete left the path"
+vexec kv get -mount=ohmlab platforms/production/core/kept >/dev/null 2>&1 || fail "Retain removed the path"
 
 step "a rollout never runs the target twice and writes nothing"
 lease_holder() { k -n "$NS_CTL" get lease ohmlab-controller-vault -o jsonpath='{.spec.holderIdentity}'; }

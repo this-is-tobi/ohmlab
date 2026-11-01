@@ -1,11 +1,11 @@
 {{/*
-The KV v2 mount of the platform secrets: the instance's name
-(global.ohmlab.names.vaultMount), else the product default. The policies, the
+The KV v2 mount of the instance's secrets: its name (global.ohmlab.names.vaultMount,
+which the instance's manager gives), else ohmlab. The policies, the
 secrets engine and the VSO and controller mounts all follow it, unless they
 set their own.
 */}}
 {{- define "vault-operator.kvMount" -}}
-{{- dig "ohmlab" "names" "vaultMount" "homelab" (.Values.global | default dict) -}}
+{{- dig "ohmlab" "names" "vaultMount" "ohmlab" (.Values.global | default dict) -}}
 {{- end -}}
 
 {{/*
@@ -30,7 +30,7 @@ path "{{ $mount }}/metadata/platforms/+/+/*" {
 {{/*
 The name of the VaultSeed for a KV path: the path without its mount and without
 a leading "platforms/", slashes, dots and underscores turned into dashes
-("homelab/platforms/production/core/keycloak" -> "production-core-keycloak").
+("ohmlab/platforms/production/core/keycloak" -> "production-core-keycloak").
 */}}
 {{- define "vault-operator.seedName" -}}
 {{- $n := regexReplaceAll "^[^/]+/" . "" -}}

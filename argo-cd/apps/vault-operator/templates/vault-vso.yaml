@@ -2,7 +2,7 @@
 ---
 # ServiceAccount used by VSO to authenticate against Vault in vault-operator-system.
 # The 'vault-operator' Kubernetes auth role is bound to this SA with the 'vault'
-# policy (read homelab/data/platforms/+/+/keycloak).
+# policy (read <KV mount>/data/platforms/+/+/keycloak).
 apiVersion: v1
 kind: ServiceAccount
 metadata:

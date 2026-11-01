@@ -76,7 +76,7 @@ func (d *devVault) mount() (mount string, controller *vault.Client) {
 	if err != nil {
 		d.t.Fatal(err)
 	}
-	d.must("PUT", "sys/policies/acl/"+mount, map[string]string{"policy": strings.ReplaceAll(string(hcl), "homelab/", mount+"/")})
+	d.must("PUT", "sys/policies/acl/"+mount, map[string]string{"policy": strings.ReplaceAll(string(hcl), "ohmlab/", mount+"/")})
 
 	c, err := vault.NewClient(vault.ClientConfig{Address: d.addr})
 	if err != nil {

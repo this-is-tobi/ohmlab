@@ -148,7 +148,7 @@ vault:
     #     # KV path — unrelated to this being a spoke cluster entry.
     #     # tier: tenant           # default "+" (any tier)
     # Each policy's rules go through tpl with .kvMount, the KV mount of the
-    # platform secrets (global.ohmlab.names.vaultMount, else homelab): write a
+    # platform secrets (global.ohmlab.names.vaultMount, else ohmlab): write a
     # path as "{{ .kvMount }}/data/...". Vault's own templating has to be
     # escaped: {{ "{{identity.entity.id}}" }}.
     policies:
@@ -426,7 +426,7 @@ vault:
         policies: [hubble]
         ttl: 1h
       # VSO service account in vault-operator-system for vault-oidc-credentials.
-      # Uses the 'vault' policy (read homelab/data/platforms/+/+/keycloak).
+      # Uses the 'vault' policy (read <KV mount>/data/platforms/+/+/keycloak).
       - name: vault-operator
         bound_service_account_names: [vso]
         bound_service_account_namespaces: [vault-operator-system]
@@ -551,7 +551,7 @@ vaultOidcCredentials:
   # The Vault pod picks up VAULT_OIDC_CLIENT_SECRET via extraEnvsConfig (optional: true).
   enabled: true
   # Empty: the KV mount of the platform secrets (global.ohmlab.names.vaultMount,
-  # else homelab).
+  # else ohmlab).
   mount: ""
   path: platforms/production/core/keycloak
 
@@ -700,7 +700,7 @@ ohmlab:
     namespace: ohmlab-system
     serviceAccount: ohmlab-controller-vault
     # Empty: the KV mount of the platform secrets (global.ohmlab.names.vaultMount,
-    # else homelab).
+    # else ohmlab).
     kvMount: ""
     # Grants delete on the metadata path, for deletionPolicy: Delete. Pair it
     # with targets.vault.allowDelete in the controller's chart.
