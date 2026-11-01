@@ -43,9 +43,6 @@ cnpg:
 
 sso:
   config:
-    clientID: mlflow
-    clientSecret: ""
-    cookieSecret: ""
     configFile: |-
       provider = "keycloak-oidc"
       provider_display_name = "Keycloak"
