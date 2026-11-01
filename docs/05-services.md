@@ -161,6 +161,15 @@ flowchart LR
     coreApp & tenantApp -->|helm template + apply| k8s
 ```
 
+#### Git webhooks
+
+Argo CD polls Git every three minutes. No chart exposes an ApplicationSet webhook or opens the ApplicationSet controller's `webhook` port. For a push to trigger a sync at once, the instance:
+
+1. Adds a gateway route to the controller's Service on port 7000: `argocd-applicationset-controller` for the core Argo CD, `<release>-argocd-applicationset-controller` for a tenant one.
+2. Admits its gateway's namespace to that port with a `networkPolicy.extraIngress` group (the core Argo CD's ohmlab chart and the tenant `argo-cd` chart both take one): `{name: appset-webhook, podSelector: {matchLabels: {app.kubernetes.io/name: argocd-applicationset-controller}}, rules: [{from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: <gateway namespace>}}}], ports: [{port: webhook, protocol: TCP}]}]}`.
+3. Sets a webhook secret, the `webhook.github.secret` key of `argocd-secret`.
+4. Adds the webhook to the Git repository, with that secret.
+
 ### Access
 
 Kubernetes services that are available through user interfaces are centralized on the [Homepage](https://gethomepage.dev/) dashboard. Platform (core) services live under the `core.` subdomain; tenant apps sit directly under the root domain :

@@ -1,0 +1,7 @@
+{{- /*
+The address the Cilium agents reach the Kubernetes API at has no default: it
+is the cluster's own, and a wrong one leaves every agent without its API.
+*/}}
+{{- if not .Values.cilium.k8sServiceHost }}
+{{- fail "cilium.k8sServiceHost is required: the address the Cilium agents reach the Kubernetes API at (an API server VIP or a control-plane node)" }}
+{{- end }}
