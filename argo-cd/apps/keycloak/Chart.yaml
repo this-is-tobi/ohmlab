@@ -5,7 +5,7 @@ version: 0.1.0
 dependencies:
 - name: keycloak
   alias: keycloak
-  version: 0.21.49
+  version: 0.22.0
   repository: oci://ghcr.io/cloudpirates-io/helm-charts
   condition: keycloak.enabled
 - name: keycloak-config-cli
