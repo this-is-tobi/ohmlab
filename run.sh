@@ -33,7 +33,7 @@ SCRIPT_PATH="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
 # TLSRoute (teleport passthrough) + traefik's kubernetesGateway
 # experimentalChannel require it. Keep in sync with what the live cluster
 # runs (bundle-version annotation).
-GATEWAY_API_VERSION="v1.6.3"
+GATEWAY_API_VERSION="v1.7.0"
 
 # Defaults
 export ANSIBLE_CONFIG="$SCRIPT_PATH/ansible/ansible.cfg"
