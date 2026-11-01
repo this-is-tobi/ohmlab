@@ -34,9 +34,9 @@ kube-prometheus-stack:
       server:
         root_url: "https://monitoring.example.com"
       auth.generic_oauth:
-        auth_url: "https://keycloak.example.com/realms/example/protocol/openid-connect/auth"
-        token_url: "https://keycloak.example.com/realms/example/protocol/openid-connect/token"
-        api_url: "https://keycloak.example.com/realms/example/protocol/openid-connect/userinfo"
+        auth_url: "https://keycloak.example.com/realms/ohmlab/protocol/openid-connect/auth"
+        token_url: "https://keycloak.example.com/realms/ohmlab/protocol/openid-connect/token"
+        api_url: "https://keycloak.example.com/realms/ohmlab/protocol/openid-connect/userinfo"
 
 vso:
   vaultStaticSecrets:

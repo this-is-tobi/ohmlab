@@ -195,14 +195,14 @@ Kubernetes services that are available through user interfaces are centralized o
 
 Users and access levels are managed via the Keycloak interface (cf. [keycloak service url](#kubernetes)) using the admin credentials from Vault (`keycloak.username` / `keycloak.password` under the `keycloak` secret path).
 
-> Don't forget to select your realm (the `realm` key of Keycloak's secret in Vault).
+> Select the realm: `ohmlab` for the core services (Grafana, Longhorn, Hubble, the core Argo CD, Vault), the instance's realm, named after it, for the tenant services.
 
 A default `admin` group grants admin-level access on every connected service; users not in this group get standard access.
 
 ```mermaid
 flowchart LR
     user([User])
-    kc[Keycloak<br/>realm: &lt;realm&gt;]
+    kc[Keycloak<br/>realms: ohmlab, &lt;instance&gt;]
     subgraph apps[Connected services]
         argo[ArgoCD]
         gitea[Gitea]

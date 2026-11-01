@@ -24,12 +24,12 @@ ohmlab:
   vault:
     identity:
       groups:
-      - name: homelab-admins
+      - name: ohmlab-admins
         type: external
         policies: [admin]
       groupAliases:
       - name: /admin
-        group: homelab-admins
+        group: ohmlab-admins
 YAML
 
 failures=0
@@ -39,9 +39,9 @@ render() { helm template check "$CHART" -f "$VALUES" --namespace vault-operator-
 out=$(render)
 cr=$(yq 'select(.kind == "Vault") | .spec.externalConfig' <<<"$out")
 
-[ "$(yq -o=json -I=0 '.groups[0] | [.name, .type, .policies[0]]' <<<"$cr")" = '["homelab-admins","external","admin"]' ] \
-  || fail "the Vault CR lacks the homelab-admins group (external, policy admin)"
-[ "$(yq -o=json -I=0 '.["group-aliases"][0] | [.name, .mountpath, .group]' <<<"$cr")" = '["/admin","oidc","homelab-admins"]' ] \
+[ "$(yq -o=json -I=0 '.groups[0] | [.name, .type, .policies[0]]' <<<"$cr")" = '["ohmlab-admins","external","admin"]' ] \
+  || fail "the Vault CR lacks the ohmlab-admins group (external, policy admin)"
+[ "$(yq -o=json -I=0 '.["group-aliases"][0] | [.name, .mountpath, .group]' <<<"$cr")" = '["/admin","oidc","ohmlab-admins"]' ] \
   || fail "the Vault CR lacks the /admin alias on the oidc mount"
 
 [ -z "$(yq 'select(.metadata.name == "vault-post-config*") | .kind' <<<"$out")" ] \
