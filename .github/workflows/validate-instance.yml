@@ -103,6 +103,8 @@ jobs:
           # A base that no longer builds is reported by the comparison (apps
           # that no longer render), not here.
           vendor_dependencies "$logs" "${locked[@]}" || true
+      - name: Check that every values key reaches a chart
+        run: scripts/ci/check-values-keys.sh
       - name: Check that every chart can read its secrets from Vault
         run: scripts/ci/check-vault-access.sh
       - name: Validate the VaultSeed objects each instance would deploy
