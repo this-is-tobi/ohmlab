@@ -92,9 +92,14 @@ for empty in '[]' 'null'; do
   refuses "Traefik does not render without lanOnly.sourceRange ($empty)" "lanOnly.sourceRange is required" \
     "$ROOT/argo-cd/apps/traefik" "$EXAMPLE/core/traefik.yaml" --set-json "lanOnly.sourceRange=$empty"
 done
+# A null lanOnly drops the chart's whole map, not only its range.
+refuses "Traefik does not render without lanOnly at all" "lanOnly.sourceRange is required" \
+  "$ROOT/argo-cd/apps/traefik" "$EXAMPLE/core/traefik.yaml" --set-json 'lanOnly=null'
 for app in longhorn cilium; do
   refuses "$app does not render its Gateway without lanOnly.sourceRange" "lanOnly.sourceRange is required" \
     "$ROOT/argo-cd/apps/$app" "$EXAMPLE/core/$app.yaml" --set gateway.enabled=true --set-json 'lanOnly.sourceRange=[]'
+  refuses "$app does not render its Gateway without lanOnly at all" "lanOnly.sourceRange is required" \
+    "$ROOT/argo-cd/apps/$app" "$EXAMPLE/core/$app.yaml" --set gateway.enabled=true --set-json 'lanOnly=null'
   renders "$app renders without lanOnly.sourceRange when its Gateway is off" \
     "$ROOT/argo-cd/apps/$app" "$EXAMPLE/core/$app.yaml" --set gateway.enabled=false --set-json 'lanOnly.sourceRange=[]'
 done

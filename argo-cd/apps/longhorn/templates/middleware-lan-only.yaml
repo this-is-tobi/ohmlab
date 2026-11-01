@@ -1,5 +1,5 @@
 {{- if .Values.gateway.enabled }}
-{{- if not .Values.lanOnly.sourceRange }}
+{{- if not (.Values.lanOnly | default dict).sourceRange }}
 {{- fail "lanOnly.sourceRange is required: the source ranges the lan-only Middleware lets through (your LAN or VPN, and the pod range of in-cluster callers)" }}
 {{- end }}
 ---
