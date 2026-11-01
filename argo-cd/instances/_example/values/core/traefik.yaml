@@ -33,5 +33,5 @@ gateway:
 vso:
   vaultStaticSecrets:
     traefikCrowdsecBouncerKey:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/traefik

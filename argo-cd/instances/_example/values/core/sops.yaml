@@ -3,5 +3,5 @@ sops: {}
 vso:
   vaultStaticSecrets:
     sopsAgeKeyFile:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/sops

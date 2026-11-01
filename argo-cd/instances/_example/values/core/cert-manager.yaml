@@ -62,5 +62,5 @@ clusterIssuers:
 vso:
   vaultStaticSecrets:
     scwCreds:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/cert-manager

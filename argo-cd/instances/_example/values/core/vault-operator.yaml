@@ -1,10 +1,12 @@
 # Vault (Bank-Vaults operator) and the Vault Secrets Operator.
 #
 # Set only what is yours here. The chart defaults already hold what every app
-# of the catalog needs from Vault: the KV v2 mount named after the instance
-# (`example` here, or `names.vaultMount` in instance.yaml), one read-only
-# policy per app (`example/data/platforms/+/+/<app>`) and one Kubernetes auth
-# role per app, bound to the `vso` service account of the app's namespace.
+# of the catalog needs from Vault: two KV v2 mounts, `ohmlab` for the core
+# tier's secrets (`systemMount`) and one named after the instance for the
+# tenant tier's (`example` here, or `names.vaultMount` in instance.yaml), one
+# read-only policy per app (`ohmlab/data/platforms/+/core/<app>` and
+# `example/data/platforms/+/tenant/<app>`) and one Kubernetes auth role per
+# app, bound to the `vso` service account of the app's namespace.
 # Do not copy those lists here: a list in an instance file replaces the chart's
 # list as a whole, and every app missing from the copy then fails with
 # `403 permission denied`. If you change a namespace in core.yaml or tenant.yaml,

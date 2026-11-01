@@ -55,6 +55,12 @@ vault-operator:
     serviceMonitor:
       enabled: true
 
+# The KV mount of the core tier's secrets: the ohmlab system's, one for every
+# instance. The tenant tier's secrets are in the instance's own mount
+# (global.ohmlab.names.vaultMount). An instance whose core secrets are still in
+# its own mount sets its name here.
+systemMount: ohmlab
+
 vault:
   enabled: true
   name: vault
@@ -147,10 +153,12 @@ vault:
     #     # tier is the EXISTING core/tenant split, scoped to this one app's
     #     # KV path — unrelated to this being a spoke cluster entry.
     #     # tier: tenant           # default "+" (any tier)
-    # Each policy's rules go through tpl with .kvMount, the KV mount of the
-    # platform secrets (global.ohmlab.names.vaultMount, else ohmlab): write a
-    # path as "{{ .kvMount }}/data/...". Vault's own templating has to be
-    # escaped: {{ "{{identity.entity.id}}" }}.
+    # Each policy's rules go through tpl with two KV mounts: .systemMount, the
+    # core tier's (systemMount), and .kvMount, the tenant tier's, the
+    # instance's own (global.ohmlab.names.vaultMount, else ohmlab). An app reads
+    # "{{ .systemMount }}/data/platforms/+/core/<app>" and
+    # "{{ .kvMount }}/data/platforms/+/tenant/<app>". Vault's own templating
+    # has to be escaped: {{ "{{identity.entity.id}}" }}.
     policies:
     - name: admin
       rules: |
@@ -161,125 +169,197 @@ vault:
         }
     - name: argo-cd
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/argo-cd" {
+        path "{{ .systemMount }}/data/platforms/+/core/argo-cd" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/argo-cd" {
           capabilities = ["read", "list"]
         }
     - name: argo-cd-core
       rules: |
         # Same as argo-cd but bound to argocd-system SA (core ArgoCD VSO)
-        path "{{ .kvMount }}/data/platforms/+/+/argo-cd" {
+        path "{{ .systemMount }}/data/platforms/+/core/argo-cd" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/argo-cd" {
           capabilities = ["read", "list"]
         }
     - name: vault
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/keycloak" {
+        path "{{ .systemMount }}/data/platforms/+/core/keycloak" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/keycloak" {
           capabilities = ["read", "list"]
         }
     - name: cert-manager
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/cert-manager" {
+        path "{{ .systemMount }}/data/platforms/+/core/cert-manager" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/cert-manager" {
           capabilities = ["read", "list"]
         }
     - name: coder
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/coder" {
+        path "{{ .systemMount }}/data/platforms/+/core/coder" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/coder" {
           capabilities = ["read", "list"]
         }
     - name: gitea
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/gitea" {
+        path "{{ .systemMount }}/data/platforms/+/core/gitea" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/gitea" {
           capabilities = ["read", "list"]
         }
     - name: harbor
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/harbor" {
+        path "{{ .systemMount }}/data/platforms/+/core/harbor" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/harbor" {
           capabilities = ["read", "list"]
         }
     - name: keycloak
       rules: |
         # Keycloak reads its own secret only — client credentials are centralized
         # under keycloak's path at .clients.<app>.{clientId,clientSecret}
-        path "{{ .kvMount }}/data/platforms/+/+/keycloak" {
+        path "{{ .systemMount }}/data/platforms/+/core/keycloak" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/keycloak" {
           capabilities = ["read", "list"]
         }
     - name: mattermost
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/mattermost" {
+        path "{{ .systemMount }}/data/platforms/+/core/mattermost" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/mattermost" {
           capabilities = ["read", "list"]
         }
     - name: rustfs
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/rustfs" {
+        path "{{ .systemMount }}/data/platforms/+/core/rustfs" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/rustfs" {
           capabilities = ["read", "list"]
         }
     - name: outline
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/outline" {
+        path "{{ .systemMount }}/data/platforms/+/core/outline" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/outline" {
           capabilities = ["read", "list"]
         }
     - name: prometheus-stack
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/prometheus-stack" {
+        path "{{ .systemMount }}/data/platforms/+/core/prometheus-stack" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/prometheus-stack" {
           capabilities = ["read", "list"]
         }
     - name: argo-workflows
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/argo-workflows" {
+        path "{{ .systemMount }}/data/platforms/+/core/argo-workflows" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/argo-workflows" {
           capabilities = ["read", "list"]
         }
     - name: mlflow
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/mlflow" {
+        path "{{ .systemMount }}/data/platforms/+/core/mlflow" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/mlflow" {
           capabilities = ["read", "list"]
         }
     - name: vaultwarden
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/vaultwarden" {
+        path "{{ .systemMount }}/data/platforms/+/core/vaultwarden" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/vaultwarden" {
           capabilities = ["read", "list"]
         }
     - name: sonarqube
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/sonarqube" {
+        path "{{ .systemMount }}/data/platforms/+/core/sonarqube" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/sonarqube" {
           capabilities = ["read", "list"]
         }
     - name: actions-runner-controller
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/actions-runner-controller" {
+        path "{{ .systemMount }}/data/platforms/+/core/actions-runner-controller" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/actions-runner-controller" {
           capabilities = ["read", "list"]
         }
     - name: sops
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/sops" {
+        path "{{ .systemMount }}/data/platforms/+/core/sops" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/sops" {
           capabilities = ["read", "list"]
         }
     - name: crowdsec
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/crowdsec" {
+        path "{{ .systemMount }}/data/platforms/+/core/crowdsec" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/crowdsec" {
           capabilities = ["read", "list"]
         }
     - name: longhorn
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/longhorn" {
+        path "{{ .systemMount }}/data/platforms/+/core/longhorn" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/longhorn" {
           capabilities = ["read", "list"]
         }
     - name: apisix
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/apisix" {
+        path "{{ .systemMount }}/data/platforms/+/core/apisix" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/apisix" {
           capabilities = ["read", "list"]
         }
     - name: traefik
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/traefik" {
+        path "{{ .systemMount }}/data/platforms/+/core/traefik" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/traefik" {
           capabilities = ["read", "list"]
         }
     - name: traefik-dashboard
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/traefik-dashboard" {
+        path "{{ .systemMount }}/data/platforms/+/core/traefik-dashboard" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/traefik-dashboard" {
           capabilities = ["read", "list"]
         }
     - name: hubble
       rules: |
-        path "{{ .kvMount }}/data/platforms/+/+/hubble" {
+        path "{{ .systemMount }}/data/platforms/+/core/hubble" {
+          capabilities = ["read", "list"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/hubble" {
           capabilities = ["read", "list"]
         }
     auth:
@@ -472,8 +552,14 @@ vault:
     oidcBoundGroups:
     - "/admin"
     oidcRedirectUris: []
-    # Rendered through tpl like the policies.
+    # Rendered through tpl like the policies. When the system mount is the
+    # instance's, the first entry of that path is kept.
     secrets:
+    - path: "{{ .systemMount }}"
+      type: kv
+      description: "{{ .systemMount | title }} secrets KV store"
+      options:
+        version: 2
     - path: "{{ .kvMount }}"
       type: kv
       description: "{{ .kvMount | title }} secrets KV store"
@@ -550,8 +636,8 @@ vaultOidcCredentials:
   # from core/keycloak.clients.vault.clientSecret (generated by initSecrets).
   # The Vault pod picks up VAULT_OIDC_CLIENT_SECRET via extraEnvsConfig (optional: true).
   enabled: true
-  # Empty: the KV mount of the platform secrets (global.ohmlab.names.vaultMount,
-  # else ohmlab).
+  # Empty: the system mount (systemMount), where the core tier's keycloak
+  # secret is.
   mount: ""
   path: platforms/production/core/keycloak
 
@@ -699,8 +785,9 @@ ohmlab:
     # ohmlab-controller-<deployment>: with a custom grouping, name that one.
     namespace: ohmlab-system
     serviceAccount: ohmlab-controller-vault
-    # Empty: the KV mount of the platform secrets (global.ohmlab.names.vaultMount,
-    # else ohmlab).
+    # Empty: the system mount (systemMount) and the instance's
+    # (global.ohmlab.names.vaultMount), one pair of stanzas each. Set, that
+    # mount alone.
     kvMount: ""
     # Grants delete on the metadata path, for deletionPolicy: Delete. Pair it
     # with targets.vault.allowDelete in the controller's chart.
