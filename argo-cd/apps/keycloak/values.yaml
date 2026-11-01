@@ -767,7 +767,7 @@ realms:
     displayNameHtml: '<b>Ohmlab</b> Identity'
     roles:
       client:
-        grafana-core: &grafana-core-roles
+        grafana-core:
         - name: grafanaadmin
           description: Grafana administrator role
         - name: admin
@@ -783,8 +783,7 @@ realms:
         grafana-core:
         - grafanaadmin
     clients:
-    - &grafana-core
-      clientId: grafana-core
+    - clientId: grafana-core
       name: Grafana Core
       description: Monitoring dashboards (core)
       enabled: true
@@ -826,8 +825,7 @@ realms:
           userinfo.token.claim: "true"
           id.token.claim: "true"
           client_id: grafana-core
-    - &argo-cd-core
-      clientId: argo-cd-core
+    - clientId: argo-cd-core
       name: Argo CD (core)
       description: Core GitOps ArgoCD instance (argocd-system)
       enabled: true
@@ -855,8 +853,7 @@ realms:
       - phone
       - offline_access
       - microprofile-jwt
-    - &vault-core
-      clientId: vault-core
+    - clientId: vault-core
       name: Vault Core
       description: HashiCorp Vault UI OIDC login (core)
       enabled: true
@@ -885,8 +882,7 @@ realms:
       - phone
       - offline_access
       - microprofile-jwt
-    - &longhorn-core
-      clientId: longhorn-core
+    - clientId: longhorn-core
       name: Longhorn Core
       description: Distributed block storage UI (core)
       enabled: true
@@ -934,8 +930,7 @@ realms:
       - phone
       - offline_access
       - microprofile-jwt
-    - &hubble-core
-      clientId: hubble-core
+    - clientId: hubble-core
       name: Hubble Core
       description: Cilium network flow visibility (core)
       enabled: true
@@ -977,15 +972,13 @@ realms:
       - microprofile-jwt
   # The instance's realm, for the tenant apps: its name and the name it shows
   # (global.ohmlab.names.keycloakRealm and keycloakRealmDisplayName, which the
-  # instance's manager gives), else ohmlab and Ohmlab. The core apps' clients
-  # stay here too until the core apps sign in through ohmlab.
+  # instance's manager gives), else ohmlab and Ohmlab.
   instance:
     realm: '{{ dig `ohmlab` `names` `keycloakRealm` `ohmlab` (.Values.global | default dict) }}'
     displayName: '{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Ohmlab` (.Values.global | default dict) }}'
     displayNameHtml: '<b>{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Ohmlab` (.Values.global | default dict) }}</b> Identity'
     roles:
       client:
-        grafana-core: *grafana-core-roles
         rustfs:
         - name: consoleAdmin
           description: RustFS administrator role (built-in consoleAdmin policy)
@@ -995,8 +988,6 @@ realms:
       realmRoles:
       - admin
       clientRoles:
-        grafana-core:
-        - grafanaadmin
         rustfs:
         - consoleAdmin
     clients:
@@ -1028,7 +1019,6 @@ realms:
       - phone
       - offline_access
       - microprofile-jwt
-    - *grafana-core
     - clientId: argo-cd
       name: Argo CD
       description: GitOps continuous delivery
@@ -1057,10 +1047,6 @@ realms:
       - phone
       - offline_access
       - microprofile-jwt
-    - *argo-cd-core
-    - *vault-core
-    - *longhorn-core
-    - *hubble-core
     - clientId: rustfs
       name: RustFS
       description: S3-compatible object storage
