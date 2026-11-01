@@ -34,7 +34,6 @@ KNOWN_DEFAULT='
 # privileged container (pod-security-baseline), both Enforce.
 core/apisix Deployment/apisix require-non-root
 core/apisix Deployment/apisix-ingress-controller require-non-root
-core/trivy-operator Deployment/trivy-operator require-non-root
 tenant/actions-runner-controller Deployment/actions-runner-controller-gha-rs-controller require-non-root
 tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-baseline
 tenant/teleport Deployment/teleport-auth require-non-root
@@ -56,7 +55,6 @@ core/ingress-nginx Job/ingress-nginx-admission-patch require-resource-limits
 core/ohmlab Deployment/argocd-redis require-resource-limits
 core/prometheus-stack Job/prometheus-stack-kube-prom-admission-create require-resource-limits
 core/prometheus-stack Job/prometheus-stack-kube-prom-admission-patch require-resource-limits
-core/trivy-operator Deployment/trivy-operator require-resource-limits
 core/vault Deployment/vault-agent-injector require-resource-limits
 core/vault StatefulSet/vault require-resource-limits
 tenant/actions-runner-controller Deployment/actions-runner-controller-gha-rs-controller require-resource-limits
