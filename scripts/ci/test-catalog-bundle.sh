@@ -133,7 +133,9 @@ for chartdir in utils/helm argo-cd/apps/*/; do
       for scope in core tenant; do
         [ -f "$inst_dir/values/$scope/$name.yaml" ] && { vf="$inst_dir/values/$scope/$name.yaml"; break; }
       done
-      if [ -n "$vf" ]; then args=(-f "$vf"); elif [ "$inst" != _example ]; then continue; fi
+      if [ -n "$vf" ]; then
+        app_args "$vf" 2>"$work/err" || { bad "$name: the manager of $inst does not render" "$(head -c 200 "$work/err")"; continue; }
+      elif [ "$inst" != _example ]; then continue; fi
     fi
     label="$name renders the same from the bundle ($inst)"
     if ! git_a=$(helm template catalog "$work/repo/$chartdir" "${args[@]+"${args[@]}"}" 2>"$work/err"); then

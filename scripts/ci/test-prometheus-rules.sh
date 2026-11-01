@@ -35,7 +35,7 @@ values_args() {
   local vf
   if [ -f "$1/tests/values.yaml" ]; then printf '%s\n' -f "$1/tests/values.yaml"; return; fi
   vf=$(values_file "$(basename "$1")")
-  if [ -n "$vf" ]; then printf '%s\n' -f "$vf"; fi
+  if [ -n "$vf" ] && app_args "$vf"; then printf '%s\n' "${args[@]}"; fi
 }
 
 for test in "$root"/*/tests/prometheusrules.test.yaml; do
