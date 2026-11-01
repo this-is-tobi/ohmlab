@@ -28,7 +28,9 @@ render() {
   fi
   helm template t "$chart" "$@" >"$work/out.yaml" 2>"$work/err" || { echo "FAIL $chart does not render: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1; }
 }
-field() { yq ea -r "$1" "$work/out.yaml" | grep -v '^$' | grep -v '^---$' | paste -sd, -; }
+# One document at a time (eval, not eval-all, which pairs documents once an
+# expression binds a variable).
+field() { yq e -r "$1" "$work/out.yaml" | grep -v '^$' | grep -v '^---$' | paste -sd, -; }
 # The example values leave every secret's mount and path to the manager: a
 # chart rendered from them needs the manager's Vault parameters.
 manager_vault=(--set-string global.ohmlab.vault.mount=ohmlab --set-string global.ohmlab.vault.pathPrefix=platforms/production/core)

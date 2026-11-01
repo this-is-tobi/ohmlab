@@ -21,19 +21,22 @@ check() { # check <label> <expected> <actual>
 
 # render <chart dir> <example values file> [<helm args>...]: renders the chart
 # with that values file and the manager's parameters into $work/out.yaml (its
-# dependencies built first when they are not vendored).
+# dependencies built first when they are not vendored); fails, saying why,
+# when it cannot.
 render() {
   local chart="$1" vf="$2"
   shift 2
   if [ -f "$chart/Chart.lock" ] && [ ! -d "$chart/charts" ]; then
-    helm dependency build "$chart" >/dev/null 2>&1 || { echo "FAIL cannot build the dependencies of $chart"; fail=1; }
+    helm dependency build "$chart" >/dev/null 2>&1 || { echo "FAIL cannot build the dependencies of $chart"; fail=1; return 1; }
   fi
   args=()
-  app_args "$vf" || { echo "FAIL no manager parameters for $vf"; fail=1; return; }
+  app_args "$vf" || { echo "FAIL no manager parameters for $vf"; fail=1; return 1; }
   helm template t "$chart" "${args[@]}" "$@" >"$work/out.yaml" 2>"$work/err" \
-    || { echo "FAIL $chart does not render: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1; }
+    || { echo "FAIL $chart does not render: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1; return 1; }
 }
-field() { yq ea -r "$1" "$work/out.yaml" | grep -v '^$' | grep -v '^---$' | paste -sd, -; }
+# One document at a time (eval, not eval-all, which pairs documents once an
+# expression binds a variable).
+field() { yq e -r "$1" "$work/out.yaml" | grep -v '^$' | grep -v '^---$' | paste -sd, -; }
 
 # The ApplicationSet webhook (port "webhook" of the controller): no chart opens
 # it on its own; an instance that wants Git webhooks routes to it and admits
@@ -67,11 +70,9 @@ refuses() {
   fi
 }
 renders() { # renders <label> <chart dir> <example values file> [<helm args>...]
-  local label="$1"
+  local label="$1" out
   shift
-  : >"$work/err"
-  render "$@"
-  if [ -s "$work/err" ] && grep -q Error "$work/err"; then echo "FAIL $label"; fail=1; else echo "ok   $label"; fi
+  if out=$(render "$@"); then echo "ok   $label"; else echo "FAIL $label: ${out#FAIL }"; fail=1; fi
 }
 
 # Trust lists exempt a range from CrowdSec's decisions: by default they hold
