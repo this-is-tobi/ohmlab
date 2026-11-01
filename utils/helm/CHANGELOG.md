@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.3.1...chart-v0.4.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* a chart rendered without the instance-manager now falls back to the KV mount ohmlab, the realm ohmlab shown as Ohmlab and the Gateway ohmlab-gateway, and the Traefik Gateway follows names.gateway instead of names.traefikGateway.
+
+### Features
+
+* default every chart's Vault mount and path to the manager's ([401bd18](https://github.com/this-is-tobi/ohmlab/commit/401bd18fae8227acc5a0eb9d00f4a3e9c14c983f))
+* fall back to the ohmlab names, with one Gateway name for every implementation ([22107ee](https://github.com/this-is-tobi/ohmlab/commit/22107eeba71535008e41673c0045041e3e9cc4d7))
+* take the gateway names from the instance, with today's names as defaults ([a8f949c](https://github.com/this-is-tobi/ohmlab/commit/a8f949c25ef70a9df5329cde7647106a82be91ec))
+
 ## [0.3.1](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.3.0...chart-v0.3.1) (2026-10-31)
 
 
