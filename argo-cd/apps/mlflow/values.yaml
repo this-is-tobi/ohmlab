@@ -122,9 +122,9 @@ cnpg:
 
 sso:
   config:
-    clientID: ""
-    clientSecret: ""
-    cookieSecret: ""
+    # The client ID, client secret and cookie secret come from Vault
+    # (mlflowSso below), so the chart renders no Secret of its own.
+    existingSecret: mlflow-oauth2-proxy-creds
     configFile: |-
       provider = "keycloak-oidc"
       provider_display_name = "Keycloak"
@@ -296,13 +296,16 @@ vso:
               text: '{{ get .Secrets "postgres" | dig "s3" "secretKey" "" }}'
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
+    # Keys match what the oauth2-proxy chart's `existingSecret` support
+    # expects verbatim (same pattern as cilium's hubbleSso). The cookie secret
+    # is 32 random bytes, as oauth2-proxy requires 16, 24 or 32.
     mlflowSso:
       type: kv-v2
       vaultAuthRef: mlflow-vso-default
       refreshAfter: 1h
       hmacSecretData: true
       destination:
-        name: mlflow-sso
+        name: mlflow-oauth2-proxy-creds
         create: true
         type: Opaque
         transformation:
@@ -310,7 +313,9 @@ vso:
           excludes:
           - ".*"
           templates:
-            OIDC_CLIENT_ID:
+            client-id:
               text: '{{ get .Secrets "keycloak" | dig "clientId" "" }}'
-            OIDC_CLIENT_SECRET:
+            client-secret:
               text: '{{ get .Secrets "keycloak" | dig "clientSecret" "" }}'
+            cookie-secret:
+              text: '{{ get .Secrets "keycloak" | dig "cookieSecret" "" }}'
