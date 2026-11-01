@@ -24,7 +24,7 @@ jobs:
     with:
       GROUPS: >-
         {"utils": ["utils/*", "scripts/ci/utils-test-env*"],
-        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-site-defaults*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-example-secrets*", "scripts/ci/check-example-pod-security*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/test-vault-operator-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
+        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-site-defaults*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-example-secrets*", "scripts/ci/check-example-pod-security*", "scripts/ci/check-values-keys*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/test-vault-operator-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
         "controller": ["utils/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/utils-test-env*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
@@ -187,6 +187,10 @@ jobs:
             "github.com/norwoodj/helm-docs/cmd/helm-docs@$HELM_DOCS_VERSION"
           "$(go env GOPATH)/bin/helm-docs" --chart-search-root utils/helm
           git diff --exit-code -- utils/helm/README.md
+      - name: Check that every values key reaches a chart
+        run: |
+          scripts/ci/check-values-keys.test.sh
+          scripts/ci/check-values-keys.sh
       - name: Render every chart with the example instance values
         run: scripts/ci/render-example.sh
       - name: Check that Vault-managed Secrets carry only their own keys
