@@ -128,4 +128,92 @@ else
   echo "FAIL RENDER_OUT recording"; sed 's/^/     /' "$rec" "$work/out2/r/core/gen.objects" 2>&1; fail=1
 fi
 
+# crdapp installs example.com/v1 Widget from a template (its v1beta1 is not
+# served) and example.com/v1 Gadget from its crds/ directory; gated renders
+# one object per API only when that API is known; broken never renders.
+mkdir -p "$work/apps/crdapp/templates" "$work/apps/crdapp/crds" "$work/apps/gated/templates" "$work/apps/broken/templates"
+printf 'apiVersion: v2\nname: crdapp\nversion: 0.1.0\n' >"$work/apps/crdapp/Chart.yaml"
+cat >"$work/apps/crdapp/templates/widgets.yaml" <<'YAML'
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata: {name: widgets.example.com}
+spec:
+  group: example.com
+  scope: Namespaced
+  names: {plural: widgets, kind: Widget}
+  versions:
+  - {name: v1, served: true, storage: true, schema: {openAPIV3Schema: {type: object}}}
+  - {name: v1beta1, served: false, storage: false, schema: {openAPIV3Schema: {type: object}}}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata: {name: things.other.io}
+spec:
+  group: other.io
+  scope: Namespaced
+  names: {plural: things, kind: Thing}
+  versions:
+  - {name: v2, served: true, storage: true, schema: {openAPIV3Schema: {type: object}}}
+YAML
+cat >"$work/apps/crdapp/crds/gadgets.yaml" <<'YAML'
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata: {name: gadgets.example.com}
+spec:
+  group: example.com
+  scope: Namespaced
+  names: {plural: gadgets, kind: Gadget}
+  versions:
+  - {name: v1, served: true, storage: true, schema: {openAPIV3Schema: {type: object}}}
+YAML
+printf 'apiVersion: v2\nname: gated\nversion: 0.1.0\n' >"$work/apps/gated/Chart.yaml"
+cat >"$work/apps/gated/templates/cm.yaml" <<'YAML'
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: gated}
+{{- range $name, $api := dict "widget" "example.com/v1/Widget" "gadget" "example.com/v1/Gadget" "beta" "example.com/v1beta1/Widget" "thing" "other.io/v2/Thing" "cross" "example.com/v1/Thing" }}
+{{- if $.Capabilities.APIVersions.Has $api }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: gated-{{ $name }}}
+{{- end }}
+{{- end }}
+YAML
+printf 'apiVersion: v2\nname: broken\nversion: 0.1.0\n' >"$work/apps/broken/Chart.yaml"
+printf '{{ fail "broken" }}\n' >"$work/apps/broken/templates/cm.yaml"
+lists() { grep -q "^$2 " "$1" 2>/dev/null; } # lists <objects file> <kind/namespace/name>
+
+d=$(instance s "" '- {app: crdapp, enabled: "true"}')
+printf 'apps:\n- {app: gated, enabled: "true"}\n' >"$d/tenant.yaml"
+printf 'x: 1\n' >"$d/values/core/crdapp.yaml"; printf 'x: 1\n' >"$d/values/tenant/gated.yaml"
+APPS_DIR="$work/apps" INSTANCES_DIR="$(dirname "$d")" RENDER_OUT="$work/out-s" "$SCRIPT" >"$work/s.log" 2>&1
+gated="$work/out-s/s/tenant/gated.objects"
+if lists "$gated" ConfigMap/gated/gated-widget; then echo "ok   an API a core app installs is known to the tenant apps"; else
+  echo "FAIL an API a core app installs is known to the tenant apps"; sed 's/^/     /' "$work/s.log" "$gated" 2>&1; fail=1
+fi
+if lists "$work/out-s/s/core/crdapp.objects" CustomResourceDefinition/crdapp/gadgets.example.com && lists "$gated" ConfigMap/gated/gated-gadget; then
+  echo "ok   a chart's crds/ directory renders, as Argo CD includes it"
+else echo "FAIL a chart's crds/ directory renders, as Argo CD includes it"; fail=1; fi
+if lists "$gated" ConfigMap/gated/gated && ! lists "$gated" ConfigMap/gated/gated-beta; then echo "ok   a CRD version that is not served is no API"; else
+  echo "FAIL a CRD version that is not served is no API"; fail=1
+fi
+if lists "$gated" ConfigMap/gated/gated-thing && ! lists "$gated" ConfigMap/gated/gated-cross; then echo "ok   each CRD's kind is an API of its own group only"; else
+  echo "FAIL each CRD's kind is an API of its own group only"; fail=1
+fi
+
+d=$(instance t "" '- {app: gated, enabled: "true"}')
+printf 'x: 1\n' >"$d/values/core/gated.yaml"
+APPS_DIR="$work/apps" INSTANCES_DIR="$(dirname "$d")" RENDER_OUT="$work/out-t" "$SCRIPT" >/dev/null 2>&1
+if lists "$work/out-t/t/core/gated.objects" ConfigMap/gated/gated && ! lists "$work/out-t/t/core/gated.objects" ConfigMap/gated/gated-widget; then
+  echo "ok   an API the instance does not install stays unknown"
+else echo "FAIL an API the instance does not install stays unknown"; fail=1; fi
+
+d=$(instance u "" '- {app: broken, enabled: "true"}')
+printf 'x: 1\n' >"$d/values/core/broken.yaml"
+out=$(run "$d")
+if [ "$(grep -c '^FAIL u/core/broken' <<<"$out")" = 1 ]; then echo "ok   an app that fails is reported once"; else
+  echo "FAIL an app that fails is reported once"; sed 's/^/     /' <<<"$out"; fail=1
+fi
+
 exit "$fail"

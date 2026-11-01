@@ -6,6 +6,12 @@
 # which Argo CD requires to exist, and the Helm parameters its manager gives. A change here that breaks an instance's
 # values then fails before it reaches that instance's cluster.
 #
+# Like Argo CD, each app renders with its charts' crds/ directories, and with
+# the API versions of every CRD the instance's own apps install, as on a
+# cluster where the instance has synced once: a first pass collects those
+# CRDs, the second renders and records. Objects a chart renders only when
+# their API exists (VaultSeeds, ServiceMonitors) are then checked too.
+#
 #   render-instance.sh
 #
 # Needs helm and yq (mikefarah). APPS_DIR (default argo-cd/apps of this
@@ -51,7 +57,27 @@ record() {
       done | sort >"$3"
 }
 
-while IFS= read -r dir; do
+# crd_api_versions <manifest>...: the API versions the CRDs of the manifests
+# serve, as Helm's --api-versions takes them: <group>/<version> and
+# <group>/<version>/<Kind> for each served version, sorted and unique.
+crd_api_versions() {
+  [ "$#" -gt 0 ] || return 0
+  # One document at a time (eval, not eval-all, which would pair every
+  # group with every kind); yq reads "a | b, c" as "(a | b), c", hence the
+  # parentheses around the pair.
+  yq e -r 'select(.kind == "CustomResourceDefinition") | .spec.group as $g | .spec.names.kind as $k
+    | .spec.versions[] | select(.served != false) | (($g + "/" + .name), ($g + "/" + .name + "/" + $k))' "$@" 2>/dev/null \
+    | grep -v -e '^---$' -e '^$' | sort -u
+}
+
+# render_apps <instance folder> <collect|check>: every app the instance
+# enables, both tiers. collect only writes each manifest to $work/collect, so
+# that its CRDs can be read; check renders with the API versions in api,
+# reports each app and records it.
+render_apps() {
+  local dir="$1" mode="$2" instance values_root prefix suffix default_catalog tier lines p
+  local app chart release namespace catalog revision values_path id values registry out
+  local -a params ref
   instance="${dir##*/}"
   # The values repository: Argo CD reads every values file under
   # argo-cd/instances/<instance>/ of it.
@@ -66,7 +92,7 @@ while IFS= read -r dir; do
     # base's manager.
     params=()
     if ! lines=$(manager_parameters "$dir" "$tier" "$manager_chart" 2>"$work/manager.err"); then
-      fail "$instance/$tier: the instance-manager does not render: $(cat "$work/manager.err")"
+      [ "$mode" = collect ] || fail "$instance/$tier: the instance-manager does not render: $(cat "$work/manager.err")"
       continue
     fi
     while IFS= read -r p; do
@@ -81,20 +107,26 @@ while IFS= read -r dir; do
       [ -n "$catalog" ] || catalog="$default_catalog"
       if [ -n "$values_path" ]; then values="$values_root/$values_path"; else values="$dir/values/$tier/$app.yaml"; fi
       if [ ! -f "$values" ]; then
-        fail "$id: no values file ${values#"$values_root"/} (Argo CD refuses a missing value file)"
+        [ "$mode" = collect ] || fail "$id: no values file ${values#"$values_root"/} (Argo CD refuses a missing value file)"
         continue
       fi
       registry=$(C="$catalog" yq '.catalogs[strenv(C)] | select(tag == "!!str")' "$dir/instance.yaml")
       if [ -n "$registry" ]; then
         if [ -z "$revision" ]; then
-          fail "$id: catalog $catalog is a registry, the entry needs its exact chart version in targetRevision"
+          [ "$mode" = collect ] || fail "$id: catalog $catalog is a registry, the entry needs its exact chart version in targetRevision"
           continue
         fi
         ref=(oci://"$registry/$chart" --version "$revision")
       else
         ref=("$APPS_DIR/$chart")
       fi
-      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" "${params[@]+"${params[@]}"}" 2>&1 >"$work/manifest"); then
+      if [ "$mode" = collect ]; then
+        helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" --include-crds \
+          "${params[@]+"${params[@]}"}" >"$work/collect/$tier-$app.yaml" 2>/dev/null || true
+        continue
+      fi
+      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" --include-crds \
+          "${api[@]+"${api[@]}"}" "${params[@]+"${params[@]}"}" 2>&1 >"$work/manifest"); then
         echo "ok   $id"
         rendered=$((rendered + 1))
         [ -z "${RENDER_OUT:-}" ] || record "$work/manifest" "$namespace" "$RENDER_OUT/$id.objects"
@@ -105,6 +137,18 @@ while IFS= read -r dir; do
       | [.app, (.chart // .app), (.releaseName // .app), (.namespace // ""), (.catalog // ""), (.targetRevision // ""), (.valuesPath // "")]
       | join("|")' "$dir/$tier.yaml")
   done
+}
+
+while IFS= read -r dir; do
+  rm -rf "$work/collect" && mkdir -p "$work/collect"
+  render_apps "$dir" collect
+  manifests=("$work"/collect/*.yaml)
+  [ -e "${manifests[0]}" ] || manifests=()
+  api=()
+  while IFS= read -r v; do
+    [ -n "$v" ] && api+=(--api-versions "$v")
+  done < <(crd_api_versions "${manifests[@]+"${manifests[@]}"}")
+  render_apps "$dir" check
 done < <(instance_dirs)
 
 echo "$rendered app(s) rendered, $failures failure(s)"
