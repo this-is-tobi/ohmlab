@@ -16,14 +16,16 @@ var configCmd = &cobra.Command{
 	Short: "Configure Harbor with OIDC and scanning",
 	Long: `Configure Harbor with Keycloak OIDC authentication and Trivy scanning.
 
-Loads credentials from Kubernetes secrets (when in-cluster) or environment variables.
+Loads Harbor's credentials from its Kubernetes secret (when in-cluster) or
+environment variables. The Keycloak domain and realm are required, from
+flags or environment variables: Harbor, a tenant app, signs in through the
+instance's realm.
 
 Environment variables:
   HARBOR_DOMAIN, HARBOR_USERNAME, HARBOR_PASSWORD
   HARBOR_CLIENT_ID, HARBOR_CLIENT_SECRET
   KEYCLOAK_DOMAIN, KEYCLOAK_REALM
-  HARBOR_NAMESPACE, HARBOR_SECRET_NAME
-  KEYCLOAK_NAMESPACE, KEYCLOAK_SECRET_NAME`,
+  HARBOR_NAMESPACE, HARBOR_SECRET_NAME`,
 	RunE: runConfig,
 }
 
@@ -37,8 +39,6 @@ var (
 	keycloakRealm      string
 	harborNamespace    string
 	harborSecretName   string
-	keycloakNamespace  string
-	keycloakSecretName string
 )
 
 func init() {
@@ -54,8 +54,6 @@ func init() {
 	f.StringVar(&keycloakRealm, "keycloak-realm", os.Getenv("KEYCLOAK_REALM"), "Keycloak realm")
 	f.StringVar(&harborNamespace, "harbor-namespace", envOrDefault("HARBOR_NAMESPACE", "harbor"), "Harbor K8s namespace")
 	f.StringVar(&harborSecretName, "harbor-secret", envOrDefault("HARBOR_SECRET_NAME", "harbor-secret"), "Harbor K8s secret name")
-	f.StringVar(&keycloakNamespace, "keycloak-namespace", envOrDefault("KEYCLOAK_NAMESPACE", "keycloak-system"), "Keycloak K8s namespace")
-	f.StringVar(&keycloakSecretName, "keycloak-secret", envOrDefault("KEYCLOAK_SECRET_NAME", "keycloak-secret"), "Keycloak K8s secret name")
 }
 
 func runConfig(cmd *cobra.Command, args []string) error {
@@ -118,20 +116,6 @@ func loadFromK8s() error {
 		}
 		if harborClientSecret == "" {
 			harborClientSecret = secret["keycloak.clientSecret"]
-		}
-	}
-
-	// Load keycloak secret
-	if keycloakDomain == "" || keycloakRealm == "" {
-		secret, err := client.GetSecret(keycloakNamespace, keycloakSecretName)
-		if err != nil {
-			return fmt.Errorf("load keycloak secret: %w", err)
-		}
-		if keycloakDomain == "" {
-			keycloakDomain = secret["domain"]
-		}
-		if keycloakRealm == "" {
-			keycloakRealm = secret["realm"]
 		}
 	}
 
