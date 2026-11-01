@@ -2,8 +2,8 @@
 # Every app an instance enables must render with that instance's values, the
 # way its Application renders it: the chart its catalog gives (this
 # repository's argo-cd/apps for the git and bundle catalogs, the pinned chart
-# for a registry catalog), its release name and namespace, and its values file,
-# which Argo CD requires to exist. A change here that breaks an instance's
+# for a registry catalog), its release name and namespace, its values file,
+# which Argo CD requires to exist, and the Helm parameters its manager gives. A change here that breaks an instance's
 # values then fails before it reaches that instance's cluster.
 #
 #   render-instance.sh
@@ -20,6 +20,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=scripts/lib/instances.sh
 source "$ROOT/scripts/lib/instances.sh"
 : "${APPS_DIR:=$ROOT/argo-cd/apps}"
+manager_chart="$ROOT/argo-cd/apps/instance-manager"
+[ -d "$APPS_DIR/instance-manager" ] && manager_chart="$APPS_DIR/instance-manager"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -57,14 +59,19 @@ while IFS= read -r dir; do
   prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
   suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
   default_catalog=$(yq '.defaultCatalog // "git"' "$dir/instance.yaml")
-  # The names of the instance, given to every app as the manager gives them:
-  # string parameters, commas escaped.
-  names=()
-  while IFS= read -r name; do
-    [ -n "$name" ] && names+=(--set-string "$name")
-  done < <(yq -r '.names // {} | to_entries | .[] | "global.ohmlab.names." + .key + "=" + (.value | sub(","; "\\,"))' "$dir/instance.yaml")
   for tier in core tenant; do
     [ -f "$dir/$tier.yaml" ] || continue
+    # The parameters the manager gives every app of the tier, from the
+    # manager of APPS_DIR when it has one, so that a base render uses the
+    # base's manager.
+    params=()
+    if ! lines=$(manager_parameters "$dir" "$tier" "$manager_chart" 2>"$work/manager.err"); then
+      fail "$instance/$tier: the instance-manager does not render: $(cat "$work/manager.err")"
+      continue
+    fi
+    while IFS= read -r p; do
+      [ -n "$p" ] && params+=(--set-string "$p")
+    done <<<"$lines"
     # '|' separates the fields: unlike a tab it is not whitespace to read,
     # so empty fields do not collapse.
     while IFS='|' read -r app chart release namespace catalog revision values_path; do
@@ -87,7 +94,7 @@ while IFS= read -r dir; do
       else
         ref=("$APPS_DIR/$chart")
       fi
-      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" "${names[@]+"${names[@]}"}" 2>&1 >"$work/manifest"); then
+      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" "${params[@]+"${params[@]}"}" 2>&1 >"$work/manifest"); then
         echo "ok   $id"
         rendered=$((rendered + 1))
         [ -z "${RENDER_OUT:-}" ] || record "$work/manifest" "$namespace" "$RENDER_OUT/$id.objects"

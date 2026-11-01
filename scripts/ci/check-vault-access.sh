@@ -79,11 +79,27 @@ if [ "${1:-}" = "--stdin" ]; then
   exit 0
 fi
 
+# scope_args <instance dir>: sets core_args and tenant_args, the --set-string
+# arguments for the parameters the instance's manager gives every app of each
+# scope. Returns 1, the manager's reason in $manager_err, when it does not
+# render: the instance is then not checked against the charts' fallbacks.
+manager_err="${TMPDIR:-/tmp}/check-vault-access.$$.manager"
+scope_args() {
+  local lines p
+  core_args=() tenant_args=()
+  lines=$(manager_parameters "$1" core 2>"$manager_err") || return 1
+  while IFS= read -r p; do [ -n "$p" ] && core_args+=(--set-string "$p"); done <<<"$lines"
+  lines=$(manager_parameters "$1" tenant 2>"$manager_err") || return 1
+  while IFS= read -r p; do [ -n "$p" ] && tenant_args+=(--set-string "$p"); done <<<"$lines"
+}
+
 # vault_json <instance>: the Vault description of an instance, from the
-# vault-operator chart rendered with that instance's values.
+# vault-operator chart rendered with that instance's values and the
+# parameters its manager gives the core tier (core_args).
 vault_json() {
   local vf="$INSTANCES_DIR/$1/values/core/vault-operator.yaml" args=()
   [ -f "$vf" ] && args=(-f "$vf")
+  args+=("${core_args[@]+"${core_args[@]}"}")
   helm template check "$ROOT/argo-cd/apps/vault-operator" "${args[@]+"${args[@]}"}" 2>/dev/null \
     | yq ea -o=json -I=0 '[select(.kind == "Vault")][0].spec.externalConfig
         | {"mounts": [.secrets[] | select(.type == "kv") | .path],
@@ -95,6 +111,11 @@ failures=0
 for dir in "$INSTANCES_DIR"/*/; do
   inst="$(basename "$dir")"
   vault="${TMPDIR:-/tmp}/check-vault-access.$$.json"
+  if ! scope_args "$dir"; then
+    echo "FAIL $inst: the instance-manager does not render: $(cat "$manager_err")"
+    failures=$((failures + 1))
+    continue
+  fi
   if ! vault_json "$inst" >"$vault" || ! jq -e '.roles | length > 0' "$vault" >/dev/null 2>&1; then
     echo "FAIL $inst: the vault-operator chart renders no Vault config with the values of this instance"
     failures=$((failures + 1))
@@ -129,6 +150,7 @@ for dir in "$INSTANCES_DIR"/*/; do
     args=()
     vf="$dir/values/$scope/$app.yaml"
     [ -f "$vf" ] && args=(-f "$vf")
+    if [ "$scope" = core ]; then args+=("${core_args[@]+"${core_args[@]}"}"); else args+=("${tenant_args[@]+"${tenant_args[@]}"}"); fi
     if [ -f "$chart/Chart.lock" ] && [ ! -d "$chart/charts" ]; then
       helm dependency build "$chart" >/dev/null 2>&1 || { echo "FAIL $inst/$name: helm dependency build"; failures=$((failures + 1)); continue; }
     fi
@@ -147,4 +169,5 @@ for dir in "$INSTANCES_DIR"/*/; do
   rm -f "$vault"
 done
 
+rm -f "$manager_err"
 exit "$failures"

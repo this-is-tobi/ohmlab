@@ -28,7 +28,7 @@ printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: {{ required "name is r
 instance() {
   local d="$work/repo-$1/argo-cd/instances/$1"
   rm -rf "$work/repo-$1"; mkdir -p "$d/values/core" "$d/values/tenant"
-  printf 'instance: {name: %s}\n%s\n' "$1" "$2" >"$d/instance.yaml"
+  printf 'instance: {name: %s}\nrepoURL: https://git.example/x.git\n%s\n' "$1" "$2" >"$d/instance.yaml"
   printf 'apps:\n%s\n' "$3" >"$d/core.yaml"
   printf 'apps: []\n' >"$d/tenant.yaml"
   echo "$d"
@@ -81,11 +81,19 @@ apiVersion: v1
 kind: ConfigMap
 metadata: {name: named}
 YAML
-d=$(instance n "names:
-  gateway: lab-gateway
+d=$(instance n "" '- {app: named, enabled: "true"}')
+printf '%s\n' "expectNames: '{\"gateway\":\"n-gateway\",\"keycloakRealm\":\"n\",\"keycloakRealmDisplayName\":\"N\",\"vaultMount\":\"n\"}'" >"$d/values/core/named.yaml"
+out=$(run "$d"); expect "every app gets the names its manager derives from the instance name" 0 "ok   n/core/named" "$out" $?
+
+d=$(instance o "names:
   keycloakRealmDisplayName: My lab, Inc" '- {app: named, enabled: "true"}')
-printf '%s\n' "expectNames: '{\"gateway\":\"lab-gateway\",\"keycloakRealmDisplayName\":\"My lab, Inc\"}'" >"$d/values/core/named.yaml"
-out=$(run "$d"); expect "the names of the instance reach every app as global.ohmlab.names, commas included" 0 "ok   n/core/named" "$out" $?
+printf '%s\n' "expectNames: '{\"gateway\":\"o-gateway\",\"keycloakRealm\":\"o\",\"keycloakRealmDisplayName\":\"My lab, Inc\",\"vaultMount\":\"o\"}'" >"$d/values/core/named.yaml"
+out=$(run "$d"); expect "a name the instance sets reaches every app, commas included" 0 "ok   o/core/named" "$out" $?
+
+d=$(instance p "names:
+  nope: x" '- {app: named, enabled: "true"}')
+printf 'expectNames: x\n' >"$d/values/core/named.yaml"
+out=$(run "$d"); expect "an instance whose manager does not render is reported with the reason" 1 "the instance-manager does not render: names.nope is not a name the product reads" "$out" $?
 
 mkdir -p "$work/apps/gen/templates"
 printf 'apiVersion: v2\nname: gen\nversion: 0.1.0\n' >"$work/apps/gen/Chart.yaml"

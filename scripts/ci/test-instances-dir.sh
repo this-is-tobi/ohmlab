@@ -57,13 +57,31 @@ done
 broken="$work/broken"
 cp -R "$ROOT/argo-cd/instances" "$broken"
 mkdir -p "$broken/novault/values/core"
+printf 'instance: {name: novault}\nrepoURL: https://git.example/x.git\n' >"$broken/novault/instance.yaml"
 printf 'vault:\n  enabled: false\n' >"$broken/novault/values/core/vault-operator.yaml"
 check "check-vault-access.sh reads the instances of INSTANCES_DIR" 1 "$(runs "$broken" check-vault-access.sh)"
 
 broken="$work/broken-seed"
 cp -R "$ROOT/argo-cd/instances" "$broken"
 mkdir -p "$broken/badseed/values/core"
+printf 'instance: {name: badseed}\nrepoURL: https://git.example/x.git\n' >"$broken/badseed/instance.yaml"
 printf 'ohmlab:\n  vault:\n    secrets:\n    - data:\n        key: "<random:8>"\n' >"$broken/badseed/values/core/vault-operator.yaml"
 check "check-vault-seeds.sh reads the instances of INSTANCES_DIR" 1 "$(runs "$broken" check-vault-seeds.sh)"
+
+# An instance whose manager does not render fails both Vault checks with the
+# manager's reason, instead of being checked against the charts' fallbacks.
+broken="$work/broken-names"
+mkdir -p "$broken/badnames/values/core"
+printf 'instance: {name: badnames}\nrepoURL: https://git.example/x.git\nnames: {nope: x}\n' >"$broken/badnames/instance.yaml"
+printf 'apps: []\n' >"$broken/badnames/core.yaml"
+cp "$ROOT/argo-cd/instances/_example/values/core/vault-operator.yaml" "$broken/badnames/values/core/"
+for script in check-vault-access.sh check-vault-seeds.sh; do
+  rc=$(runs "$broken" "$script")
+  if [ "$rc" != 0 ] && grep -qF "badnames: the instance-manager does not render: names.nope is not a name the product reads" "$work/out"; then
+    echo "ok   $script reports an instance whose manager does not render, with the reason"
+  else
+    echo "FAIL $script on an instance whose manager does not render (rc $rc)"; sed 's/^/     /' "$work/out" | head -5; fail=1
+  fi
+done
 
 exit "$fail"

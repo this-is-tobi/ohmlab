@@ -32,3 +32,27 @@ values_file() {
     done
   done < <(instance_dirs; printf '%s\n' "$EXAMPLE_DIR")
 }
+
+# manager_parameters <instance dir> <scope> [<manager chart>]: the Helm
+# parameters the instance's manager gives every app of the scope, one
+# `name=value` per line, commas escaped for --set-string. They come from a
+# render of the instance-manager chart (default this repository's) with the
+# instance's instance.yaml, so a check renders an app the way its Application
+# does without copying the manager's rules. The instance name is the folder's,
+# as the root manager passes it, without the leading `_` of a template. When
+# the manager does not render, prints its reason on stderr and returns 1.
+manager_parameters() {
+  local dir="$1" scope="$2" chart="${3:-$ROOT/argo-cd/apps/instance-manager}" name rendered err
+  name="${dir%/}"
+  name="${name##*/}"
+  name="${name#_}"
+  err=$(mktemp)
+  if ! rendered=$(helm template manager "$chart" -f "$dir/instance.yaml" --set "instance.name=$name" 2>"$err"); then
+    sed -n 's/^Error: //p' "$err" | head -n1 | sed -E 's/^execution error at \([^)]*\): //' | cut -c1-240 >&2
+    rm -f "$err"
+    return 1
+  fi
+  rm -f "$err"
+  N="$scope-$name" yq ea -r 'select(.kind == "ApplicationSet" and .metadata.name == strenv(N))
+    | .spec.template.spec.sources[0].helm.parameters // [] | .[] | .name + "=" + (.value | sub(","; "\\,"))' - <<<"$rendered"
+}
