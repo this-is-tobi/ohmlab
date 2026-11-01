@@ -245,8 +245,6 @@ vso:
               text: '{{ get .Secrets "rootDomain" }}'
             KEYCLOAK_DOMAIN:
               text: '{{ get .Secrets "domain" }}'
-            KEYCLOAK_REALM:
-              text: '{{ get .Secrets "realm" }}'
             ADMIN_USER_USERNAME:
               text: '{{ get .Secrets "adminUser" | dig "username" "" }}'
             ADMIN_USER_PASSWORD:
@@ -556,11 +554,6 @@ keycloakConfigCli:
       secretKeyRef:
         name: keycloak-config
         key: KEYCLOAK_DOMAIN
-  - name: KEYCLOAK_REALM
-    valueFrom:
-      secretKeyRef:
-        name: keycloak-config
-        key: KEYCLOAK_REALM
   - name: GITEA_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
@@ -646,650 +639,689 @@ keycloakConfigCli:
   #     secretKeyRef:
   #       name: keycloak-clients-vaultwarden
   #       key: CLIENT_SECRET
-  config:
-    homelab:
-      inline:
-        # The instance's realm and the name it shows
-        # (global.ohmlab.names.keycloakRealm and keycloakRealmDisplayName,
-        # which the instance's manager gives), else ohmlab and Ohmlab:
-        # keycloak-config-cli renders the realm through tpl.
-        realm: '{{ dig `ohmlab` `names` `keycloakRealm` `ohmlab` (.Values.global | default dict) }}'
-        enabled: true
-        displayName: '{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Ohmlab` (.Values.global | default dict) }}'
-        displayNameHtml: '<b>{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Ohmlab` (.Values.global | default dict) }}</b> Identity'
-        registrationAllowed: false
-        registrationEmailAsUsername: true
-        editUsernameAllowed: false
-        resetPasswordAllowed: true
-        rememberMe: true
-        verifyEmail: false
-        loginWithEmailAllowed: true
-        duplicateEmailsAllowed: false
-        ssoSessionIdleTimeout: 1800
-        ssoSessionMaxLifespan: 36000
-        # Explicit rather than Keycloak's inherited 30-day default — no
-        # client currently requests offline_access (all list it only as an
-        # optional scope), so this mainly bounds future/accidental use.
-        offlineSessionIdleTimeout: 604800
-        accessTokenLifespan: 300
-        # No minimum was configured at all before (Keycloak's default is
-        # zero complexity/length requirement). notUsername/notEmail block
-        # the most common weak-password pattern (password == identity).
-        passwordPolicy: "length(12) and notUsername and notEmail"
-        bruteForceProtected: true
-        permanentLockout: false
-        maxFailureWaitSeconds: 900
-        minimumQuickLoginWaitSeconds: 60
-        waitIncrementSeconds: 60
-        quickLoginCheckMilliSeconds: 1000
-        maxDeltaTimeSeconds: 43200
-        failureFactor: 5
-        roles:
+  # The realm files come from this chart (templates/realms.yaml, built from
+  # `realms` below) in this Secret, which the Job mounts.
+  existingConfigSecret: keycloak-config-cli-config-realms
+
+# The realms keycloak-config-cli imports: the ohmlab system's, with the core
+# apps' clients, and the instance's, with the tenant apps'. Each realm is
+# `defaults` with its own keys over it (maps merged, lists replaced), goes
+# through tpl, and is imported from a file named after it
+# (templates/realms.yaml). Two realms with one name are one realm, which holds
+# both tiers' clients and client roles.
+realms:
+  # What every realm gets.
+  defaults:
+    enabled: true
+    registrationAllowed: false
+    registrationEmailAsUsername: true
+    editUsernameAllowed: false
+    resetPasswordAllowed: true
+    rememberMe: true
+    verifyEmail: false
+    loginWithEmailAllowed: true
+    duplicateEmailsAllowed: false
+    ssoSessionIdleTimeout: 1800
+    ssoSessionMaxLifespan: 36000
+    # Explicit rather than Keycloak's inherited 30-day default — no
+    # client currently requests offline_access (all list it only as an
+    # optional scope), so this mainly bounds future/accidental use.
+    offlineSessionIdleTimeout: 604800
+    accessTokenLifespan: 300
+    # No minimum was configured at all before (Keycloak's default is
+    # zero complexity/length requirement). notUsername/notEmail block
+    # the most common weak-password pattern (password == identity).
+    passwordPolicy: "length(12) and notUsername and notEmail"
+    bruteForceProtected: true
+    permanentLockout: false
+    maxFailureWaitSeconds: 900
+    minimumQuickLoginWaitSeconds: 60
+    waitIncrementSeconds: 60
+    quickLoginCheckMilliSeconds: 1000
+    maxDeltaTimeSeconds: 43200
+    failureFactor: 5
+    roles:
+      realm:
+      - name: admin
+        description: Administrator role with all permissions
+        composite: true
+        composites:
           realm:
-          - name: admin
-            description: Administrator role with all permissions
-            composite: true
-            composites:
-              realm:
-              - realm-admin
-              - create-realm
-              - manage-realm
-              - manage-users
-              - manage-clients
-              - manage-events
-              - manage-authorization
-              - impersonation
-              - view-profile
-              - manage-account
-              - manage-account-links
-              - offline_access
-          - name: realm-admin
-            description: Realm administrator
-          - name: create-realm
-            description: Create realm
-          - name: manage-realm
-            description: Manage realm
-          - name: manage-users
-            description: Manage users
-          - name: manage-clients
-            description: Manage clients
-          - name: manage-events
-            description: Manage events
-          - name: manage-authorization
-            description: Manage authorization
-          - name: impersonation
-            description: Impersonate users
-          - name: view-profile
-            description: View profile
-          - name: manage-account
-            description: Manage account
-          - name: manage-account-links
-            description: Manage account links
-          - name: offline_access
-            description: Offline access
-          client:
-            grafana-core:
-            - name: grafanaadmin
-              description: Grafana administrator role
-            - name: admin
-              description: Grafana admin role
-            - name: editor
-              description: Grafana editor role
-            rustfs:
-            - name: consoleAdmin
-              description: RustFS administrator role (built-in consoleAdmin policy)
-        groups:
+          - realm-admin
+          - create-realm
+          - manage-realm
+          - manage-users
+          - manage-clients
+          - manage-events
+          - manage-authorization
+          - impersonation
+          - view-profile
+          - manage-account
+          - manage-account-links
+          - offline_access
+      - name: realm-admin
+        description: Realm administrator
+      - name: create-realm
+        description: Create realm
+      - name: manage-realm
+        description: Manage realm
+      - name: manage-users
+        description: Manage users
+      - name: manage-clients
+        description: Manage clients
+      - name: manage-events
+        description: Manage events
+      - name: manage-authorization
+        description: Manage authorization
+      - name: impersonation
+        description: Impersonate users
+      - name: view-profile
+        description: View profile
+      - name: manage-account
+        description: Manage account
+      - name: manage-account-links
+        description: Manage account links
+      - name: offline_access
+        description: Offline access
+    clientScopes:
+    - name: groups
+      description: User groups
+      protocol: openid-connect
+      attributes:
+        include.in.token.scope: "true"
+        display.on.consent.screen: "true"
+      protocolMappers:
+      - name: groups
+        protocol: openid-connect
+        protocolMapper: oidc-group-membership-mapper
+        consentRequired: false
+        config:
+          full.path: "true"
+          id.token.claim: "true"
+          access.token.claim: "true"
+          claim.name: groups
+          userinfo.token.claim: "true"
+    # roles:
+    #   realm:
+    #   - name: "admin"
+    #     description: "Administrator role"
+    #   - name: "user"
+    #     description: "Standard user role"
+    users:
+    - username: "$(env:ADMIN_USER_USERNAME)@$(env:ROOT_DOMAIN)"
+      email: "$(env:ADMIN_USER_USERNAME)@$(env:ROOT_DOMAIN)"
+      firstName: Admin
+      lastName: User
+      enabled: true
+      emailVerified: true
+      credentials:
+      - type: password
+        value: "$(env:ADMIN_USER_PASSWORD)"
+        temporary: false
+      groups:
+      - /admin
+  # The ohmlab system's realm: the core apps sign in through it.
+  system:
+    realm: ohmlab
+    displayName: Ohmlab
+    displayNameHtml: '<b>Ohmlab</b> Identity'
+    roles:
+      client:
+        grafana-core: &grafana-core-roles
+        - name: grafanaadmin
+          description: Grafana administrator role
         - name: admin
-          path: /admin
-          realmRoles:
-          - admin
-          clientRoles:
-            grafana-core:
-            - grafanaadmin
-            rustfs:
-            - consoleAdmin
-        clients:
-        - clientId: gitea
-          name: Gitea
-          description: Git hosting platform
-          enabled: true
-          clientAuthenticatorType: client-secret
-          secret: "$(env:GITEA_CLIENT_SECRET)"
-          redirectUris:
-          - "https://git.$(env:ROOT_DOMAIN)/user/oauth2/keycloak/callback"
-          webOrigins:
-          - "https://git.$(env:ROOT_DOMAIN)"
-          protocol: openid-connect
-          publicClient: false
-          standardFlowEnabled: true
-          implicitFlowEnabled: false
-          directAccessGrantsEnabled: false
-          serviceAccountsEnabled: false
-          defaultClientScopes:
-          - web-origins
-          - acr
-          - profile
-          - roles
-          - email
-          - groups
-          optionalClientScopes:
-          - address
-          - phone
-          - offline_access
-          - microprofile-jwt
-        - clientId: grafana-core
-          name: Grafana Core
-          description: Monitoring dashboards (core)
-          enabled: true
-          clientAuthenticatorType: client-secret
-          secret: "$(env:GRAFANA_CORE_CLIENT_SECRET)"
-          redirectUris:
-          - "https://monitoring.$(env:ROOT_DOMAIN)/login/generic_oauth"
-          webOrigins:
-          - "https://monitoring.$(env:ROOT_DOMAIN)"
-          protocol: openid-connect
-          publicClient: false
-          standardFlowEnabled: true
-          implicitFlowEnabled: false
-          directAccessGrantsEnabled: false
-          serviceAccountsEnabled: false
-          defaultClientScopes:
-          - web-origins
-          - acr
-          - profile
-          - roles
-          - email
-          - groups
-          optionalClientScopes:
-          - address
-          - phone
-          - offline_access
-          - microprofile-jwt
-          protocolMappers:
-          - name: Client Role Mapper
-            protocol: openid-connect
-            protocolMapper: oidc-usermodel-client-role-mapper
-            consentRequired: false
-            config:
-              user.attribute: role
-              access.token.claim: "true"
-              claim.name: roles
-              jsonType.label: String
-              multivalued: "true"
-              userinfo.token.claim: "true"
-              id.token.claim: "true"
-              client_id: grafana-core
-        - clientId: argo-cd
-          name: Argo CD
-          description: GitOps continuous delivery
-          enabled: true
-          clientAuthenticatorType: client-secret
-          secret: "$(env:ARGOCD_CLIENT_SECRET)"
-          redirectUris:
-          - "https://gitops.$(env:ROOT_DOMAIN)/auth/callback"
-          webOrigins:
-          - "https://gitops.$(env:ROOT_DOMAIN)"
-          protocol: openid-connect
-          publicClient: false
-          standardFlowEnabled: true
-          implicitFlowEnabled: false
-          directAccessGrantsEnabled: false
-          serviceAccountsEnabled: false
-          defaultClientScopes:
-          - web-origins
-          - acr
-          - profile
-          - roles
-          - email
-          - groups
-          optionalClientScopes:
-          - address
-          - phone
-          - offline_access
-          - microprofile-jwt
-        - clientId: argo-cd-core
-          name: Argo CD (core)
-          description: Core GitOps ArgoCD instance (argocd-system)
-          enabled: true
-          clientAuthenticatorType: client-secret
-          secret: "$(env:ARGOCD_CORE_CLIENT_SECRET)"
-          redirectUris:
-          - "https://gitops.core.$(env:ROOT_DOMAIN)/auth/callback"
-          webOrigins:
-          - "https://gitops.core.$(env:ROOT_DOMAIN)"
-          protocol: openid-connect
-          publicClient: false
-          standardFlowEnabled: true
-          implicitFlowEnabled: false
-          directAccessGrantsEnabled: false
-          serviceAccountsEnabled: false
-          defaultClientScopes:
-          - web-origins
-          - acr
-          - profile
-          - roles
-          - email
-          - groups
-          optionalClientScopes:
-          - address
-          - phone
-          - offline_access
-          - microprofile-jwt
-        - clientId: vault-core
-          name: Vault Core
-          description: HashiCorp Vault UI OIDC login (core)
-          enabled: true
-          clientAuthenticatorType: client-secret
-          secret: "$(env:VAULT_CORE_CLIENT_SECRET)"
-          redirectUris:
-          - "https://vault.core.$(env:ROOT_DOMAIN)/ui/vault/auth/oidc/oidc/callback"
-          - "https://vault.core.$(env:ROOT_DOMAIN)/oidc/callback"
-          webOrigins:
-          - "https://vault.core.$(env:ROOT_DOMAIN)"
-          protocol: openid-connect
-          publicClient: false
-          standardFlowEnabled: true
-          implicitFlowEnabled: false
-          directAccessGrantsEnabled: false
-          serviceAccountsEnabled: false
-          defaultClientScopes:
-          - web-origins
-          - acr
-          - profile
-          - roles
-          - email
-          - groups
-          optionalClientScopes:
-          - address
-          - phone
-          - offline_access
-          - microprofile-jwt
-        - clientId: longhorn-core
-          name: Longhorn Core
-          description: Distributed block storage UI (core)
-          enabled: true
-          clientAuthenticatorType: client-secret
-          secret: "$(env:LONGHORN_CORE_CLIENT_SECRET)"
-          redirectUris:
-          - "https://longhorn.int.$(env:ROOT_DOMAIN)/oauth2/callback"
-          webOrigins:
-          - "https://longhorn.int.$(env:ROOT_DOMAIN)"
-          protocol: openid-connect
-          publicClient: false
-          standardFlowEnabled: true
-          implicitFlowEnabled: false
-          directAccessGrantsEnabled: false
-          serviceAccountsEnabled: false
-          # oauth2-proxy validates the ACCESS token's audience against its
-          # configured client ID. The default 'roles' scope only adds a
-          # client's own ID to that audience dynamically (oidc-audience-
-          # resolve-mapper, based on client-role assignments) — with no
-          # roles ever assigned on this client, it never showed up, leaving
-          # whatever OTHER client's role the user happened to hold instead
-          # (observed: "grafana-core"). Vault doesn't need this because its
-          # OIDC login validates the ID token, which Keycloak audiences to
-          # the requesting client by default — a different check than
-          # oauth2-proxy's. Any future oauth2-proxy-fronted app needs this
-          # same explicit mapper.
-          protocolMappers:
-          - name: audience
-            protocol: openid-connect
-            protocolMapper: oidc-audience-mapper
-            consentRequired: false
-            config:
-              included.client.audience: longhorn-core
-              id.token.claim: "false"
-              access.token.claim: "true"
-          defaultClientScopes:
-          - web-origins
-          - acr
-          - profile
-          - roles
-          - email
-          - groups
-          optionalClientScopes:
-          - address
-          - phone
-          - offline_access
-          - microprofile-jwt
-        - clientId: hubble-core
-          name: Hubble Core
-          description: Cilium network flow visibility (core)
-          enabled: true
-          clientAuthenticatorType: client-secret
-          secret: "$(env:HUBBLE_CORE_CLIENT_SECRET)"
-          redirectUris:
-          - "https://hubble.int.$(env:ROOT_DOMAIN)/oauth2/callback"
-          webOrigins:
-          - "https://hubble.int.$(env:ROOT_DOMAIN)"
-          protocol: openid-connect
-          publicClient: false
-          standardFlowEnabled: true
-          implicitFlowEnabled: false
-          directAccessGrantsEnabled: false
-          serviceAccountsEnabled: false
-          # See longhorn-core above: oauth2-proxy-fronted clients need this
-          # explicit audience mapper or the access token audiences to
-          # whatever OTHER client's role the user happens to hold.
-          protocolMappers:
-          - name: audience
-            protocol: openid-connect
-            protocolMapper: oidc-audience-mapper
-            consentRequired: false
-            config:
-              included.client.audience: hubble-core
-              id.token.claim: "false"
-              access.token.claim: "true"
-          defaultClientScopes:
-          - web-origins
-          - acr
-          - profile
-          - roles
-          - email
-          - groups
-          optionalClientScopes:
-          - address
-          - phone
-          - offline_access
-          - microprofile-jwt
-        - clientId: rustfs
-          name: RustFS
-          description: S3-compatible object storage
-          enabled: true
-          clientAuthenticatorType: client-secret
-          secret: "$(env:RUSTFS_CLIENT_SECRET)"
-          redirectUris:
-          - "https://console.s3.$(env:ROOT_DOMAIN)/rustfs/admin/v3/oidc/callback/default"
-          webOrigins:
-          - "https://console.s3.$(env:ROOT_DOMAIN)"
-          protocol: openid-connect
-          publicClient: false
-          standardFlowEnabled: true
-          implicitFlowEnabled: false
-          directAccessGrantsEnabled: false
-          serviceAccountsEnabled: false
-          attributes:
-            token.endpoint.auth.method: client_secret_post
-          # RustFS uses claim values verbatim as policy names and can't match
-          # the shared "groups" claim's full paths ("/admin"), so this client
-          # emits its own flat claim from its client roles. The clientRoleMapping
-          # key scopes it to this client's roles; without it the mapper emits
-          # every client's roles. RustFS only reads the ID token.
-          protocolMappers:
-          - name: rustfs-policy
-            protocol: openid-connect
-            protocolMapper: oidc-usermodel-client-role-mapper
-            consentRequired: false
-            config:
-              usermodel.clientRoleMapping.clientId: rustfs
-              claim.name: rustfs_policy
-              jsonType.label: String
-              multivalued: "true"
-              id.token.claim: "true"
-              access.token.claim: "false"
-              userinfo.token.claim: "false"
-          defaultClientScopes:
-          - web-origins
-          - acr
-          - profile
-          - roles
-          - email
-          - groups
-          optionalClientScopes:
-          - address
-          - phone
-          - offline_access
-          - microprofile-jwt
-        #   name: "Argo Workflows"
-        #   description: "Workflow engine"
-        #   enabled: true
-        #   clientAuthenticatorType: "client-secret"
-        #   secret: "$(env:ARGOWORKFLOWS_CLIENT_SECRET)"
-        #   redirectUris:
-        #   - "https://worflows.$(env:ROOT_DOMAIN)/*"
-        #   - "https://worflows.$(env:ROOT_DOMAIN)/oauth2/callback"
-        #   webOrigins:
-        #   - "https://worflows.$(env:ROOT_DOMAIN)"
-        #   protocol: "openid-connect"
-        #   publicClient: false
-        #   standardFlowEnabled: true
-        #   implicitFlowEnabled: false
-        #   directAccessGrantsEnabled: false
-        #   serviceAccountsEnabled: false
-        #   attributes:
-        #     "pkce.code.challenge.method": "S256"
-        #   defaultClientScopes:
-        #   - "web-origins"
-        #   - "acr"
-        #   - "profile"
-        #   - "roles"
-        #   - "email"
-        #   - "groups"
-        #   optionalClientScopes:
-        #   - "address"
-        #   - "phone"
-        #   - "offline_access"
-        #   - "microprofile-jwt"
-        # - clientId: "coder"
-        #   name: "Coder"
-        #   description: "Development workspaces"
-        #   enabled: true
-        #   clientAuthenticatorType: "client-secret"
-        #   secret: "$(env:CODER_CLIENT_SECRET)"
-        #   redirectUris:
-        #   - "https://coder.$(env:ROOT_DOMAIN)/*"
-        #   - "https://coder.$(env:ROOT_DOMAIN)/oauth2/callback"
-        #   webOrigins:
-        #   - "https://coder.$(env:ROOT_DOMAIN)"
-        #   protocol: "openid-connect"
-        #   publicClient: false
-        #   standardFlowEnabled: true
-        #   implicitFlowEnabled: false
-        #   directAccessGrantsEnabled: false
-        #   serviceAccountsEnabled: false
-        #   attributes:
-        #     "pkce.code.challenge.method": "S256"
-        #   defaultClientScopes:
-        #   - "web-origins"
-        #   - "acr"
-        #   - "profile"
-        #   - "roles"
-        #   - "email"
-        #   - "groups"
-        #   optionalClientScopes:
-        #   - "address"
-        #   - "phone"
-        #   - "offline_access"
-        #   - "microprofile-jwt"
-        # - clientId: "outline"
-        #   name: "Outline"
-        #   description: "Team wiki"
-        #   enabled: true
-        #   clientAuthenticatorType: "client-secret"
-        #   secret: "$(env:OUTLINE_CLIENT_SECRET)"
-        #   redirectUris:
-        #   - "https://wiki.$(env:ROOT_DOMAIN)/*"
-        #   - "https://wiki.$(env:ROOT_DOMAIN)/auth/oidc.callback"
-        #   webOrigins:
-        #   - "https://wiki.$(env:ROOT_DOMAIN)"
-        #   protocol: "openid-connect"
-        #   publicClient: false
-        #   standardFlowEnabled: true
-        #   implicitFlowEnabled: false
-        #   directAccessGrantsEnabled: false
-        #   serviceAccountsEnabled: false
-        #   attributes:
-        #     "pkce.code.challenge.method": "S256"
-        #   defaultClientScopes:
-        #   - "web-origins"
-        #   - "acr"
-        #   - "profile"
-        #   - "roles"
-        #   - "email"
-        #   - "groups"
-        #   optionalClientScopes:
-        #   - "address"
-        #   - "phone"
-        #   - "offline_access"
-        #   - "microprofile-jwt"
-        # - clientId: "mlflow"
-        #   name: "MLflow"
-        #   description: "ML experiment tracking"
-        #   enabled: true
-        #   clientAuthenticatorType: "client-secret"
-        #   secret: "$(env:MLFLOW_CLIENT_SECRET)"
-        #   redirectUris:
-        #   - "https://mlflow.$(env:ROOT_DOMAIN)/*"
-        #   - "https://mlflow.$(env:ROOT_DOMAIN)/oauth2/callback"
-        #   webOrigins:
-        #   - "https://mlflow.$(env:ROOT_DOMAIN)"
-        #   protocol: "openid-connect"
-        #   publicClient: false
-        #   standardFlowEnabled: true
-        #   implicitFlowEnabled: false
-        #   directAccessGrantsEnabled: false
-        #   serviceAccountsEnabled: false
-        #   attributes:
-        #     "pkce.code.challenge.method": "S256"
-        #   defaultClientScopes:
-        #   - "web-origins"
-        #   - "acr"
-        #   - "profile"
-        #   - "roles"
-        #   - "email"
-        #   - "groups"
-        #   optionalClientScopes:
-        #   - "address"
-        #   - "phone"
-        #   - "offline_access"
-        #   - "microprofile-jwt"
-        # - clientId: "sonarqube"
-        #   name: "SonarQube"
-        #   description: "Code quality analysis"
-        #   enabled: true
-        #   clientAuthenticatorType: "client-secret"
-        #   secret: "$(env:SONARQUBE_CLIENT_SECRET)"
-        #   redirectUris:
-        #   - "https://sonarqube.$(env:ROOT_DOMAIN)/*"
-        #   - "https://sonarqube.$(env:ROOT_DOMAIN)/oauth2/callback/oidc"
-        #   webOrigins:
-        #   - "https://sonarqube.$(env:ROOT_DOMAIN)"
-        #   protocol: "openid-connect"
-        #   publicClient: false
-        #   standardFlowEnabled: true
-        #   implicitFlowEnabled: false
-        #   directAccessGrantsEnabled: false
-        #   serviceAccountsEnabled: false
-        #   attributes:
-        #     "pkce.code.challenge.method": "S256"
-        #   defaultClientScopes:
-        #   - "web-origins"
-        #   - "acr"
-        #   - "profile"
-        #   - "roles"
-        #   - "email"
-        #   - "groups"
-        #   optionalClientScopes:
-        #   - "address"
-        #   - "phone"
-        #   - "offline_access"
-        #   - "microprofile-jwt"
-        # - clientId: "harbor"
-        #   name: "Harbor"
-        #   description: "Container registry"
-        #   enabled: true
-        #   clientAuthenticatorType: "client-secret"
-        #   secret: "$(env:HARBOR_CLIENT_SECRET)"
-        #   redirectUris:
-        #   - "https://registry.$(env:ROOT_DOMAIN)/*"
-        #   - "https://registry.$(env:ROOT_DOMAIN)/c/oidc/callback"
-        #   webOrigins:
-        #   - "https://registry.$(env:ROOT_DOMAIN)"
-        #   protocol: "openid-connect"
-        #   publicClient: false
-        #   standardFlowEnabled: true
-        #   implicitFlowEnabled: false
-        #   directAccessGrantsEnabled: false
-        #   serviceAccountsEnabled: false
-        #   attributes:
-        #     "pkce.code.challenge.method": "S256"
-        #   defaultClientScopes:
-        #   - "web-origins"
-        #   - "acr"
-        #   - "profile"
-        #   - "roles"
-        #   - "email"
-        #   - "groups"
-        #   optionalClientScopes:
-        #   - "address"
-        #   - "phone"
-        #   - "offline_access"
-        #   - "microprofile-jwt"
-        # - clientId: "vaultwarden"
-        #   name: "Vaultwarden"
-        #   description: "Password manager"
-        #   enabled: true
-        #   clientAuthenticatorType: "client-secret"
-        #   secret: "$(env:VAULTWARDEN_CLIENT_SECRET)"
-        #   redirectUris:
-        #   - "https://vaultwarden.$(env:ROOT_DOMAIN)/*"
-        #   - "https://vaultwarden.$(env:ROOT_DOMAIN)/identity/connect/oidc-signin"
-        #   webOrigins:
-        #   - "https://vaultwarden.$(env:ROOT_DOMAIN)"
-        #   protocol: "openid-connect"
-        #   publicClient: false
-        #   standardFlowEnabled: true
-        #   implicitFlowEnabled: false
-        #   directAccessGrantsEnabled: false
-        #   serviceAccountsEnabled: false
-        #   attributes:
-        #     "pkce.code.challenge.method": "S256"
-        #   defaultClientScopes:
-        #   - "web-origins"
-        #   - "acr"
-        #   - "profile"
-        #   - "roles"
-        #   - "email"
-        #   - "groups"
-        #   optionalClientScopes:
-        #   - "address"
-        #   - "phone"
-        #   - "offline_access"
-        #   - "microprofile-jwt"
-        clientScopes:
-        - name: groups
-          description: User groups
-          protocol: openid-connect
-          attributes:
-            include.in.token.scope: "true"
-            display.on.consent.screen: "true"
-          protocolMappers:
-          - name: groups
-            protocol: openid-connect
-            protocolMapper: oidc-group-membership-mapper
-            consentRequired: false
-            config:
-              full.path: "true"
-              id.token.claim: "true"
-              access.token.claim: "true"
-              claim.name: groups
-              userinfo.token.claim: "true"
-        # roles:
-        #   realm:
-        #   - name: "admin"
-        #     description: "Administrator role"
-        #   - name: "user"
-        #     description: "Standard user role"
-        users:
-        - username: "$(env:ADMIN_USER_USERNAME)@$(env:ROOT_DOMAIN)"
-          email: "$(env:ADMIN_USER_USERNAME)@$(env:ROOT_DOMAIN)"
-          firstName: Admin
-          lastName: User
-          enabled: true
-          emailVerified: true
-          credentials:
-          - type: password
-            value: "$(env:ADMIN_USER_PASSWORD)"
-            temporary: false
-          groups:
-          - /admin
+          description: Grafana admin role
+        - name: editor
+          description: Grafana editor role
+    groups:
+    - name: admin
+      path: /admin
+      realmRoles:
+      - admin
+      clientRoles:
+        grafana-core:
+        - grafanaadmin
+    clients:
+    - &grafana-core
+      clientId: grafana-core
+      name: Grafana Core
+      description: Monitoring dashboards (core)
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "$(env:GRAFANA_CORE_CLIENT_SECRET)"
+      redirectUris:
+      - "https://monitoring.$(env:ROOT_DOMAIN)/login/generic_oauth"
+      webOrigins:
+      - "https://monitoring.$(env:ROOT_DOMAIN)"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: false
+      serviceAccountsEnabled: false
+      defaultClientScopes:
+      - web-origins
+      - acr
+      - profile
+      - roles
+      - email
+      - groups
+      optionalClientScopes:
+      - address
+      - phone
+      - offline_access
+      - microprofile-jwt
+      protocolMappers:
+      - name: Client Role Mapper
+        protocol: openid-connect
+        protocolMapper: oidc-usermodel-client-role-mapper
+        consentRequired: false
+        config:
+          user.attribute: role
+          access.token.claim: "true"
+          claim.name: roles
+          jsonType.label: String
+          multivalued: "true"
+          userinfo.token.claim: "true"
+          id.token.claim: "true"
+          client_id: grafana-core
+    - &argo-cd-core
+      clientId: argo-cd-core
+      name: Argo CD (core)
+      description: Core GitOps ArgoCD instance (argocd-system)
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "$(env:ARGOCD_CORE_CLIENT_SECRET)"
+      redirectUris:
+      - "https://gitops.core.$(env:ROOT_DOMAIN)/auth/callback"
+      webOrigins:
+      - "https://gitops.core.$(env:ROOT_DOMAIN)"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: false
+      serviceAccountsEnabled: false
+      defaultClientScopes:
+      - web-origins
+      - acr
+      - profile
+      - roles
+      - email
+      - groups
+      optionalClientScopes:
+      - address
+      - phone
+      - offline_access
+      - microprofile-jwt
+    - &vault-core
+      clientId: vault-core
+      name: Vault Core
+      description: HashiCorp Vault UI OIDC login (core)
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "$(env:VAULT_CORE_CLIENT_SECRET)"
+      redirectUris:
+      - "https://vault.core.$(env:ROOT_DOMAIN)/ui/vault/auth/oidc/oidc/callback"
+      - "https://vault.core.$(env:ROOT_DOMAIN)/oidc/callback"
+      webOrigins:
+      - "https://vault.core.$(env:ROOT_DOMAIN)"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: false
+      serviceAccountsEnabled: false
+      defaultClientScopes:
+      - web-origins
+      - acr
+      - profile
+      - roles
+      - email
+      - groups
+      optionalClientScopes:
+      - address
+      - phone
+      - offline_access
+      - microprofile-jwt
+    - &longhorn-core
+      clientId: longhorn-core
+      name: Longhorn Core
+      description: Distributed block storage UI (core)
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "$(env:LONGHORN_CORE_CLIENT_SECRET)"
+      redirectUris:
+      - "https://longhorn.int.$(env:ROOT_DOMAIN)/oauth2/callback"
+      webOrigins:
+      - "https://longhorn.int.$(env:ROOT_DOMAIN)"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: false
+      serviceAccountsEnabled: false
+      # oauth2-proxy validates the ACCESS token's audience against its
+      # configured client ID. The default 'roles' scope only adds a
+      # client's own ID to that audience dynamically (oidc-audience-
+      # resolve-mapper, based on client-role assignments) — with no
+      # roles ever assigned on this client, it never showed up, leaving
+      # whatever OTHER client's role the user happened to hold instead
+      # (observed: "grafana-core"). Vault doesn't need this because its
+      # OIDC login validates the ID token, which Keycloak audiences to
+      # the requesting client by default — a different check than
+      # oauth2-proxy's. Any future oauth2-proxy-fronted app needs this
+      # same explicit mapper.
+      protocolMappers:
+      - name: audience
+        protocol: openid-connect
+        protocolMapper: oidc-audience-mapper
+        consentRequired: false
+        config:
+          included.client.audience: longhorn-core
+          id.token.claim: "false"
+          access.token.claim: "true"
+      defaultClientScopes:
+      - web-origins
+      - acr
+      - profile
+      - roles
+      - email
+      - groups
+      optionalClientScopes:
+      - address
+      - phone
+      - offline_access
+      - microprofile-jwt
+    - &hubble-core
+      clientId: hubble-core
+      name: Hubble Core
+      description: Cilium network flow visibility (core)
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "$(env:HUBBLE_CORE_CLIENT_SECRET)"
+      redirectUris:
+      - "https://hubble.int.$(env:ROOT_DOMAIN)/oauth2/callback"
+      webOrigins:
+      - "https://hubble.int.$(env:ROOT_DOMAIN)"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: false
+      serviceAccountsEnabled: false
+      # See longhorn-core above: oauth2-proxy-fronted clients need this
+      # explicit audience mapper or the access token audiences to
+      # whatever OTHER client's role the user happens to hold.
+      protocolMappers:
+      - name: audience
+        protocol: openid-connect
+        protocolMapper: oidc-audience-mapper
+        consentRequired: false
+        config:
+          included.client.audience: hubble-core
+          id.token.claim: "false"
+          access.token.claim: "true"
+      defaultClientScopes:
+      - web-origins
+      - acr
+      - profile
+      - roles
+      - email
+      - groups
+      optionalClientScopes:
+      - address
+      - phone
+      - offline_access
+      - microprofile-jwt
+  # The instance's realm, for the tenant apps: its name and the name it shows
+  # (global.ohmlab.names.keycloakRealm and keycloakRealmDisplayName, which the
+  # instance's manager gives), else ohmlab and Ohmlab. The core apps' clients
+  # stay here too until the core apps sign in through ohmlab.
+  instance:
+    realm: '{{ dig `ohmlab` `names` `keycloakRealm` `ohmlab` (.Values.global | default dict) }}'
+    displayName: '{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Ohmlab` (.Values.global | default dict) }}'
+    displayNameHtml: '<b>{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Ohmlab` (.Values.global | default dict) }}</b> Identity'
+    roles:
+      client:
+        grafana-core: *grafana-core-roles
+        rustfs:
+        - name: consoleAdmin
+          description: RustFS administrator role (built-in consoleAdmin policy)
+    groups:
+    - name: admin
+      path: /admin
+      realmRoles:
+      - admin
+      clientRoles:
+        grafana-core:
+        - grafanaadmin
+        rustfs:
+        - consoleAdmin
+    clients:
+    - clientId: gitea
+      name: Gitea
+      description: Git hosting platform
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "$(env:GITEA_CLIENT_SECRET)"
+      redirectUris:
+      - "https://git.$(env:ROOT_DOMAIN)/user/oauth2/keycloak/callback"
+      webOrigins:
+      - "https://git.$(env:ROOT_DOMAIN)"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: false
+      serviceAccountsEnabled: false
+      defaultClientScopes:
+      - web-origins
+      - acr
+      - profile
+      - roles
+      - email
+      - groups
+      optionalClientScopes:
+      - address
+      - phone
+      - offline_access
+      - microprofile-jwt
+    - *grafana-core
+    - clientId: argo-cd
+      name: Argo CD
+      description: GitOps continuous delivery
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "$(env:ARGOCD_CLIENT_SECRET)"
+      redirectUris:
+      - "https://gitops.$(env:ROOT_DOMAIN)/auth/callback"
+      webOrigins:
+      - "https://gitops.$(env:ROOT_DOMAIN)"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: false
+      serviceAccountsEnabled: false
+      defaultClientScopes:
+      - web-origins
+      - acr
+      - profile
+      - roles
+      - email
+      - groups
+      optionalClientScopes:
+      - address
+      - phone
+      - offline_access
+      - microprofile-jwt
+    - *argo-cd-core
+    - *vault-core
+    - *longhorn-core
+    - *hubble-core
+    - clientId: rustfs
+      name: RustFS
+      description: S3-compatible object storage
+      enabled: true
+      clientAuthenticatorType: client-secret
+      secret: "$(env:RUSTFS_CLIENT_SECRET)"
+      redirectUris:
+      - "https://console.s3.$(env:ROOT_DOMAIN)/rustfs/admin/v3/oidc/callback/default"
+      webOrigins:
+      - "https://console.s3.$(env:ROOT_DOMAIN)"
+      protocol: openid-connect
+      publicClient: false
+      standardFlowEnabled: true
+      implicitFlowEnabled: false
+      directAccessGrantsEnabled: false
+      serviceAccountsEnabled: false
+      attributes:
+        token.endpoint.auth.method: client_secret_post
+      # RustFS uses claim values verbatim as policy names and can't match
+      # the shared "groups" claim's full paths ("/admin"), so this client
+      # emits its own flat claim from its client roles. The clientRoleMapping
+      # key scopes it to this client's roles; without it the mapper emits
+      # every client's roles. RustFS only reads the ID token.
+      protocolMappers:
+      - name: rustfs-policy
+        protocol: openid-connect
+        protocolMapper: oidc-usermodel-client-role-mapper
+        consentRequired: false
+        config:
+          usermodel.clientRoleMapping.clientId: rustfs
+          claim.name: rustfs_policy
+          jsonType.label: String
+          multivalued: "true"
+          id.token.claim: "true"
+          access.token.claim: "false"
+          userinfo.token.claim: "false"
+      defaultClientScopes:
+      - web-origins
+      - acr
+      - profile
+      - roles
+      - email
+      - groups
+      optionalClientScopes:
+      - address
+      - phone
+      - offline_access
+      - microprofile-jwt
+    #   name: "Argo Workflows"
+    #   description: "Workflow engine"
+    #   enabled: true
+    #   clientAuthenticatorType: "client-secret"
+    #   secret: "$(env:ARGOWORKFLOWS_CLIENT_SECRET)"
+    #   redirectUris:
+    #   - "https://worflows.$(env:ROOT_DOMAIN)/*"
+    #   - "https://worflows.$(env:ROOT_DOMAIN)/oauth2/callback"
+    #   webOrigins:
+    #   - "https://worflows.$(env:ROOT_DOMAIN)"
+    #   protocol: "openid-connect"
+    #   publicClient: false
+    #   standardFlowEnabled: true
+    #   implicitFlowEnabled: false
+    #   directAccessGrantsEnabled: false
+    #   serviceAccountsEnabled: false
+    #   attributes:
+    #     "pkce.code.challenge.method": "S256"
+    #   defaultClientScopes:
+    #   - "web-origins"
+    #   - "acr"
+    #   - "profile"
+    #   - "roles"
+    #   - "email"
+    #   - "groups"
+    #   optionalClientScopes:
+    #   - "address"
+    #   - "phone"
+    #   - "offline_access"
+    #   - "microprofile-jwt"
+    # - clientId: "coder"
+    #   name: "Coder"
+    #   description: "Development workspaces"
+    #   enabled: true
+    #   clientAuthenticatorType: "client-secret"
+    #   secret: "$(env:CODER_CLIENT_SECRET)"
+    #   redirectUris:
+    #   - "https://coder.$(env:ROOT_DOMAIN)/*"
+    #   - "https://coder.$(env:ROOT_DOMAIN)/oauth2/callback"
+    #   webOrigins:
+    #   - "https://coder.$(env:ROOT_DOMAIN)"
+    #   protocol: "openid-connect"
+    #   publicClient: false
+    #   standardFlowEnabled: true
+    #   implicitFlowEnabled: false
+    #   directAccessGrantsEnabled: false
+    #   serviceAccountsEnabled: false
+    #   attributes:
+    #     "pkce.code.challenge.method": "S256"
+    #   defaultClientScopes:
+    #   - "web-origins"
+    #   - "acr"
+    #   - "profile"
+    #   - "roles"
+    #   - "email"
+    #   - "groups"
+    #   optionalClientScopes:
+    #   - "address"
+    #   - "phone"
+    #   - "offline_access"
+    #   - "microprofile-jwt"
+    # - clientId: "outline"
+    #   name: "Outline"
+    #   description: "Team wiki"
+    #   enabled: true
+    #   clientAuthenticatorType: "client-secret"
+    #   secret: "$(env:OUTLINE_CLIENT_SECRET)"
+    #   redirectUris:
+    #   - "https://wiki.$(env:ROOT_DOMAIN)/*"
+    #   - "https://wiki.$(env:ROOT_DOMAIN)/auth/oidc.callback"
+    #   webOrigins:
+    #   - "https://wiki.$(env:ROOT_DOMAIN)"
+    #   protocol: "openid-connect"
+    #   publicClient: false
+    #   standardFlowEnabled: true
+    #   implicitFlowEnabled: false
+    #   directAccessGrantsEnabled: false
+    #   serviceAccountsEnabled: false
+    #   attributes:
+    #     "pkce.code.challenge.method": "S256"
+    #   defaultClientScopes:
+    #   - "web-origins"
+    #   - "acr"
+    #   - "profile"
+    #   - "roles"
+    #   - "email"
+    #   - "groups"
+    #   optionalClientScopes:
+    #   - "address"
+    #   - "phone"
+    #   - "offline_access"
+    #   - "microprofile-jwt"
+    # - clientId: "mlflow"
+    #   name: "MLflow"
+    #   description: "ML experiment tracking"
+    #   enabled: true
+    #   clientAuthenticatorType: "client-secret"
+    #   secret: "$(env:MLFLOW_CLIENT_SECRET)"
+    #   redirectUris:
+    #   - "https://mlflow.$(env:ROOT_DOMAIN)/*"
+    #   - "https://mlflow.$(env:ROOT_DOMAIN)/oauth2/callback"
+    #   webOrigins:
+    #   - "https://mlflow.$(env:ROOT_DOMAIN)"
+    #   protocol: "openid-connect"
+    #   publicClient: false
+    #   standardFlowEnabled: true
+    #   implicitFlowEnabled: false
+    #   directAccessGrantsEnabled: false
+    #   serviceAccountsEnabled: false
+    #   attributes:
+    #     "pkce.code.challenge.method": "S256"
+    #   defaultClientScopes:
+    #   - "web-origins"
+    #   - "acr"
+    #   - "profile"
+    #   - "roles"
+    #   - "email"
+    #   - "groups"
+    #   optionalClientScopes:
+    #   - "address"
+    #   - "phone"
+    #   - "offline_access"
+    #   - "microprofile-jwt"
+    # - clientId: "sonarqube"
+    #   name: "SonarQube"
+    #   description: "Code quality analysis"
+    #   enabled: true
+    #   clientAuthenticatorType: "client-secret"
+    #   secret: "$(env:SONARQUBE_CLIENT_SECRET)"
+    #   redirectUris:
+    #   - "https://sonarqube.$(env:ROOT_DOMAIN)/*"
+    #   - "https://sonarqube.$(env:ROOT_DOMAIN)/oauth2/callback/oidc"
+    #   webOrigins:
+    #   - "https://sonarqube.$(env:ROOT_DOMAIN)"
+    #   protocol: "openid-connect"
+    #   publicClient: false
+    #   standardFlowEnabled: true
+    #   implicitFlowEnabled: false
+    #   directAccessGrantsEnabled: false
+    #   serviceAccountsEnabled: false
+    #   attributes:
+    #     "pkce.code.challenge.method": "S256"
+    #   defaultClientScopes:
+    #   - "web-origins"
+    #   - "acr"
+    #   - "profile"
+    #   - "roles"
+    #   - "email"
+    #   - "groups"
+    #   optionalClientScopes:
+    #   - "address"
+    #   - "phone"
+    #   - "offline_access"
+    #   - "microprofile-jwt"
+    # - clientId: "harbor"
+    #   name: "Harbor"
+    #   description: "Container registry"
+    #   enabled: true
+    #   clientAuthenticatorType: "client-secret"
+    #   secret: "$(env:HARBOR_CLIENT_SECRET)"
+    #   redirectUris:
+    #   - "https://registry.$(env:ROOT_DOMAIN)/*"
+    #   - "https://registry.$(env:ROOT_DOMAIN)/c/oidc/callback"
+    #   webOrigins:
+    #   - "https://registry.$(env:ROOT_DOMAIN)"
+    #   protocol: "openid-connect"
+    #   publicClient: false
+    #   standardFlowEnabled: true
+    #   implicitFlowEnabled: false
+    #   directAccessGrantsEnabled: false
+    #   serviceAccountsEnabled: false
+    #   attributes:
+    #     "pkce.code.challenge.method": "S256"
+    #   defaultClientScopes:
+    #   - "web-origins"
+    #   - "acr"
+    #   - "profile"
+    #   - "roles"
+    #   - "email"
+    #   - "groups"
+    #   optionalClientScopes:
+    #   - "address"
+    #   - "phone"
+    #   - "offline_access"
+    #   - "microprofile-jwt"
+    # - clientId: "vaultwarden"
+    #   name: "Vaultwarden"
+    #   description: "Password manager"
+    #   enabled: true
+    #   clientAuthenticatorType: "client-secret"
+    #   secret: "$(env:VAULTWARDEN_CLIENT_SECRET)"
+    #   redirectUris:
+    #   - "https://vaultwarden.$(env:ROOT_DOMAIN)/*"
+    #   - "https://vaultwarden.$(env:ROOT_DOMAIN)/identity/connect/oidc-signin"
+    #   webOrigins:
+    #   - "https://vaultwarden.$(env:ROOT_DOMAIN)"
+    #   protocol: "openid-connect"
+    #   publicClient: false
+    #   standardFlowEnabled: true
+    #   implicitFlowEnabled: false
+    #   directAccessGrantsEnabled: false
+    #   serviceAccountsEnabled: false
+    #   attributes:
+    #     "pkce.code.challenge.method": "S256"
+    #   defaultClientScopes:
+    #   - "web-origins"
+    #   - "acr"
+    #   - "profile"
+    #   - "roles"
+    #   - "email"
+    #   - "groups"
+    #   optionalClientScopes:
+    #   - "address"
+    #   - "phone"
+    #   - "offline_access"
+    #   - "microprofile-jwt"

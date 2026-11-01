@@ -24,14 +24,14 @@ Config format (JSON):
   {
     "groups": [
       {
-        "name": "homelab-admins",
+        "name": "ohmlab-admins",
         "policies": ["admin", "reader"]
       }
     ],
     "groupAliases": [
       {
         "name": "/admin",
-        "group": "homelab-admins",
+        "group": "ohmlab-admins",
         "mountAccessor": "oidc_xxxxx"
       }
     ]

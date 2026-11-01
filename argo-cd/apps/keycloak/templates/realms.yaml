@@ -1,0 +1,55 @@
+{{- if .Values.keycloakConfigCli.enabled }}
+{{- /*
+The realm files keycloak-config-cli imports, one per realm and named after it.
+A realm is realms.defaults with its own keys over it, rendered through tpl.
+Two realms with one name (the instance's name falls back to ohmlab without a
+manager, or the instance is called ohmlab) are one realm holding both tiers'
+clients, client roles and group client roles, the system realm's first: two
+files for one realm would undo each other, since keycloak-config-cli keeps one
+state per realm and removes what it created and the current file leaves out.
+*/}}
+{{- $files := dict }}
+{{- range $key := list "system" "instance" }}
+{{- $realm := mergeOverwrite (deepCopy ($.Values.realms.defaults | default dict)) (deepCopy (get $.Values.realms $key | default dict)) }}
+{{- $json := tpl (toJson $realm) $ }}
+{{- $from := fromJson $json }}
+{{- $name := $from.realm | required (printf "realms.%s.realm is required" $key) }}
+{{- if hasKey $files $name }}
+{{- $into := fromJson (get $files $name) }}
+{{- $ids := list }}
+{{- range $into.clients | default list }}{{ $ids = append $ids .clientId }}{{ end }}
+{{- range $from.clients | default list }}
+{{- if not (has .clientId $ids) }}{{ $_ := set $into "clients" (append ($into.clients | default list) .) }}{{ end }}
+{{- end }}
+{{- $roles := $into.roles | default dict }}
+{{- $_ := set $roles "client" (merge (dig "client" dict $roles) (dig "client" dict ($from.roles | default dict))) }}
+{{- $_ := set $into "roles" $roles }}
+{{- range $g := $from.groups | default list }}
+{{- $found := false }}
+{{- range $h := $into.groups | default list }}
+{{- if eq $h.path $g.path }}
+{{- $found = true }}
+{{- $_ := set $h "clientRoles" (merge ($h.clientRoles | default dict) ($g.clientRoles | default dict)) }}
+{{- $_ := set $h "realmRoles" (concat ($h.realmRoles | default list) ($g.realmRoles | default list) | uniq) }}
+{{- end }}
+{{- end }}
+{{- if not $found }}{{ $_ := set $into "groups" (append ($into.groups | default list) $g) }}{{ end }}
+{{- end }}
+{{- $_ := set $files $name (toJson $into) }}
+{{- else }}
+{{- $_ := set $files $name $json }}
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.keycloakConfigCli.existingConfigSecret | required "keycloakConfigCli.existingConfigSecret names the Secret of the realm files" }}
+  labels:
+    app.kubernetes.io/name: keycloak-config-cli
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  {{- range $name, $json := $files }}
+  {{ $name }}.json: {{ $json | b64enc }}
+  {{- end }}
+{{- end }}
