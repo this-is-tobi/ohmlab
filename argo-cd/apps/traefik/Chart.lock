@@ -1,9 +1,9 @@
 dependencies:
 - name: traefik
   repository: https://traefik.github.io/charts
-  version: 42.1.3
+  version: 42.2.0
 - name: vso-utils
   repository: https://this-is-tobi.github.io/helm-charts
   version: 2.2.0
-digest: sha256:0d1058fddd81c6ec4f71bbc371fe2d7995808cc6ba6d69796cec8fa8a6941b5e
-generated: "2026-11-01T15:36:38.545347+01:00"
+digest: sha256:42e68cec45ff5486bd7c6195ea382bebb151c2ceff300ff6fe5db2882c513ced
+generated: "2026-11-01T22:03:50.838757406Z"
