@@ -70,6 +70,12 @@ rustfs:
       cpu: 500m
       memory: 384Mi
 
+  # Pod Security restricted wants a seccomp profile set, at the pod level or
+  # on every container: the container runtime's default (merged with the
+  # chart's own user and group).
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
   containerSecurityContext:
     capabilities:
       drop:
