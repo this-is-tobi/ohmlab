@@ -24,8 +24,8 @@ mattermost:
   - name: MM_SQLSETTINGS_DATASOURCE
     valueFrom:
       secretKeyRef:
-        name: mattermost-pg-cluster-infos
-        key: connectionString
+        name: mattermost-db-infos
+        key: DB_URL
   - name: MM_FILESETTINGS_AMAZONS3ACCESSKEYID
     valueFrom:
       secretKeyRef:
