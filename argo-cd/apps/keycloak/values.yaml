@@ -649,12 +649,14 @@ keycloakConfigCli:
   config:
     homelab:
       inline:
-        realm: "$(env:KEYCLOAK_REALM)"
+        # The instance's realm and the name it shows
+        # (global.ohmlab.names.keycloakRealm and keycloakRealmDisplayName,
+        # which the instance's manager gives), else ohmlab and Ohmlab:
+        # keycloak-config-cli renders the realm through tpl.
+        realm: '{{ dig `ohmlab` `names` `keycloakRealm` `ohmlab` (.Values.global | default dict) }}'
         enabled: true
-        # The instance's name (global.ohmlab.names.keycloakRealmDisplayName),
-        # else Homelab: keycloak-config-cli renders the realm through tpl.
-        displayName: '{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Homelab` (.Values.global | default dict) }}'
-        displayNameHtml: '<b>{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Homelab` (.Values.global | default dict) }}</b> Identity'
+        displayName: '{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Ohmlab` (.Values.global | default dict) }}'
+        displayNameHtml: '<b>{{ dig `ohmlab` `names` `keycloakRealmDisplayName` `Ohmlab` (.Values.global | default dict) }}</b> Identity'
         registrationAllowed: false
         registrationEmailAsUsername: true
         editUsernameAllowed: false

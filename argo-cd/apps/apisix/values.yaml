@@ -116,8 +116,8 @@ etcd:
 
 gateway:
   enabled: false
-  # Empty: the instance's name (global.ohmlab.names.gateway), else
-  # homelab-gateway.
+  # Empty: the instance's Gateway name (global.ohmlab.names.gateway), else
+  # ohmlab-gateway.
   name: ""
   namespace: kube-system
   domain: ""
