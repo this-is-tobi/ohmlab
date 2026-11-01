@@ -6,12 +6,61 @@ trivy-operator:
     metricsExposedSecretInfo: true
     metricsConfigAuditInfo: true
     metricsRbacAssessmentInfo: true
-    metricsInfraAssessmentInfo: true
     metricsImageInfo: true
     metricsClusterComplianceInfo: true
+    # Scans share one vulnerability database through the built-in Trivy server
+    # (client-server mode): in the chart's default standalone mode, every scan
+    # pod downloads the whole database (about 130 MiB, near 1 GiB unpacked) into
+    # its own scratch volume.
+    builtInTrivyServer: true
+    # Scan pods at once; each one pulls the image it scans.
+    scanJobsConcurrentLimit: 3
+    # Each image's SBOM is kept (a ClusterSbomReport, about 0.5 MiB in etcd), so
+    # a rescan reads it rather than pulling the image again.
+    clusterSbomCacheEnabled: true
+    # Off: node-collector knows only kubeadm's layout (its one spec is
+    # k8s-cis-1.23), so on k3s it evaluates no check at all, even as root. It
+    # still needs the host's PID namespace and paths, which
+    # pod-security-baseline refuses, and its mounts create the missing kubeadm
+    # directories on every node.
+    infraAssessmentScannerEnabled: false
   serviceMonitor:
     enabled: true
+  # The operator image's own user, declared so that require-non-root admits it.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10000
+    runAsGroup: 10000
+    seccompProfile:
+      type: RuntimeDefault
+  # It caches the objects it reports on: about 200 MiB on a near-empty cluster.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  trivyOperator:
+    # The scan pods, as the same user (the chart's container context already
+    # drops every capability and keeps the root filesystem read-only).
+    scanJobPodTemplatePodSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 10000
+      runAsGroup: 10000
+      seccompProfile:
+        type: RuntimeDefault
   trivy:
     ignoreUnfixed: false
     server:
-      replicas: 2
+      # One server: scans are batch work that retries, and every replica keeps
+      # its own copy of the database.
+      replicas: 1
+      podSecurityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
