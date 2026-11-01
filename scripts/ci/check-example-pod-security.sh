@@ -45,12 +45,6 @@ tenant/vaultwarden StatefulSet/vaultwarden require-non-root
 # Tenant pods short of the restricted profile, which stays Audit until every
 # tenant chart meets it.
 tenant/actions-runner-controller Deployment/actions-runner-controller-gha-rs-controller pod-security-restricted
-tenant/argo-workflows Deployment/argo-workflows-server pod-security-restricted
-tenant/argo-workflows Deployment/argo-workflows-workflow-controller pod-security-restricted
-tenant/coder Deployment/coder pod-security-restricted
-tenant/mlflow Deployment/mlflow pod-security-restricted
-tenant/outline Deployment/outline pod-security-restricted
-tenant/outline StatefulSet/outline-valkey pod-security-restricted
 tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-restricted
 tenant/teleport Deployment/teleport-auth pod-security-restricted
 tenant/teleport Deployment/teleport-proxy pod-security-restricted

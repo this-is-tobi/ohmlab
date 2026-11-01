@@ -9,8 +9,16 @@ argo-workflows:
     replicas: 3
     serviceMonitor:
       enabled: true
+    # Pod Security restricted wants a seccomp profile set: the container
+    # runtime's default.
+    podSecurityContext:
+      seccompProfile:
+        type: RuntimeDefault
   server:
     replicas: 3
+    podSecurityContext:
+      seccompProfile:
+        type: RuntimeDefault
     authModes:
     # - "server"
     - client

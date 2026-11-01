@@ -44,6 +44,11 @@ mlflow:
     limits:
       memory: 1Gi
       cpu: "1"
+  # Pod Security restricted wants a seccomp profile set: the container
+  # runtime's default (merged with the chart's own fsGroup).
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
 
 cnpg:
   fullnameOverride: mlflow-pg-cluster

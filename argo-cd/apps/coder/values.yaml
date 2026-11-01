@@ -36,6 +36,12 @@ coder:
       value: admin
     - name: CODER_OIDC_GROUP_AUTO_CREATE
       value: "true"
+    # Pod Security restricted wants every capability dropped (merged with the
+    # chart's own security context, which sets the rest of the profile).
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
 
 cnpg:
   fullnameOverride: coder-pg-cluster

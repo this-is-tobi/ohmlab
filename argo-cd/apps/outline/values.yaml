@@ -87,6 +87,11 @@ outline:
     limits:
       memory: 1Gi
       cpu: "1"
+  # Pod Security restricted wants a seccomp profile set: the container
+  # runtime's default (merged with the chart's own fsGroup).
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
 
 valkey:
   fullnameOverride: outline-valkey
@@ -116,6 +121,10 @@ valkey:
     limits:
       cpu: 250m
       memory: 256Mi
+  # As for Outline, merged with this chart's own fsGroup.
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
 
 cnpg:
   fullnameOverride: outline-pg-cluster
