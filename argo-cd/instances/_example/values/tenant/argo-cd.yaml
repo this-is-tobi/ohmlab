@@ -6,7 +6,7 @@ argo-cd:
       url: "https://argo-cd.example.com"
       oidc.config: |
         name: "Keycloak"
-        issuer: "https://keycloak.example.com/realms/homelab"
+        issuer: "https://keycloak.example.com/realms/example"
         clientID: "argo-cd"
         clientSecret: ""
         # clientSecret: "$argo-cd-sso:clientSecret"
@@ -16,7 +16,7 @@ argo-cd:
     argocdUrl: "https://argo-cd.example.com"
     context:
       provider: self-hosted
-      cluster: homelab
+      cluster: example
       environment: production
     secret:
       create: false
@@ -50,11 +50,11 @@ argo-cd:
 vso:
   vaultStaticSecrets:
     argoCdAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/argo-cd
     argoCdConfig:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/argo-cd
     argoCdSso:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/argo-cd

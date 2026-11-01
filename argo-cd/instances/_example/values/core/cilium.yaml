@@ -14,5 +14,5 @@ gateway:
 vso:
   vaultStaticSecrets:
     hubbleSso:
-      mount: homelab
+      mount: example
       path: platforms/production/core/hubble

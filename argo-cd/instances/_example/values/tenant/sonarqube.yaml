@@ -12,7 +12,7 @@ sonarqube:
     jdbcUsername: sonarqube
   sonarProperties:
     sonar.core.serverBaseURL: "https://sonarqube.example.com"
-    sonar.auth.oidc.issuerUri: "https://keycloak.example.com/realms/homelab"
+    sonar.auth.oidc.issuerUri: "https://keycloak.example.com/realms/example"
     sonar.auth.oidc.clientId.secured: sonarqube
     sonar.auth.oidc.clientSecret.secured: ""
 
@@ -30,23 +30,23 @@ cnpg:
 vso:
   vaultStaticSecrets:
     sonarqubeAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/sonarqube
     sonarqubeProperties:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/sonarqube
     sonarqubeDbInfos:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/sonarqube
     sonarqubeDbAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/sonarqube
     sonarqubeDbApp:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/sonarqube
     sonarqubePgBackup:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/sonarqube
     sonarqubeSso:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/sonarqube

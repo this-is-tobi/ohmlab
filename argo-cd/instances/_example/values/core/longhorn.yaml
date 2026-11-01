@@ -9,5 +9,5 @@ longhorn:
 vso:
   vaultStaticSecrets:
     longhornSso:
-      mount: homelab
+      mount: example
       path: platforms/production/core/longhorn

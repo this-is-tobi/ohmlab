@@ -177,20 +177,38 @@ The chart name is the entry's `chart` (default: the app name) and the values sti
 
 #### Names
 
-A few names the product gives are hard to change on a running cluster: the Vault KV mount that holds the platform secrets (a new mount starts empty), the Gateways (a renamed Gateway is recreated, with its address and certificates), and the realm name Keycloak shows. An instance can set them once in `instance.yaml`, and they then stay the same whatever the product's defaults become:
+What belongs to an instance is named after it, so that a resource tells which instance it serves: its Vault KV mount, its Keycloak realm and the name that realm shows, and its Gateway (one name for every Gateway implementation, the parent of every route). The manager derives them from the instance's name, `instance.name`, which the root manager sets to the name of the instance's folder:
+
+| Name                       | Derived from `instance.name: mylab` | Used for                                                         |
+| -------------------------- | ----------------------------------- | ---------------------------------------------------------------- |
+| `vaultMount`               | `mylab`                             | KV v2 mount: policies, secrets engine, VSO and controller mounts |
+| `keycloakRealm`            | `mylab`                             | Keycloak realm of the instance's users                           |
+| `keycloakRealmDisplayName` | `Mylab`                             | realm name on the Keycloak pages                                 |
+| `gateway`                  | `mylab-gateway`                     | Gateway, and the default parent of every route                   |
+
+These names are hard to change on a running cluster: a new mount starts empty, a renamed Gateway is recreated with its address and certificates, a new realm has no users. A cluster whose resources carry other names pins them in `instance.yaml`, each key on its own; the others stay derived:
 
 ```yaml
 # argo-cd/instances/<instance>/instance.yaml
 names:
-  vaultMount: homelab                       # KV v2 mount: policies, secrets engine, VSO and controller mounts
-  gateway: homelab-gateway                  # APISIX or Cilium Gateway, and the default parent of every route
-  traefikGateway: homelab-gateway-traefik   # Traefik Gateway
-  keycloakRealmDisplayName: Homelab         # realm name on the Keycloak pages
+  vaultMount: secrets
+  keycloakRealmDisplayName: My lab
 ```
 
-- Every Application of the instance gets them as Helm parameters, `global.ohmlab.names.<key>`. A chart takes its own explicit value first (for example `gateway.gatewayName` in an app's values), then the instance's name, then its default.
-- A key the product does not read, an empty name, or a name with quotes, backslashes or braces fails the render of the manager chart instead of leaving a default in place.
-- Set the names an existing cluster already uses before upgrading to a version that changes a default. Every pull request of this repository renders the reference instance with the charts before and after the change, and fails on any object that would be deleted or renamed.
+- Every Application of the instance gets the four names as Helm parameters, `global.ohmlab.names.<key>`. A chart takes its own explicit value first (for example `gateway.gatewayName` in an app's values), then the instance's name. A chart rendered without a manager falls back to the ohmlab names (`ohmlab`, `Ohmlab`, `ohmlab-gateway`).
+- The folder name has to be a lowercase DNS label of at most 55 characters, so that `<name>-gateway` is a valid Gateway name.
+- The manager chart refuses to render, instead of leaving a broken or derived name in place, on a key the product does not read, an empty name, a name with quotes, backslashes, braces or control characters, a Gateway that is not a DNS label, a realm or KV mount with characters Keycloak or Vault would not take, and a name those servers keep for themselves: the realm `master` (Keycloak's administration) and the mounts `sys`, `auth`, `identity` and `cubbyhole` (Vault's).
+- Every pull request of this repository renders the reference instance with the charts before and after the change, and fails on any object that would be deleted or renamed.
+
+Instances set up before the names were derived ran on fixed names: the KV mount `homelab`, the realm stored in Vault under the `realm` key of the Keycloak path, the display name `Homelab`, the Gateway `homelab-gateway-traefik` (Traefik) or `homelab-gateway` (APISIX, Cilium). Pin the ones your instance's name does not give before you upgrade, for example:
+
+```yaml
+names:
+  vaultMount: homelab
+  keycloakRealm: homelab
+  keycloakRealmDisplayName: Homelab
+  gateway: homelab-gateway-traefik
+```
 
 > **`syncWave` semantics**: on an AppSet-generated Application, the sync-wave annotation alone orders **nothing** — apps sync in parallel and converge by retry. To actually enforce the ordering, enable progressive sync (`progressiveSync.enabled: true` in the `instance-manager` chart values); it maps waves onto ApplicationSet `RollingSync` steps. Requires the alpha `ApplicationSetProgressiveSyncs` feature gate, which the `ohmlab` chart enables on the core ArgoCD. It also turns automated sync off on the generated Applications: the ApplicationSet controller syncs an app again only when its revision changes, so drift at the same commit (a hand edit, a chart that renders more once a CRD exists) waits for the next commit or a manual sync.
 
@@ -206,7 +224,7 @@ Waves are not enforced by default (see the `syncWave` semantics above), so an ap
 
 Vault, delivered by the Vault Secrets Operator, is the only secret backend supported today. Other backends (External Secrets, ...) are planned: every chart declares its secrets in one place (`vso:`) so they can be swapped later.
 
-The `_example` values render for every chart (CI checks it) and every secret they declare is readable with the Vault policies and roles of the chart defaults (CI checks that too), so only the hostnames, the paths under `platforms/<environment>/<tier>/<app>` and similar are yours to set. The Vault KV mount is `homelab`, created by the `vault-operator` chart; to use another name, override its policies and `secrets` list completely. The example values run Argo CD with one replica of each component and no Redis HA, and Vault with one replica, so that they work on a single node; the chart defaults are highly available (three nodes or more), so drop those overrides there.
+The `_example` values render for every chart (CI checks it) and every secret they declare is readable with the Vault policies and roles of the chart defaults (CI checks that too), so only the hostnames, the paths under `platforms/<environment>/<tier>/<app>` and similar are yours to set. The Vault KV mount is named after the instance (`example` there, see [Names](#names)) and created by the `vault-operator` chart, whose policies follow it. The example values run Argo CD with one replica of each component and no Redis HA, and Vault with one replica, so that they work on a single node; the chart defaults are highly available (three nodes or more), so drop those overrides there.
 
 ### Secrets Management
 
@@ -221,7 +239,7 @@ The `sops` app ([sops-secrets-operator](https://github.com/isindir/sops-secrets-
 1. Have the ohmlab controller generate the age key pair in Vault, by adding this entry to `ohmlab.vault.secrets` in the `vault-operator` values (the controller must be enabled, see [docs/08-controller.md](08-controller.md)), then enable the `sops` app in `core.yaml` (the example values of the app point at that path).
 
    ```yaml
-   - path: homelab/platforms/production/core/sops
+   - path: <instance>/platforms/production/core/sops
      data:
        secret: "<age:secret>"
        public: "<age:public>"

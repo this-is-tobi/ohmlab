@@ -8,7 +8,7 @@ argo-workflows:
         hosts:
         - argo-worflows.example.com
     sso:
-      issuer: "https://keycloak.example.com/realms/homelab"
+      issuer: "https://keycloak.example.com/realms/example"
       redirectUrl: https://argo-worflows.example.com/oauth2/callback
   crds:
     install: true
@@ -17,5 +17,5 @@ argo-workflows:
 vso:
   vaultStaticSecrets:
     argoWorkflowsSso:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/argo-workflows

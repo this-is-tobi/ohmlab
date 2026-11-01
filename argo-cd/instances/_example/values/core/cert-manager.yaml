@@ -62,5 +62,5 @@ clusterIssuers:
 vso:
   vaultStaticSecrets:
     scwCreds:
-      mount: homelab
+      mount: example
       path: platforms/production/core/cert-manager

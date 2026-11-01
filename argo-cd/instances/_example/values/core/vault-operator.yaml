@@ -1,15 +1,16 @@
 # Vault (Bank-Vaults operator) and the Vault Secrets Operator.
 #
 # Set only what is yours here. The chart defaults already hold what every app
-# of the catalog needs from Vault: the KV v2 mount `homelab`, one read-only
-# policy per app (`homelab/data/platforms/+/+/<app>`) and one Kubernetes auth
+# of the catalog needs from Vault: the KV v2 mount named after the instance
+# (`example` here, or `names.vaultMount` in instance.yaml), one read-only
+# policy per app (`example/data/platforms/+/+/<app>`) and one Kubernetes auth
 # role per app, bound to the `vso` service account of the app's namespace.
 # Do not copy those lists here: a list in an instance file replaces the chart's
 # list as a whole, and every app missing from the copy then fails with
 # `403 permission denied`. If you change a namespace in core.yaml or tenant.yaml,
-# or want another mount name, override `vault.externalConfig.policies`,
-# `.auth` and `.secrets` completely. CI (scripts/ci/check-vault-access.sh)
-# checks that the role, the mount and the policy each chart asks for exist.
+# override `vault.externalConfig.policies`, `.auth` and `.secrets` completely.
+# CI (scripts/ci/check-vault-access.sh) checks that the role, the mount and
+# the policy each chart asks for exist.
 
 # Reach Vault through a Gateway API route; enable it once the gateway exists.
 gateway:
@@ -57,7 +58,7 @@ ohmlab:
     seeds:
       enabled: false
     secrets: []
-    # - path: homelab/platforms/production/tenant/actions-runner-controller
+    # - path: example/platforms/production/tenant/actions-runner-controller
     #   data:
     #     githubApp:
     #       id: ""

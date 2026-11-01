@@ -19,7 +19,7 @@ gitea:
       provider: openidConnect
       key: gitea
       secret: ""
-      autoDiscoverUrl: "https://keycloak.example.com/realms/homelab/.well-known/openid-configuration"
+      autoDiscoverUrl: "https://keycloak.example.com/realms/example/.well-known/openid-configuration"
       scopes: openid profile email roles groups
       adminGroup: admin
       groupClaimName: groups
@@ -79,23 +79,23 @@ cnpg:
 vso:
   vaultStaticSecrets:
     giteaValkeyAuth:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/gitea
     giteaAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/gitea
     giteaDbInfos:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/gitea
     giteaDbAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/gitea
     giteaDbApp:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/gitea
     giteaPgBackup:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/gitea
     giteaSso:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/gitea

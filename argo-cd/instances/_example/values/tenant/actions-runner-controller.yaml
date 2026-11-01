@@ -64,5 +64,5 @@ runner-group-002:
 vso:
   vaultStaticSecrets:
     githubApp:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/actions-runner-controller
