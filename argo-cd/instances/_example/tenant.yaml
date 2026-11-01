@@ -129,6 +129,17 @@ apps:
 - app: mattermost
   enabled: "false"
   syncWave: 110
+  # The chart always renders mattermost-mattermost-dbsecret, which VSO writes
+  # with the real database URL: Argo CD leaves VSO the data and the fields VSO
+  # manages, or each rewrites the other.
+  ignoreDifferences:
+  - group: ""
+    kind: Secret
+    name: mattermost-mattermost-dbsecret
+    jqPathExpressions:
+    - .data
+    managedFieldsManagers:
+    - vault-secrets-operator
 
   # Machine-learning experiment tracking.
 - app: mlflow
