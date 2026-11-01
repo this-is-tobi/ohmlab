@@ -63,14 +63,13 @@ argo-cd:
       #   requestedScopes: ["openid", "profile", "email", "groups"]
   # One replica of everything and no Redis HA, so the bootstrap works on a
   # single node. The chart defaults are highly available (Redis HA with hard
-  # pod anti-affinity, two replicas of each component) and a bootstrap on one
-  # node never becomes ready: drop these overrides on three nodes or more.
+  # pod anti-affinity, two replicas of the server, the repo server and the
+  # ApplicationSet controller) and a bootstrap on one node never becomes
+  # ready: drop these overrides on three nodes or more.
   redis-ha:
     enabled: false
   redis:
     enabled: true
-  controller:
-    replicas: 1
   repoServer:
     replicas: 1
   applicationSet:

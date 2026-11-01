@@ -209,7 +209,11 @@ argo-cd:
       serviceMonitor:
         enabled: true
   controller:
-    replicas: 2
+    # Argo CD splits the work between controller replicas by cluster: with one
+    # cluster, a second replica holds no shard and only reserves its request,
+    # and it never takes over the first one's work. Raise this to spread many
+    # clusters.
+    replicas: 1
     # The request tracks the ~1Gi steady-state cluster cache: scheduling on
     # 512Mi let a shard stack with Prometheus and push a node into memory
     # pressure.

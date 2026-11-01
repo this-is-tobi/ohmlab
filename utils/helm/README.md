@@ -51,7 +51,7 @@ A Helm chart to deploy ohmlab.
 | argo-cd.controller.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[0].topologyKey | string | `"kubernetes.io/hostname"` |  |
 | argo-cd.controller.metrics.enabled | bool | `true` |  |
 | argo-cd.controller.metrics.serviceMonitor.enabled | bool | `true` |  |
-| argo-cd.controller.replicas | int | `2` |  |
+| argo-cd.controller.replicas | int | `1` |  |
 | argo-cd.controller.resources.limits.cpu | string | `"2000m"` |  |
 | argo-cd.controller.resources.limits.memory | string | `"3Gi"` |  |
 | argo-cd.controller.resources.requests.cpu | string | `"250m"` |  |
