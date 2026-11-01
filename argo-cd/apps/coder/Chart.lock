@@ -1,12 +1,12 @@
 dependencies:
 - name: coder
   repository: https://helm.coder.com/v2
-  version: 2.38.3
+  version: 2.38.5
 - name: cluster
   repository: https://cloudnative-pg.github.io/charts
   version: 0.9.0
 - name: vso-utils
   repository: https://this-is-tobi.github.io/helm-charts
   version: 2.2.0
-digest: sha256:93df90b03305f9ce1ec189fefb21406fad399b4f833339c09bb296e91ebd89e3
-generated: "2026-11-01T17:48:42.691216+01:00"
+digest: sha256:b5d21e1040e8c4751d408abee50481f5179161c13a83d88a46a45cc7bf79537f
+generated: "2026-11-01T17:03:19.622181021Z"
