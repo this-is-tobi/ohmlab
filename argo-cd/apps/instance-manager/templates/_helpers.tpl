@@ -103,24 +103,64 @@ go-template `list`.
 {{- end -}}
 
 {{/*
+The names of the instance's own resources, as a YAML map: each derives from
+the instance's name (its Vault KV mount, its Keycloak realm and the name that
+realm shows, its Gateway), and `names` overrides any of them. The instance's
+name must be a DNS label short enough for "<name>-gateway". An unknown key, an
+empty name, or a name the resource it names cannot carry fails the render:
+each would leave a broken or derived name in place unnoticed. So do quotes,
+backslashes, braces and control characters: Argo CD evaluates the Application
+template, and charts insert names into JSON and Vault policies as they are.
+Keycloak's own realm and Vault's own mounts are refused, as a realm import or
+a secrets engine there would land in the server's administration.
+*/}}
+{{- define "instance-manager.names" -}}
+{{- $instance := .Values.instance.name | toString -}}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,53}[a-z0-9])?$" $instance) -}}
+{{- fail (printf "instance.name %q must be a lowercase DNS label of at most 55 characters: it names the instance's Gateway, Keycloak realm and Vault KV mount" $instance) -}}
+{{- end -}}
+{{- $names := dict "gateway" (printf "%s-gateway" $instance) "keycloakRealm" $instance "keycloakRealmDisplayName" (title $instance) "vaultMount" $instance -}}
+{{- $known := keys $names | sortAlpha -}}
+{{- $overrides := .Values.names | default dict -}}
+{{- range $key, $name := $overrides -}}
+{{- if not (has $key $known) -}}
+{{- fail (printf "names.%s is not a name the product reads (%s)" $key (join ", " $known)) -}}
+{{- end -}}
+{{- if or (not (kindIs "string" $name)) (not $name) -}}
+{{- fail (printf "names.%s must be a non-empty string" $key) -}}
+{{- end -}}
+{{- if regexMatch `["\\{}[:cntrl:]]` $name -}}
+{{- fail (printf "names.%s cannot contain quotes, backslashes, braces or control characters" $key) -}}
+{{- end -}}
+{{- $_ := set $names $key $name -}}
+{{- end -}}
+{{- $formats := dict "gateway" "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" "keycloakRealm" "^[A-Za-z0-9][-A-Za-z0-9_.]*$" "vaultMount" "^[A-Za-z0-9][-A-Za-z0-9_.]*(/[-A-Za-z0-9_.]+)*$" -}}
+{{- $reserved := dict "keycloakRealm" (list "Keycloak" (list "master")) "vaultMount" (list "Vault" (list "auth" "cubbyhole" "identity" "sys")) -}}
+{{- range $key, $name := $names -}}
+{{- $what := printf "names.%s %q" $key $name -}}
+{{- if not (hasKey $overrides $key) -}}
+{{- $what = printf "instance.name %q gives names.%s %q, which" $instance $key $name -}}
+{{- end -}}
+{{- with get $formats $key -}}
+{{- if not (regexMatch . $name) -}}
+{{- fail (printf "%s must match %s" $what .) -}}
+{{- end -}}
+{{- end -}}
+{{- with get $reserved $key -}}
+{{- if has (first (splitList "/" $name)) (index . 1) -}}
+{{- fail (printf "%s is reserved by %s: set another names.%s in instance.yaml" $what (index . 0) $key) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- toYaml $names -}}
+{{- end -}}
+
+{{/*
 The names of the instance as Helm parameters, one `global.ohmlab.names.<key>`
-each, for every generated Application. An unknown key or an empty name fails
-the render: either would leave the product default in place unnoticed. So do
-quotes, backslashes and braces: Argo CD evaluates the Application template,
-and charts insert names into JSON and Vault policies as they are.
+each, for every generated Application.
 */}}
 {{- define "instance-manager.namesParameters" -}}
-{{- $known := list "gateway" "keycloakRealmDisplayName" "traefikGateway" "vaultMount" -}}
-{{- range $key, $name := .Values.names | default dict }}
-{{- if not (has $key $known) }}
-{{- fail (printf "names.%s is not a name the product reads (%s)" $key (join ", " $known)) }}
-{{- end }}
-{{- if or (not (kindIs "string" $name)) (not $name) }}
-{{- fail (printf "names.%s must be a non-empty string" $key) }}
-{{- end }}
-{{- if regexMatch `["\\{}]` $name }}
-{{- fail (printf "names.%s cannot contain quotes, backslashes or braces" $key) }}
-{{- end }}
+{{- range $key, $name := include "instance-manager.names" . | fromYaml }}
 - name: {{ printf "global.ohmlab.names.%s" $key | quote }}
   value: {{ $name | quote }}
   forceString: true
