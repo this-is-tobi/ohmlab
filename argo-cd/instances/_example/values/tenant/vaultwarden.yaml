@@ -1,15 +1,5 @@
-waultwarden:
+vaultwarden:
   domain: "https://vaultwarden.example.com"
-  adminToken:
-    existingSecret: vaultwarden-admin
-    existingSecretKey: token
-  database:
-    host: vaultwarden-pg-cluster-rw
-    port: 5432
-    dbName: vaultwarden
-    existingSecret: vaultwarden-pg-cluster-app
-    existingSecretUserKey: username
-    existingSecretPasswordKey: password
   invitationOrgName: Ohmlab
   ingress:
     hostname: vaultwarden.example.com

@@ -1,15 +1,32 @@
-waultwarden:
+vaultwarden:
+  # One replica whose data (the JWT signing key, attachments, sends) sits on a
+  # ReadWriteOnce volume: a StatefulSet replaces its pod in place, where a
+  # Deployment's rolling update waits on the volume the old pod still holds.
+  # The chart would pick a Deployment once both a database and a data volume
+  # are set.
+  resourceType: StatefulSet
   domain: ""
+  # The admin page's token, from Vault (admin.token): best an Argon2 PHC string
+  # from `vaultwarden hash`, so the token itself is stored nowhere. Empty, the
+  # page stays off.
   adminToken:
-    value: ""
+    existingSecret: vaultwarden-admin
+    existingSecretKey: token
+  # The CNPG cluster below, through the URL vaultwardenDbInfos writes, which
+  # requires TLS.
   database:
     type: postgresql
-    host: ""
-    port: ""
-    username: ""
-    password: ""
-    dbName: ""
-  signupsAllowed: true
+    existingSecret: vaultwarden-db-infos
+    existingSecretKey: DB_URL
+  storage:
+    data:
+      name: vaultwarden-data
+      size: 2Gi
+      path: /data
+      accessMode: ReadWriteOnce
+  # Accounts by invitation only: open signups let anyone who reaches the
+  # ingress create one.
+  signupsAllowed: false
   signupsVerify: true
   invitationsAllowed: true
   invitationOrgName: ""
@@ -22,6 +39,106 @@ waultwarden:
     hostname: ""
     tls: true
     tlsSecret: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  # Pod Security restricted, as a user that owns the data volume (fsGroup).
+  # The image runs as root by default, but the server needs no privilege: its
+  # port (rocket.port, 8080) is above 1024.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+cnpg:
+  fullnameOverride: vaultwarden-pg-cluster
+  version:
+    postgresql: "17"
+  cluster:
+    # Image resolved for the major above from the shared catalog (see the
+    # cloudnative-pg app); bumping `version.postgresql` runs an in-place
+    # pg_upgrade.
+    imageCatalogRef:
+      kind: ClusterImageCatalog
+      name: postgresql-standard-trixie
+    instances: 3
+    enableSuperuserAccess: false
+    initdb:
+      database: vaultwarden
+      owner: vaultwarden
+    storage:
+      size: 3Gi
+    walStorage:
+      enabled: true
+      size: 3Gi
+    postgresql:
+      # Caps WAL retained by replication slots: a lagging/dead replica costs
+      # a re-clone, not disk pressure on the primary.
+      parameters:
+        max_slot_wal_keep_size: 1GB
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    affinity:
+      topologyKey: kubernetes.io/hostname
+    monitoring:
+      instrumentation:
+        # The chart renders this queries ConfigMap but never wires it into
+        # the Cluster, so it would only sit there unused.
+        logicalReplication: false
+  backups:
+    enabled: false
+    method: plugin
+    pluginConfiguration:
+      name: barman-cloud.cloudnative-pg.io
+    endpointURL: ""
+    destinationPath: "s3://<bucket-name>/<bucket-prefix>"
+    # VSO-managed (never inline keys here). The chart hardcodes the
+    # ACCESS_KEY_ID / ACCESS_SECRET_KEY key names.
+    secret:
+      create: false
+      name: vaultwarden-pg-cluster-backup
+    # The chart has no S3 region setting; the barman sidecar picks it up
+    # from the standard AWS env var instead.
+    instanceSidecarConfiguration:
+      env:
+      - name: AWS_DEFAULT_REGION
+        valueFrom:
+          secretKeyRef:
+            name: vaultwarden-pg-cluster-backup
+            key: S3_REGION
+    # Chart default requests AES256 server-side encryption, which not every
+    # S3-compatible store implements — defer to the bucket's own default.
+    wal:
+      encryption: ""
+    data:
+      encryption: ""
+    retentionPolicy: 30d
+    scheduledBackups:
+    - name: daily
+      schedule: "0 0 0 * * *"
+      backupOwnerReference: self
+      method: plugin
+      pluginConfiguration:
+        name: barman-cloud.cloudnative-pg.io
 
 vso:
   extraObjects:
@@ -63,10 +180,8 @@ vso:
           excludes:
           - ".*"
           templates:
-            username:
-              text: '{{ get .Secrets "admin" | dig "username" "" }}'
-            password:
-              text: '{{ get .Secrets "admin" | dig "password" "" }}'
+            token:
+              text: '{{ get .Secrets "admin" | dig "token" "" }}'
     vaultwardenDbInfos:
       type: kv-v2
       vaultAuthRef: vaultwarden-vso-default
@@ -82,7 +197,7 @@ vso:
           - ".*"
           templates:
             DB_URL:
-              text: 'postgresql://{{ get .Secrets "postgres" | dig "app" "username" "" }}:{{ get .Secrets "postgres" | dig "app" "password" "" }}@{{ get .Secrets "postgres" | dig "host" "" }}:{{ get .Secrets "postgres" | dig "port" "" }}/{{ get .Secrets "postgres" | dig "database" "" }}'
+              text: 'postgresql://{{ get .Secrets "postgres" | dig "app" "username" "" }}:{{ get .Secrets "postgres" | dig "app" "password" "" }}@{{ get .Secrets "postgres" | dig "host" "" }}:{{ get .Secrets "postgres" | dig "port" "" }}/{{ get .Secrets "postgres" | dig "database" "" }}?sslmode=require'
             DB_HOST:
               text: '{{ get .Secrets "postgres" | dig "host" "" }}'
             DB_PORT:
@@ -143,9 +258,9 @@ vso:
               text: '{{ get .Secrets "postgres" | dig "s3" "bucketName" "" }}'
             S3_BUCKET_PREFIX:
               text: '{{ get .Secrets "postgres" | dig "s3" "bucketPrefix" "" }}'
-            S3_ACCESS_KEY:
+            ACCESS_KEY_ID:
               text: '{{ get .Secrets "postgres" | dig "s3" "accessKey" "" }}'
-            S3_SECRET_KEY:
+            ACCESS_SECRET_KEY:
               text: '{{ get .Secrets "postgres" | dig "s3" "secretKey" "" }}'
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
