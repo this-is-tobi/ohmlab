@@ -79,10 +79,9 @@ spec:
           releaseName: '{{ `{{ default .app .releaseName }}` }}'
           valueFiles:
           - '$values/{{ printf "{{ default (printf \"argo-cd/instances/%s/values/core/%%s.yaml\" .app) .valuesPath }}" $instance }}'
-          {{- with include "instance-manager.namesParameters" . | trim }}
           parameters:
-            {{- . | nindent 10 }}
-          {{- end }}
+            {{- include "instance-manager.namesParameters" . | trim | nindent 10 }}
+            {{- include "instance-manager.vaultParameters" (list . "core") | trim | nindent 10 }}
       - repoURL: {{ $valuesRepo | quote }}
         ref: values
         targetRevision: {{ $rev | quote }}

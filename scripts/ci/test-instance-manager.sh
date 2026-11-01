@@ -186,6 +186,10 @@ render_params() {
   helm template t "$CHART" --set "instance.name=$inst" --set "repoURL=$GIT" "$@" \
     | yq ea -o=json -I=0 "select(.kind == \"ApplicationSet\" and .metadata.name == \"$scope-$inst\") | .spec.template.spec.sources[0].helm.parameters" -
 }
+# render_names and render_vault: render_params, only the names, or only the Vault
+# parameters (global.ohmlab.names, global.ohmlab.vault).
+render_names() { render_params "$@" | jq -c 'map(select(.name | startswith("global.ohmlab.names.")))'; }
+render_vault() { render_params "$@" | jq -c 'map(select(.name | startswith("global.ohmlab.vault.")))'; }
 
 # names_json <gateway> <keycloakRealm> <keycloakRealmDisplayName> <vaultMount>
 # -> the parameters the manager gives for these names, sorted by key.
@@ -205,13 +209,38 @@ for scope in core tenant; do
   out=$(KEEP_PARAMS=true render_sources "$scope" '[{"app":"plain"},{"app":"ohmlab","catalog":"ohmlab","targetRevision":"0.1.3"}]' \
     --set-json "catalogs={\"ohmlab\":\"$REGISTRY\"}" --set-json 'names={"vaultMount":"homelab","gateway":"homelab-gateway","keycloakRealmDisplayName":"Home, lab"}')
   params=$(names_json homelab-gateway t "Home, lab" homelab)
-  check "$scope: the names of the instance become Helm parameters" "$params" "$(printf '%s\n' "$out" | sed -n 1p | jq -c '.helm.parameters')"
-  check "$scope: a registry chart gets the same parameters" "$params" "$(printf '%s\n' "$out" | sed -n 2p | jq -c '.helm.parameters')"
+  check "$scope: the names of the instance become Helm parameters" "$params" "$(printf '%s\n' "$out" | sed -n 1p | jq -c '.helm.parameters | map(select(.name | startswith("global.ohmlab.names.")))')"
+  check "$scope: a registry chart gets the same parameters" "$params" "$(printf '%s\n' "$out" | sed -n 2p | jq -c '.helm.parameters | map(select(.name | startswith("global.ohmlab.names.")))')"
+  check "$scope: a registry chart gets the same Vault parameters" \
+    "$(printf '%s\n' "$out" | sed -n 1p | jq -c '.helm.parameters | map(select(.name | startswith("global.ohmlab.vault.")))')" \
+    "$(printf '%s\n' "$out" | sed -n 2p | jq -c '.helm.parameters | map(select(.name | startswith("global.ohmlab.vault.")))')"
   check "$scope: the names derive from the instance name" \
-    "$(names_json my-lab-gateway my-lab My-Lab my-lab)" "$(render_params "$scope" my-lab)"
+    "$(names_json my-lab-gateway my-lab My-Lab my-lab)" "$(render_names "$scope" my-lab)"
   check "$scope: a name of the instance overrides only its key" \
-    "$(names_json edge t T t)" "$(render_params "$scope" t --set-json 'names={"gateway":"edge"}')"
+    "$(names_json edge t T t)" "$(render_names "$scope" t --set-json 'names={"gateway":"edge"}')"
 done
+
+# vault_json <mount> [<path prefix>] -> the Vault parameters the manager gives.
+vault_json() {
+  jq -nc --arg m "$1" --arg p "${2:-}" '[{name: "global.ohmlab.vault.mount", value: $m, forceString: true}]
+    + (if $p == "" then [] else [{name: "global.ohmlab.vault.pathPrefix", value: $p, forceString: true}] end)'
+}
+
+# Each app reads its secrets from its tier's KV mount: the core apps from the
+# ohmlab system mount, the tenant apps from the instance's, under
+# platforms/<instance.env>/<scope>.
+check "core: the core apps read the system mount, under platforms/<env>/core" \
+  "$(vault_json ohmlab platforms/production/core)" "$(render_vault core t --set instance.env=production)"
+check "tenant: the tenant apps read the instance's mount, under platforms/<env>/tenant" \
+  "$(vault_json t platforms/production/tenant)" "$(render_vault tenant t --set instance.env=production)"
+check "tenant: the instance's mount follows names.vaultMount" \
+  "$(vault_json lab platforms/production/tenant)" "$(render_vault tenant t --set instance.env=production --set-json 'names={"vaultMount":"lab"}')"
+check "core: names.vaultMount leaves the core apps on the system mount" \
+  "$(vault_json ohmlab platforms/production/core)" "$(render_vault core t --set instance.env=production --set-json 'names={"vaultMount":"lab"}')"
+check "without instance.env, no path prefix" "$(vault_json ohmlab)" "$(render_vault core t)"
+check "the Vault parameters come after the names" \
+  "global.ohmlab.names.gateway,global.ohmlab.names.keycloakRealm,global.ohmlab.names.keycloakRealmDisplayName,global.ohmlab.names.vaultMount,global.ohmlab.vault.mount,global.ohmlab.vault.pathPrefix" \
+  "$(render_params core t --set instance.env=production | jq -r 'map(.name) | join(",")')"
 
 # A catalog section that cannot work must fail the render of the manager, not
 # produce Applications that quietly come from somewhere else.
@@ -259,7 +288,8 @@ accept() {
 }
 refuse_msg "an instance name that cannot name a Gateway says which" 'instance.name "My_Lab"' --set instance.name=My_Lab
 accept "an instance name of 55 characters is accepted" --set instance.name=a234567890123456789012345678901234567890123456789012345
-check "a numeric instance name keeps its digits" "$(names_json 2024-gateway 2024 2024 2024)" "$(render_params core 2024)"
+check "a numeric instance name keeps its digits" "$(names_json 2024-gateway 2024 2024 2024)" "$(render_names core 2024)"
+refuse_msg "an instance.env that cannot be a path segment is refused" 'instance.env "Prod/1" must match' --set instance.env=Prod/1
 refuse_msg "an instance named after Keycloak's admin realm is refused" \
   'instance.name "master" gives names.keycloakRealm "master", which is reserved by Keycloak' --set instance.name=master
 refuse_msg "an instance named after a Vault system mount is refused" \

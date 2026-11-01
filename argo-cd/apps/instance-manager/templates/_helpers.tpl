@@ -168,6 +168,34 @@ each, for every generated Application.
 {{- end -}}
 
 {{/*
+The KV mount and path prefix of a scope's secrets as Helm parameters
+(global.ohmlab.vault), from which every chart builds its secrets' mount and
+path: the core tier reads the ohmlab system mount, the tenant tier the
+instance's (names.vaultMount), under platforms/<instance.env>/<scope>, given
+only with instance.env. The literal ohmlab here and the default of the
+vault-operator chart's systemMount are the two places that name the system
+mount. Called with (list . <scope>).
+*/}}
+{{- define "instance-manager.vaultParameters" -}}
+{{- $root := index . 0 -}}
+{{- $scope := index . 1 -}}
+{{- $env := $root.Values.instance.env | default "" | toString -}}
+{{- if and $env (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $env)) -}}
+{{- fail (printf "instance.env %q must match ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$: it is a segment of every secret's path" $env) -}}
+{{- end -}}
+{{- $mount := "ohmlab" -}}
+{{- if eq $scope "tenant" }}{{ $mount = (include "instance-manager.names" $root | fromYaml).vaultMount }}{{ end }}
+- name: "global.ohmlab.vault.mount"
+  value: {{ $mount | quote }}
+  forceString: true
+{{- with $env }}
+- name: "global.ohmlab.vault.pathPrefix"
+  value: {{ printf "platforms/%s/%s" . $scope | quote }}
+  forceString: true
+{{- end }}
+{{- end -}}
+
+{{/*
 Refuses a catalog section that cannot work, so that the render of the manager
 fails instead of Applications quietly coming from somewhere else.
 */}}
