@@ -18,7 +18,8 @@ REGISTRY=ghcr.io/example/charts
 # render_sources <scope> <elements-json> [<helm args>...] -> one compact JSON
 # object per element: the first source of the Application it generates,
 # without the empty fields (an empty field is the same as an unset one to Argo
-# CD). The helm arguments set the catalogs of the instance.
+# CD) and, unless KEEP_PARAMS=true, without its Helm parameters (render_params
+# checks those). The helm arguments set the catalogs of the instance.
 render_sources() {
   local scope="$1" elements="$2"
   shift 2
@@ -39,7 +40,7 @@ EOF
   elements=$(jq -c 'map(. + {destination: (.destination // {})})' <<<"$elements")
   helm template eval "$work/eval" --set-json "elements=$elements" 2>"$work/eval.err" \
     | yq ea -o=json -I=0 '[.spec.sources[0]]' - 2>/dev/null \
-    | jq -c '.[] | to_entries | map(select(.value != "")) | sort_by(.key) | from_entries' 2>/dev/null
+    | jq -c --argjson keep "${KEEP_PARAMS:-false}" '.[] | (if $keep then . else del(.helm.parameters) end) | to_entries | map(select(.value != "")) | sort_by(.key) | from_entries' 2>/dev/null
   [ -s "$work/eval.err" ] && { head -c 400 "$work/eval.err"; echo; } >&2
   return 0
 }
@@ -176,15 +177,40 @@ for scope in core tenant; do
     "$(source_json "$scope" mine "$GIT" argo-cd/apps/mine release)" "$(printf '%s\n' "$out" | sed -n 2p)"
 done
 
+# render_params <scope> <instance> [<helm args>...] -> the Helm parameters of
+# the scope's ApplicationSet template, compact JSON. They are literal, the same
+# for every Application of the scope.
+render_params() {
+  local scope="$1" inst="$2"
+  shift 2
+  helm template t "$CHART" --set "instance.name=$inst" --set "repoURL=$GIT" "$@" \
+    | yq ea -o=json -I=0 "select(.kind == \"ApplicationSet\" and .metadata.name == \"$scope-$inst\") | .spec.template.spec.sources[0].helm.parameters" -
+}
+
+# names_json <gateway> <keycloakRealm> <keycloakRealmDisplayName> <vaultMount>
+# -> the parameters the manager gives for these names, sorted by key.
+names_json() {
+  jq -nc --arg g "$1" --arg r "$2" --arg d "$3" --arg m "$4" '[
+    {name: "global.ohmlab.names.gateway", value: $g, forceString: true},
+    {name: "global.ohmlab.names.keycloakRealm", value: $r, forceString: true},
+    {name: "global.ohmlab.names.keycloakRealmDisplayName", value: $d, forceString: true},
+    {name: "global.ohmlab.names.vaultMount", value: $m, forceString: true}]'
+}
+
 # The names of the instance reach every Application, from git or a registry
 # catalog alike, as string Helm parameters the charts read under
-# global.ohmlab.names.
+# global.ohmlab.names. Each derives from the instance's name unless the
+# instance sets it.
 for scope in core tenant; do
-  out=$(render_sources "$scope" '[{"app":"plain"},{"app":"ohmlab","catalog":"ohmlab","targetRevision":"0.1.3"}]' \
+  out=$(KEEP_PARAMS=true render_sources "$scope" '[{"app":"plain"},{"app":"ohmlab","catalog":"ohmlab","targetRevision":"0.1.3"}]' \
     --set-json "catalogs={\"ohmlab\":\"$REGISTRY\"}" --set-json 'names={"vaultMount":"homelab","gateway":"homelab-gateway","keycloakRealmDisplayName":"Home, lab"}')
-  params='[{"name":"global.ohmlab.names.gateway","value":"homelab-gateway","forceString":true},{"name":"global.ohmlab.names.keycloakRealmDisplayName","value":"Home, lab","forceString":true},{"name":"global.ohmlab.names.vaultMount","value":"homelab","forceString":true}]'
+  params=$(names_json homelab-gateway t "Home, lab" homelab)
   check "$scope: the names of the instance become Helm parameters" "$params" "$(printf '%s\n' "$out" | sed -n 1p | jq -c '.helm.parameters')"
   check "$scope: a registry chart gets the same parameters" "$params" "$(printf '%s\n' "$out" | sed -n 2p | jq -c '.helm.parameters')"
+  check "$scope: the names derive from the instance name" \
+    "$(names_json my-lab-gateway my-lab My-Lab my-lab)" "$(render_params "$scope" my-lab)"
+  check "$scope: a name of the instance overrides only its key" \
+    "$(names_json edge t T t)" "$(render_params "$scope" t --set-json 'names={"gateway":"edge"}')"
 done
 
 # A catalog section that cannot work must fail the render of the manager, not
@@ -206,6 +232,44 @@ refuse "a name the product does not read is refused" --set-json 'names={"vaultmo
 refuse "an empty name is refused" --set-json 'names={"gateway":""}'
 refuse "a name with a quote is refused" --set-json 'names={"keycloakRealmDisplayName":"My \"lab\""}'
 refuse "a name with braces is refused" --set-json 'names={"keycloakRealmDisplayName":"{{ .app }}"}'
+refuse "traefikGateway is no longer a name" --set-json 'names={"traefikGateway":"x"}'
+refuse "an instance name that cannot name a Gateway is refused" --set instance.name=My_Lab
+refuse "an instance name too long for its Gateway name is refused" --set instance.name=a2345678901234567890123456789012345678901234567890123456
+
+# refuse_msg <label> <message> <helm args...>: the render fails and its error
+# says why.
+refuse_msg() {
+  local label="$1" message="$2" err
+  shift 2
+  if err=$(helm template t "$CHART" --set instance.name=t --set "repoURL=$GIT" "$@" 2>&1 >/dev/null); then
+    echo "FAIL $label: the chart rendered"; fail=1
+  elif grep -qF -- "$message" <<<"$err"; then
+    echo "ok   $label"
+  else
+    echo "FAIL $label: expected '$message' in: $(grep -m1 Error <<<"$err" | cut -c1-240)"; fail=1
+  fi
+}
+# accept <label> <helm args...>: the render succeeds.
+accept() {
+  local label="$1"
+  shift
+  if helm template t "$CHART" --set instance.name=t --set "repoURL=$GIT" "$@" >/dev/null 2>&1; then echo "ok   $label"; else
+    echo "FAIL $label: the chart did not render"; fail=1
+  fi
+}
+refuse_msg "an instance name that cannot name a Gateway says which" 'instance.name "My_Lab"' --set instance.name=My_Lab
+accept "an instance name of 55 characters is accepted" --set instance.name=a234567890123456789012345678901234567890123456789012345
+check "a numeric instance name keeps its digits" "$(names_json 2024-gateway 2024 2024 2024)" "$(render_params core 2024)"
+refuse_msg "an instance named after Keycloak's admin realm is refused" \
+  'instance.name "master" gives names.keycloakRealm "master", which is reserved by Keycloak' --set instance.name=master
+refuse_msg "an instance named after a Vault system mount is refused" \
+  'instance.name "sys" gives names.vaultMount "sys", which is reserved by Vault' --set instance.name=sys
+refuse_msg "a realm named master is refused" 'names.keycloakRealm "master" is reserved by Keycloak' --set-json 'names={"keycloakRealm":"master"}'
+refuse_msg "a mount under a Vault system path is refused" 'names.vaultMount "auth/x" is reserved by Vault' --set-json 'names={"vaultMount":"auth/x"}'
+refuse_msg "a gateway that is not a DNS label is refused" 'names.gateway "Edge_GW" must match' --set-json 'names={"gateway":"Edge_GW"}'
+refuse_msg "a realm with a slash is refused" 'names.keycloakRealm "a/b" must match' --set-json 'names={"keycloakRealm":"a/b"}'
+refuse_msg "a name with a control character is refused" 'names.keycloakRealmDisplayName cannot contain' --set-json 'names={"keycloakRealmDisplayName":"a\nb"}'
+accept "a nested Vault mount is accepted" --set-json 'names={"vaultMount":"team/lab"}'
 helm template t "$CHART" --set instance.name=t --set "repoURL=$GIT" --set-json "catalogs=$bundles" --set defaultCatalog=bundle >/dev/null 2>&1 \
   && echo "ok   a declared default catalog renders" || { echo "FAIL a declared default catalog renders"; fail=1; }
 
