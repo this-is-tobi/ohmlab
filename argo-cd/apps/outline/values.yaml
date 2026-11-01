@@ -212,10 +212,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by outline).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/outline{{ end }}'
   vaultStaticSecrets:
     outlineConfig:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: outline-vso-default
       refreshAfter: 1h
@@ -234,8 +238,6 @@ vso:
             UTILS_SECRET:
               text: '{{ get .Secrets "app" | dig "utilsSecret" "" }}'
     outlineS3:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: outline-vso-default
       refreshAfter: 1h
@@ -254,8 +256,6 @@ vso:
             S3_SECRET_KEY:
               text: '{{ get .Secrets "s3" | dig "secretKey" "" }}'
     outlineValkeyAuth:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: outline-vso-default
       refreshAfter: 1h
@@ -276,8 +276,6 @@ vso:
             password:
               text: '{{ get .Secrets "valkey" | dig "password" "" }}'
     outlineDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: outline-vso-default
       refreshAfter: 1h
@@ -296,8 +294,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     outlineDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: outline-vso-default
       refreshAfter: 1h
@@ -316,8 +312,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     outlinePgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: outline-vso-default
       refreshAfter: 1h
@@ -344,8 +338,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
     outlineSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: outline-vso-default
       refreshAfter: 1h

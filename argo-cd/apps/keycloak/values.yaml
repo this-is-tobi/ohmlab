@@ -204,10 +204,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by keycloak).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/keycloak{{ end }}'
   vaultStaticSecrets:
     keycloakAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -226,8 +230,6 @@ vso:
             password:
               text: '{{ get .Secrets "admin" | dig "password" "" }}'
     keycloakConfig:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -250,8 +252,6 @@ vso:
             ADMIN_USER_PASSWORD:
               text: '{{ get .Secrets "adminUser" | dig "password" "" }}'
     keycloakDbInfos:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -272,8 +272,6 @@ vso:
             DB_PORT:
               text: '{{ get .Secrets "postgres" | dig "port" "" }}'
     keycloakDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -292,8 +290,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     keycloakDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -312,8 +308,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     keycloakPgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -340,8 +334,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
     clientGitea:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -360,8 +352,6 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "gitea" "clientSecret" "" }}'
     clientGrafanaCore:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -380,8 +370,6 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "grafana-core" "clientSecret" "" }}'
     clientArgoCd:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -400,8 +388,6 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "argo-cd" "clientSecret" "" }}'
     clientArgoCdCore:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -420,8 +406,6 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "argo-cd-core" "clientSecret" "" }}'
     clientVaultCore:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -440,8 +424,6 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "vault-core" "clientSecret" "" }}'
     clientLonghornCore:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -460,8 +442,6 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "longhorn-core" "clientSecret" "" }}'
     clientHubbleCore:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -480,8 +460,6 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "hubble-core" "clientSecret" "" }}'
     clientRustfs:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h

@@ -19,5 +19,5 @@ dependencies:
 # `apisix-admin` secret (keys: admin, viewer).
 - name: vso-utils
   alias: vso
-  version: 2.1.0
+  version: 2.2.0
   repository: https://this-is-tobi.github.io/helm-charts

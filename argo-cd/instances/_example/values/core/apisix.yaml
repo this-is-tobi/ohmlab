@@ -24,15 +24,10 @@ etcd:
     storageClass: longhorn
     size: 5Gi
 
-# Admin API credentials from Vault — REQUIRED (render fails fast when empty).
+# Admin API credentials from Vault, at the mount and path the manager gives the app.
 # Declare the secret under ohmlab.vault.secrets (vault-operator values) as:
 #   path: <mount>/platforms/<env>/core/apisix
 #   data: { admin: { adminKey: "<random:32>", viewerKey: "<random:32>" } }
-vso:
-  vaultStaticSecrets:
-    apisixAdmin:
-      mount: ohmlab
-      path: platforms/production/core/apisix
 
 gateway:
   enabled: true

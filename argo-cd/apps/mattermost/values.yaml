@@ -216,10 +216,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by mattermost).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/mattermost{{ end }}'
   vaultStaticSecrets:
     mattermostS3:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mattermost-vso-default
       refreshAfter: 1h
@@ -246,8 +250,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "s3" | dig "region" "" }}'
     mattermostDbInfos:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mattermost-vso-default
       refreshAfter: 1h
@@ -268,8 +270,6 @@ vso:
             DB_PORT:
               text: '{{ get .Secrets "postgres" | dig "port" "" }}'
     mattermostDbSecret:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mattermost-vso-default
       refreshAfter: 1h
@@ -290,8 +290,6 @@ vso:
               # avoid the issue — the entire value comes from one template action.
               text: '{{ printf "postgres://%s:%s@%s:%s/%s?sslmode=require&connect_timeout=10" (get .Secrets "postgres" | dig "app" "username" "") (get .Secrets "postgres" | dig "app" "password" "") (get .Secrets "postgres" | dig "host" "") (get .Secrets "postgres" | dig "port" "") (get .Secrets "postgres" | dig "database" "") }}'
     mattermostDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mattermost-vso-default
       refreshAfter: 1h
@@ -310,8 +308,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     mattermostDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mattermost-vso-default
       refreshAfter: 1h
@@ -330,8 +326,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     mattermostPgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mattermost-vso-default
       refreshAfter: 1h

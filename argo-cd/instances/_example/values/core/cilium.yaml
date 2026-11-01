@@ -8,11 +8,3 @@ gateway:
   apexTlsSecret: gateway-wildcard-tls
   extraListeners: []
   tlsPassthroughListeners: []
-
-# Vault Secrets Operator: the KV mount is the one the vault-operator chart creates, the path is
-# the app's own under platforms/<environment>/<tier>/<app>.
-vso:
-  vaultStaticSecrets:
-    hubbleSso:
-      mount: ohmlab
-      path: platforms/production/core/hubble

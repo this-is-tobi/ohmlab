@@ -487,10 +487,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by argo-cd).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/argo-cd{{ end }}'
   vaultStaticSecrets:
     argoCdAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: argo-cd-vso-default
       refreshAfter: 1h
@@ -509,8 +513,6 @@ vso:
             password:
               text: '{{ get .Secrets "admin" | dig "password" "" }}'
     argoCdConfig:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: argo-cd-vso-default
       refreshAfter: 1h
@@ -529,8 +531,6 @@ vso:
             PASSWORD_HASHED:
               text: '{{ get .Secrets "admin" | dig "passwordHashed" "" }}'
     argoCdSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: argo-cd-vso-default
       refreshAfter: 1h

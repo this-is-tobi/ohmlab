@@ -31,27 +31,3 @@ cnpg:
     enabled: true
     endpointURL: "https://s3.example.com"
     destinationPath: "s3://backups/cnpg"
-
-vso:
-  vaultStaticSecrets:
-    outlineConfig:
-      mount: example
-      path: platforms/production/tenant/outline
-    outlineS3:
-      mount: example
-      path: platforms/production/tenant/outline
-    outlineValkeyAuth:
-      mount: example
-      path: platforms/production/tenant/outline
-    outlineDbAdmin:
-      mount: example
-      path: platforms/production/tenant/outline
-    outlineDbApp:
-      mount: example
-      path: platforms/production/tenant/outline
-    outlinePgBackup:
-      mount: example
-      path: platforms/production/tenant/outline
-    outlineSso:
-      mount: example
-      path: platforms/production/tenant/outline

@@ -75,27 +75,3 @@ cnpg:
     enabled: true
     endpointURL: "https://s3.example.com"
     destinationPath: "s3://backups/cnpg"
-
-vso:
-  vaultStaticSecrets:
-    giteaValkeyAuth:
-      mount: example
-      path: platforms/production/tenant/gitea
-    giteaAdmin:
-      mount: example
-      path: platforms/production/tenant/gitea
-    giteaDbInfos:
-      mount: example
-      path: platforms/production/tenant/gitea
-    giteaDbAdmin:
-      mount: example
-      path: platforms/production/tenant/gitea
-    giteaDbApp:
-      mount: example
-      path: platforms/production/tenant/gitea
-    giteaPgBackup:
-      mount: example
-      path: platforms/production/tenant/gitea
-    giteaSso:
-      mount: example
-      path: platforms/production/tenant/gitea

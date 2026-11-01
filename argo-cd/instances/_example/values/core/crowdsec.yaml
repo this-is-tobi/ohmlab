@@ -1,27 +1,6 @@
 # CrowdSec instance values — override defaults from argo-cd/apps/crowdsec/values.yaml
 # Secrets are managed by Vault via VSO (VaultStaticSecret).
 
-vso:
-  vaultStaticSecrets:
-    crowdsecDbAdmin:
-      mount: ohmlab
-      path: platforms/production/core/crowdsec
-    crowdsecDbApp:
-      mount: ohmlab
-      path: platforms/production/core/crowdsec
-    crowdsecPgBackup:
-      mount: ohmlab
-      path: platforms/production/core/crowdsec
-    crowdsecMattermostWebhook:
-      mount: ohmlab
-      path: platforms/production/core/crowdsec
-    crowdsecTraefikBouncerKey:
-      mount: ohmlab
-      path: platforms/production/core/crowdsec
-    crowdsecConsole:
-      mount: ohmlab
-      path: platforms/production/core/crowdsec
-
 # CloudNativePG backups of the CrowdSec database (S3-compatible object store).
 # Set your own endpoint and bucket, or disable them with `backups.enabled: false`.
 cnpg:

@@ -42,8 +42,9 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   type: kv-v2
-  mount: {{ .Values.vaultOidcCredentials.mount | default (include "vault-operator.systemMount" .) | quote }}
-  path: {{ .Values.vaultOidcCredentials.path | quote }}
+  {{- $vault := dig "ohmlab" "vault" dict (.Values.global | default dict) }}
+  mount: {{ .Values.vaultOidcCredentials.mount | default $vault.mount | default (include "vault-operator.systemMount" .) | quote }}
+  path: {{ .Values.vaultOidcCredentials.path | default (ternary (printf "%s/keycloak" ($vault.pathPrefix | default "")) "platforms/production/core/keycloak" (not (empty $vault.pathPrefix))) | quote }}
   vaultAuthRef: vault-operator-vso-default
   refreshAfter: 1h
   hmacSecretData: true

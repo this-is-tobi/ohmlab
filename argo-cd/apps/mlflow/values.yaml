@@ -163,10 +163,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by mlflow).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/mlflow{{ end }}'
   vaultStaticSecrets:
     mlflowAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mlflow-vso-default
       refreshAfter: 1h
@@ -185,8 +189,6 @@ vso:
             password:
               text: '{{ get .Secrets "admin" | dig "password" "" }}'
     mlflowS3:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mlflow-vso-default
       refreshAfter: 1h
@@ -213,8 +215,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "s3" | dig "region" "" }}'
     mlflowDbInfos:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mlflow-vso-default
       refreshAfter: 1h
@@ -235,8 +235,6 @@ vso:
             DB_PORT:
               text: '{{ get .Secrets "postgres" | dig "port" "" }}'
     mlflowDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mlflow-vso-default
       refreshAfter: 1h
@@ -255,8 +253,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     mlflowDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mlflow-vso-default
       refreshAfter: 1h
@@ -275,8 +271,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     mlflowPgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mlflow-vso-default
       refreshAfter: 1h
@@ -303,8 +297,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
     mlflowSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: mlflow-vso-default
       refreshAfter: 1h

@@ -56,3 +56,21 @@ manager_parameters() {
   N="$scope-$name" yq ea -r 'select(.kind == "ApplicationSet" and .metadata.name == strenv(N))
     | .spec.template.spec.sources[0].helm.parameters // [] | .[] | .name + "=" + (.value | sub(","; "\\,"))' - <<<"$rendered"
 }
+
+# app_args <values file>: sets the array `args` to render an app the way its
+# Application does, its values file and the Helm parameters its instance's
+# manager gives the file's scope, both read from the path
+# (<instance dir>/values/<scope>/<app>.yaml). When the manager does not
+# render, prints its reason on stderr and returns 1.
+app_args() {
+  local vf="$1" dir scope params line
+  dir="${vf%/values/*}"
+  scope="${vf#"$dir"/values/}"
+  scope="${scope%%/*}"
+  args=(-f "$vf")
+  params=$(manager_parameters "$dir" "$scope") || return 1
+  while IFS= read -r line; do
+    [ -n "$line" ] && args+=(--set-string "$line")
+  done <<<"$params"
+  return 0
+}

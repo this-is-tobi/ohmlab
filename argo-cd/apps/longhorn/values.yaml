@@ -52,14 +52,18 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by longhorn).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/longhorn{{ end }}'
   vaultStaticSecrets:
     # Keys match what the oauth2-proxy chart's `existingSecret` support
     # expects verbatim (templates/_helpers.tpl "oauth2-proxy.secrets") —
     # Longhorn's UI has no native OIDC support, so oauth2-proxy sits in
     # front of it as a full reverse proxy (sso.config.configFile upstreams).
     longhornSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: longhorn-system-vso-default
       refreshAfter: 1h

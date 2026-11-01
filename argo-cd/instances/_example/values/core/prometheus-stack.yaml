@@ -37,24 +37,3 @@ kube-prometheus-stack:
         auth_url: "https://keycloak.example.com/realms/ohmlab/protocol/openid-connect/auth"
         token_url: "https://keycloak.example.com/realms/ohmlab/protocol/openid-connect/token"
         api_url: "https://keycloak.example.com/realms/ohmlab/protocol/openid-connect/userinfo"
-
-vso:
-  vaultStaticSecrets:
-    alertmanagerMattermost:
-      mount: ohmlab
-      path: platforms/production/core/prometheus-stack
-    grafanaDbAdmin:
-      mount: ohmlab
-      path: platforms/production/core/prometheus-stack
-    grafanaDbApp:
-      mount: ohmlab
-      path: platforms/production/core/prometheus-stack
-    grafanaPgBackup:
-      mount: ohmlab
-      path: platforms/production/core/prometheus-stack
-    monitoringAdmin:
-      mount: ohmlab
-      path: platforms/production/core/prometheus-stack
-    monitoringSso:
-      mount: ohmlab
-      path: platforms/production/core/prometheus-stack
