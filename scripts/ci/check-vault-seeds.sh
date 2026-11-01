@@ -14,12 +14,23 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$ROOT/scripts/lib/instances.sh"
 failures=0
 (cd "$ROOT/utils" && go build -o "${TMPDIR:-/tmp}/ohmlab-validate" .) || { echo "FAIL: cannot build the CLI" >&2; exit 1; }
-trap 'rm -f "${TMPDIR:-/tmp}/ohmlab-validate"' EXIT
+trap 'rm -f "${TMPDIR:-/tmp}/ohmlab-validate" "${TMPDIR:-/tmp}/check-vault-seeds.$$.err"' EXIT
 
 for values in "$INSTANCES_DIR"/*/values/core/vault-operator.yaml; do
-  instance="$(basename "$(dirname "$(dirname "$(dirname "$values")")")")"
+  dir="$(dirname "$(dirname "$(dirname "$values")")")"
+  instance="$(basename "$dir")"
+  # With the parameters the instance's manager gives the core tier.
+  if ! lines=$(manager_parameters "$dir" core 2>"${TMPDIR:-/tmp}/check-vault-seeds.$$.err"); then
+    echo "FAIL $instance: the instance-manager does not render: $(cat "${TMPDIR:-/tmp}/check-vault-seeds.$$.err")"
+    failures=$((failures + 1))
+    continue
+  fi
+  params=()
+  while IFS= read -r p; do
+    [ -n "$p" ] && params+=(--set-string "$p")
+  done <<<"$lines"
   if ! rendered=$(helm template check "$ROOT/argo-cd/apps/vault-operator" -f "$values" --namespace vault-operator-system \
-        --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false 2>&1); then
+        --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false "${params[@]+"${params[@]}"}" 2>&1); then
     echo "FAIL $instance: $(grep -m1 '^Error' <<<"$rendered" | cut -c1-240)"
     failures=$((failures + 1))
     continue
