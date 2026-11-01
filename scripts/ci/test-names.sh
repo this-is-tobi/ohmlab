@@ -79,6 +79,17 @@ render gitea -f "$EXAMPLE/tenant/gitea.yaml" "${vault_params[@]}" --set-string g
 check "gitea's secrets take the manager's mount and path" "m platforms/p/tenant/gitea" "$(yq ea -r "$vss" "$work/out.yaml" | grep -v '^---$' | sort -u | paste -sd, -)"
 render cilium -f "$EXAMPLE/core/cilium.yaml" "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/core
 check "cilium's secrets are under hubble" "m platforms/p/core/hubble" "$(yq ea -r "$vss" "$work/out.yaml" | grep -v '^---$' | sort -u | paste -sd, -)"
+render coder -f "$EXAMPLE/tenant/coder.yaml" "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/tenant
+check "coder's secrets take the manager's mount and path" "m platforms/p/tenant/coder" "$(yq ea -r "$vss" "$work/out.yaml" | grep -v '^---$' | sort -u | paste -sd, -)"
+# What coder reads must be what its VaultStaticSecrets write: the Secret keys
+# its pods read, and the Secrets its database cluster and backups read.
+lines() { yq e -r "$1" "$work/out.yaml" | grep -v -e '^---$' -e '^$' -e '^null$' | sort -u; }
+lines 'select(.kind == "VaultStaticSecret") | .spec.destination.name as $n | .spec.destination.transformation.templates | keys | .[] | $n + "/" + .' >"$work/written"
+lines '.. | select(tag == "!!map" and has("secretKeyRef")) | .secretKeyRef.name + "/" + .secretKeyRef.key' >"$work/read"
+check "every Secret key coder's pods read is one its VaultStaticSecrets write" "" "$(comm -23 "$work/read" "$work/written" | paste -sd, -)"
+lines 'select(.kind == "VaultStaticSecret") | .spec.destination.name' >"$work/written"
+lines 'select(.kind == "Cluster" or .kind == "ObjectStore") | .. | select(tag == "!!map") | (.superuserSecret.name, .secret.name, .accessKeyId.name, .secretAccessKey.name)' >"$work/read"
+check "every Secret coder's database reads is one its VaultStaticSecrets write" "" "$(comm -23 "$work/read" "$work/written" | paste -sd, -)"
 if helm template t "$ROOT/argo-cd/apps/gitea" -f "$EXAMPLE/tenant/gitea.yaml" "${vault_params[@]}" >/dev/null 2>"$work/err"; then
   echo "FAIL gitea renders its secrets without a path"; fail=1
 elif grep -q 'path is required' "$work/err"; then echo "ok   a secret without a path prefix nor a path of its own does not render"; else

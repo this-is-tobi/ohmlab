@@ -112,3 +112,132 @@ cnpg:
       method: plugin
       pluginConfiguration:
         name: barman-cloud.cloudnative-pg.io
+
+vso:
+  extraObjects:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: vso
+  vaultAuth:
+    default:
+      method: kubernetes
+      mount: kubernetes
+      kubernetes:
+        role: coder
+        serviceAccount: vso
+        audiences: [vault]
+  vaultConnection:
+    default:
+      address: "https://vault.vault-operator-system.svc.cluster.local:8200"
+      skipTLSVerify: false
+      caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by coder).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/coder{{ end }}'
+  vaultStaticSecrets:
+    coderDbInfos:
+      type: kv-v2
+      vaultAuthRef: coder-vso-default
+      refreshAfter: 1h
+      hmacSecretData: true
+      destination:
+        name: coder-db-infos
+        create: true
+        type: Opaque
+        transformation:
+          excludeRaw: true
+          excludes:
+          - ".*"
+          templates:
+            DB_URL:
+              text: 'postgresql://{{ get .Secrets "postgres" | dig "app" "username" "" }}:{{ get .Secrets "postgres" | dig "app" "password" "" }}@{{ get .Secrets "postgres" | dig "host" "" }}:{{ get .Secrets "postgres" | dig "port" "" }}/{{ get .Secrets "postgres" | dig "database" "" }}'
+            DB_HOST:
+              text: '{{ get .Secrets "postgres" | dig "host" "" }}'
+            DB_PORT:
+              text: '{{ get .Secrets "postgres" | dig "port" "" }}'
+    coderDbAdmin:
+      type: kv-v2
+      vaultAuthRef: coder-vso-default
+      refreshAfter: 1h
+      hmacSecretData: true
+      destination:
+        name: coder-pg-cluster-admin
+        create: true
+        type: kubernetes.io/basic-auth
+        transformation:
+          excludeRaw: true
+          excludes:
+          - ".*"
+          templates:
+            username:
+              text: '{{ get .Secrets "postgres" | dig "admin" "username" "" }}'
+            password:
+              text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
+    coderDbApp:
+      type: kv-v2
+      vaultAuthRef: coder-vso-default
+      refreshAfter: 1h
+      hmacSecretData: true
+      destination:
+        name: coder-pg-cluster-app
+        create: true
+        type: kubernetes.io/basic-auth
+        transformation:
+          excludeRaw: true
+          excludes:
+          - ".*"
+          templates:
+            username:
+              text: '{{ get .Secrets "postgres" | dig "app" "username" "" }}'
+            password:
+              text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
+            # Read by the cnpg chart's ping test, as in the app Secret CNPG
+            # itself generates.
+            dbname:
+              text: '{{ get .Secrets "postgres" | dig "database" "" }}'
+    coderPgBackup:
+      type: kv-v2
+      vaultAuthRef: coder-vso-default
+      refreshAfter: 1h
+      hmacSecretData: true
+      destination:
+        name: coder-pg-cluster-backup
+        create: true
+        type: Opaque
+        transformation:
+          excludeRaw: true
+          excludes:
+          - ".*"
+          templates:
+            S3_ENDPOINT:
+              text: '{{ get .Secrets "postgres" | dig "s3" "endpoint" "" }}'
+            S3_BUCKET_NAME:
+              text: '{{ get .Secrets "postgres" | dig "s3" "bucketName" "" }}'
+            S3_BUCKET_PREFIX:
+              text: '{{ get .Secrets "postgres" | dig "s3" "bucketPrefix" "" }}'
+            ACCESS_KEY_ID:
+              text: '{{ get .Secrets "postgres" | dig "s3" "accessKey" "" }}'
+            ACCESS_SECRET_KEY:
+              text: '{{ get .Secrets "postgres" | dig "s3" "secretKey" "" }}'
+            S3_REGION:
+              text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
+    coderSso:
+      type: kv-v2
+      vaultAuthRef: coder-vso-default
+      refreshAfter: 1h
+      hmacSecretData: true
+      destination:
+        name: coder-sso
+        create: true
+        type: Opaque
+        transformation:
+          excludeRaw: true
+          excludes:
+          - ".*"
+          templates:
+            OIDC_CLIENT_SECRET:
+              text: '{{ get .Secrets "keycloak" | dig "clientSecret" "" }}'
