@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0](https://github.com/this-is-tobi/ohmlab/compare/v0.3.1...v0.4.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **harbor:** the harbor config command drops --keycloak-namespace and --keycloak-secret (KEYCLOAK_NAMESPACE, KEYCLOAK_SECRET_NAME); pass the Keycloak domain and realm with --keycloak-domain/KEYCLOAK_DOMAIN and --keycloak-realm/KEYCLOAK_REALM.
+* **keycloak:** the realm import moves from keycloakConfigCli.config.homelab.inline to realms.defaults, realms.system and realms.instance; an instance that overrides the old keys moves its overrides there.
+* a chart rendered without the instance-manager now falls back to the KV mount ohmlab, the realm ohmlab shown as Ohmlab and the Gateway ohmlab-gateway, and the Traefik Gateway follows names.gateway instead of names.traefikGateway.
+
+### Features
+
+* fall back to the ohmlab names, with one Gateway name for every implementation ([22107ee](https://github.com/this-is-tobi/ohmlab/commit/22107eeba71535008e41673c0045041e3e9cc4d7))
+* **keycloak:** import the ohmlab system realm next to the instance's ([c00f057](https://github.com/this-is-tobi/ohmlab/commit/c00f0573a0bd34938862e2409e63d60bfe7a63b1))
+
+
+### Bug Fixes
+
+* **deps:** update kubernetes monorepo to v0.37.2 ([3d1b629](https://github.com/this-is-tobi/ohmlab/commit/3d1b6298d27a57cffc478aebb6f23e770f646c2e))
+* **harbor:** take the Keycloak domain and realm only from flags or env ([af51bc4](https://github.com/this-is-tobi/ohmlab/commit/af51bc44fb4adf0a0d7323a74d443e80ec5693ac))
+
 ## [0.3.1](https://github.com/this-is-tobi/ohmlab/compare/v0.3.0...v0.3.1) (2026-10-31)
 
 
