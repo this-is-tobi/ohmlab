@@ -24,7 +24,7 @@ jobs:
     with:
       GROUPS: >-
         {"utils": ["utils/*", "scripts/ci/utils-test-env*"],
-        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
+        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-site-defaults*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
         "controller": ["utils/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/utils-test-env*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
@@ -171,6 +171,8 @@ jobs:
         run: scripts/ci/test-instance-manager.sh
       - name: Test the names the charts read
         run: scripts/ci/test-names.sh
+      - name: Test that the charts' defaults name no site
+        run: scripts/ci/test-site-defaults.sh
       # The release PR only bumps Chart.yaml, so the README must carry nothing
       # that changes with a release and must be regenerated with every change.
       - name: Test the root manager and AppProject sources
