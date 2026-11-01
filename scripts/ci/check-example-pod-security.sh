@@ -41,7 +41,6 @@ tenant/teleport Deployment/teleport-auth require-non-root
 tenant/teleport Deployment/teleport-proxy require-non-root
 tenant/teleport Job/teleport-auth-test require-non-root
 tenant/teleport Job/teleport-proxy-test require-non-root
-tenant/vaultwarden StatefulSet/vaultwarden require-non-root
 # Tenant pods short of the restricted profile, which stays Audit until every
 # tenant chart meets it.
 tenant/actions-runner-controller Deployment/actions-runner-controller-gha-rs-controller pod-security-restricted
@@ -50,7 +49,6 @@ tenant/teleport Deployment/teleport-auth pod-security-restricted
 tenant/teleport Deployment/teleport-proxy pod-security-restricted
 tenant/teleport Job/teleport-auth-test pod-security-restricted
 tenant/teleport Job/teleport-proxy-test pod-security-restricted
-tenant/vaultwarden StatefulSet/vaultwarden pod-security-restricted
 # Containers without CPU and memory limits (Audit).
 core/apisix Deployment/apisix-ingress-controller require-resource-limits
 core/ingress-nginx Job/ingress-nginx-admission-create require-resource-limits
@@ -74,7 +72,6 @@ tenant/harbor StatefulSet/harbor-redis require-resource-limits
 tenant/mlflow Deployment/mlflow require-resource-limits
 tenant/mlflow Deployment/mlflow-sso require-resource-limits
 tenant/sonarqube StatefulSet/sonarqube-sonarqube require-resource-limits
-tenant/vaultwarden StatefulSet/vaultwarden require-resource-limits
 # An image from a registry off the allowlist (Audit).
 core/apisix StatefulSet/apisix-etcd restrict-image-registries
 '

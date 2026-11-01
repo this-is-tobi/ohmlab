@@ -7,6 +7,10 @@ dependencies:
   alias: vaultwarden
   version: 0.46.3
   repository: https://guerzon.github.io/vaultwarden
+- name: cluster
+  alias: cnpg
+  version: 0.9.0
+  repository: https://cloudnative-pg.github.io/charts
 - name: vso-utils
   alias: vso
   version: 2.2.0
