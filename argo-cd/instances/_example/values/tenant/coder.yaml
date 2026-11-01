@@ -11,8 +11,8 @@ coder:
     - name: CODER_PG_CONNECTION_URL
       valueFrom:
         secretKeyRef:
-          name: coder-pg-cluster-infos
-          key: CONNECTION_STRING
+          name: coder-db-infos
+          key: DB_URL
     - name: CODER_ACCESS_URL
       value: "https://coder.example.com"
     - name: CODER_OIDC_ISSUER_URL
@@ -52,21 +52,3 @@ cnpg:
     enabled: true
     endpointURL: "https://s3.example.com"
     destinationPath: "s3://backups/cnpg"
-
-vso:
-  vaultStaticSecrets:
-    coderDbInfos:
-      mount: example
-      path: platforms/production/tenant/coder
-    coderDbAdmin:
-      mount: example
-      path: platforms/production/tenant/coder
-    coderDbApp:
-      mount: example
-      path: platforms/production/tenant/coder
-    coderPgBackup:
-      mount: example
-      path: platforms/production/tenant/coder
-    coderSso:
-      mount: example
-      path: platforms/production/tenant/coder

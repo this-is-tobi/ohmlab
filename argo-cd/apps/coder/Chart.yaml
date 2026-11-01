@@ -11,3 +11,7 @@ dependencies:
   alias: cnpg
   version: 0.9.0
   repository: https://cloudnative-pg.github.io/charts
+- name: vso-utils
+  alias: vso
+  version: 2.2.0
+  repository: https://this-is-tobi.github.io/helm-charts
