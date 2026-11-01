@@ -175,6 +175,15 @@
         "python"
       ],
       "allowedVersions": "<3.15"
+    },
+    {
+      "description": "Tidy the Go module after an update: go get records no hash for a module that only one of its tools imports (code-generator, through controller-gen), and go generate then fails",
+      "matchManagers": [
+        "gomod"
+      ],
+      "postUpdateOptions": [
+        "gomodTidy"
+      ]
     }
   ],
   "customManagers": [
