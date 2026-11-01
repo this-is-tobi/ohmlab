@@ -77,6 +77,11 @@ check "a fixture expecting the wrong result fails" nonzero "$work/fail"
 mkdir -p "$work/empty/templates"
 printf 'apiVersion: v2\nname: empty\nversion: 0.1.0\n' >"$work/empty/Chart.yaml"
 check "no fixtures is a pass" 0 "$work/empty"
+# The CLI exits 0 on a directory where it finds no test file, which is also
+# what it prints when it cannot read the directory.
+make_chart "$work/notest" fail
+mv "$work/notest/tests/policies/fixture/kyverno-test.yaml" "$work/notest/tests/policies/fixture/test.yaml"
+check "a suite where no test runs fails" nonzero "$work/notest"
 
 # The CLI cannot evaluate namespaceObject, so the tenant scoping variable is
 # overridden to false before testing. A policy must not scope with a
