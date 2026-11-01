@@ -68,8 +68,7 @@ check "a system mount equal to the instance's is one KV mount" lab "$(field "$kv
 check "the controller's policy covers that mount once" "lab/data/platforms/+/+/*,lab/metadata/platforms/+/+/*" "$(policy_paths ohmlab-controller-vault)"
 
 # Keycloak: the system realm, ohmlab, holds the core apps' clients; the
-# instance's realm the tenant apps' and, until the core apps sign in through
-# ohmlab, the core ones too. Only realm names, display names, client IDs,
+# instance's realm the tenant apps'. Only realm names, display names, client IDs,
 # group paths and user counts of the realm import are read.
 realms() { # realms <jq on {<file>: <realm>}>
   yq ea -o=json -I0 'select(.kind == "Secret" and .metadata.name == "keycloak-config-cli-config-realms") | .data' "$work/out.yaml" \
@@ -78,13 +77,16 @@ realms() { # realms <jq on {<file>: <realm>}>
 ids='[.clients[].clientId] | sort | join(",")'
 shape='([.groups[].path] | join(",")) + " " + (.users | length | tostring)'
 core=argo-cd-core,grafana-core,hubble-core,longhorn-core,vault-core
+tenant=argo-cd,gitea,rustfs
 all=argo-cd,argo-cd-core,gitea,grafana-core,hubble-core,longhorn-core,rustfs,vault-core
 render keycloak -f "$EXAMPLE/core/keycloak.yaml" --set-string global.ohmlab.names.keycloakRealm=lab --set-string global.ohmlab.names.keycloakRealmDisplayName=Lab
 check "one realm file each, named after the realm" lab.json,ohmlab.json "$(realms 'keys | join(",")')"
 check "the system realm is ohmlab, shown as Ohmlab" "ohmlab|Ohmlab" "$(realms '.["ohmlab.json"] | .realm + "|" + .displayName')"
 check "the system realm holds the core clients" "$core" "$(realms ".[\"ohmlab.json\"] | $ids")"
 check "the instance's realm and the name it shows are the instance's" "lab|Lab" "$(realms '.["lab.json"] | .realm + "|" + .displayName')"
-check "the instance's realm still holds every client" "$all" "$(realms ".[\"lab.json\"] | $ids")"
+check "the instance's realm holds the tenant clients" "$tenant" "$(realms ".[\"lab.json\"] | $ids")"
+check "the instance's admin group carries the tenant client roles" rustfs "$(realms '.["lab.json"] | [.groups[].clientRoles | keys[]] | join(",")')"
+check "the instance's client roles are the tenant's" rustfs "$(realms '.["lab.json"] | .roles.client | keys | join(",")')"
 check "both realms have the admin group and one user" "/admin 1|/admin 1" "$(realms ".[\"ohmlab.json\"] | $shape")|$(realms ".[\"lab.json\"] | $shape")"
 check "the system realm's admin group carries the core client roles" grafana-core "$(realms '.["ohmlab.json"] | [.groups[].clientRoles | keys[]] | join(",")')"
 check "the config-cli Job reads that Secret" keycloak-config-cli-config-realms "$(field 'select(.kind == "Job" and .metadata.name == "keycloak-config-cli") | .spec.template.spec.volumes[] | select(.name == "config") | .secret.secretName')"
