@@ -9,5 +9,5 @@ longhorn:
 vso:
   vaultStaticSecrets:
     longhornSso:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/longhorn

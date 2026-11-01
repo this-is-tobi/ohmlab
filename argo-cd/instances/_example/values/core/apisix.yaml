@@ -31,7 +31,7 @@ etcd:
 vso:
   vaultStaticSecrets:
     apisixAdmin:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/apisix
 
 gateway:

@@ -37,6 +37,17 @@ check() { # <allowDelete> <testdata file>
 check false controller-policy.hcl
 check true controller-policy-allow-delete.hcl
 
+# An instance whose mount is not the system's: the same stanzas for the system
+# mount, then for the instance's.
+cr=$(render --set ohmlab.controller.enabled=true --set-string global.ohmlab.names.vaultMount=lab)
+rendered=$(yq '.spec.externalConfig.policies[] | select(.name == "ohmlab-controller-vault") | .rules' <<<"$cr" | normalize)
+expected=$(normalize <"$TESTDATA/controller-policy.hcl"; sed 's|"ohmlab/|"lab/|' "$TESTDATA/controller-policy.hcl" | normalize)
+if [ "$rendered" != "$expected" ]; then
+  echo "FAIL: the chart's policy for an instance mount (lab) is not the system mount's stanzas followed by the instance's:" >&2
+  diff <(echo "$expected") <(echo "$rendered") >&2 || true
+  failures=$((failures + 1))
+fi
+
 cr=$(render --set ohmlab.controller.enabled=true)
 role=$(yq -o=json -I=0 '.spec.externalConfig.auth[] | select(.type == "kubernetes") | .roles[] | select(.name == "ohmlab-controller-vault")' <<<"$cr")
 want='{"name":"ohmlab-controller-vault","bound_service_account_names":["ohmlab-controller-vault"],"bound_service_account_namespaces":["ohmlab-system"],"policies":["ohmlab-controller-vault"],"ttl":"15m","audience":"vault"}'

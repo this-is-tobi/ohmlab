@@ -35,47 +35,47 @@ cnpg:
 vso:
   vaultStaticSecrets:
     clientArgoCdCore:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     clientVaultCore:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     clientLonghornCore:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     clientHubbleCore:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     clientRustfs:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     keycloakAdmin:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     keycloakConfig:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     keycloakDbInfos:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     keycloakDbAdmin:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     keycloakDbApp:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     keycloakPgBackup:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     clientGitea:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     clientGrafanaCore:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     clientArgoCd:
-      mount: example
+      mount: ohmlab
       path: platforms/production/core/keycloak
     # clientRustfs:
-    #   mount: example
+    #   mount: ohmlab
     #   path: "platforms/production/core/keycloak"

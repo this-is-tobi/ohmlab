@@ -142,7 +142,7 @@ spec:
       so an instance that replaces `policies` or `auth` wholesale (arrays are
       replaced, not merged) cannot lose them.
     */}}
-    {{- $kv := dict "kvMount" (include "vault-operator.kvMount" .) "Template" .Template }}
+    {{- $kv := dict "kvMount" (include "vault-operator.kvMount" .) "systemMount" (include "vault-operator.systemMount" .) "Template" .Template }}
     {{- $policies := list }}
     {{- range $p := .Values.vault.externalConfig.policies | default list }}
     {{- $p = deepCopy $p }}
@@ -296,8 +296,22 @@ spec:
     {{- end }}
     {{- end }}
     {{- if .Values.vault.externalConfig.secrets }}
+    {{- /*
+      The system mount and the instance's are one mount when an instance keeps
+      its core secrets in its own: the first entry of a path is kept (a path
+      left out is the engine type, as bank-vaults mounts it).
+    */}}
+    {{- $secrets := list }}
+    {{- $seen := dict }}
+    {{- range $s := tpl (toYaml .Values.vault.externalConfig.secrets) $kv | fromYamlArray }}
+    {{- $path := toString ($s.path | default $s.type) }}
+    {{- if not (hasKey $seen $path) }}
+    {{- $_ := set $seen $path true }}
+    {{- $secrets = append $secrets $s }}
+    {{- end }}
+    {{- end }}
     secrets:
-      {{- tpl (toYaml .Values.vault.externalConfig.secrets) $kv | nindent 6 }}
+      {{- toYaml $secrets | nindent 6 }}
     {{- end }}
     {{- if .Values.vault.externalConfig.startupSecrets }}
     startupSecrets:
