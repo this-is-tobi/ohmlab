@@ -31,12 +31,12 @@ etcd:
 vso:
   vaultStaticSecrets:
     apisixAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/core/apisix
 
 gateway:
   enabled: true
-  name: homelab-gateway
+  name: example-gateway
   namespace: kube-system
   domain: example.com
   clusterIssuer: letsencrypt-dns-prod

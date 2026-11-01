@@ -4,22 +4,22 @@
 vso:
   vaultStaticSecrets:
     crowdsecDbAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/core/crowdsec
     crowdsecDbApp:
-      mount: homelab
+      mount: example
       path: platforms/production/core/crowdsec
     crowdsecPgBackup:
-      mount: homelab
+      mount: example
       path: platforms/production/core/crowdsec
     crowdsecMattermostWebhook:
-      mount: homelab
+      mount: example
       path: platforms/production/core/crowdsec
     crowdsecTraefikBouncerKey:
-      mount: homelab
+      mount: example
       path: platforms/production/core/crowdsec
     crowdsecConsole:
-      mount: homelab
+      mount: example
       path: platforms/production/core/crowdsec
 
 # CloudNativePG backups of the CrowdSec database (S3-compatible object store).

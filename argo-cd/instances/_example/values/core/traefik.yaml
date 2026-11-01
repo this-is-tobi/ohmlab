@@ -11,7 +11,7 @@ traefik:
 
 gateway:
   enabled: true
-  name: homelab-gateway-traefik
+  name: example-gateway
   namespace: kube-system
   domain: example.com
   wildcardTlsSecret: gateway-wildcard-tls
@@ -33,5 +33,5 @@ gateway:
 vso:
   vaultStaticSecrets:
     traefikCrowdsecBouncerKey:
-      mount: homelab
+      mount: example
       path: platforms/production/core/traefik

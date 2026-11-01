@@ -34,27 +34,27 @@ kube-prometheus-stack:
       server:
         root_url: "https://monitoring.example.com"
       auth.generic_oauth:
-        auth_url: "https://keycloak.example.com/realms/homelab/protocol/openid-connect/auth"
-        token_url: "https://keycloak.example.com/realms/homelab/protocol/openid-connect/token"
-        api_url: "https://keycloak.example.com/realms/homelab/protocol/openid-connect/userinfo"
+        auth_url: "https://keycloak.example.com/realms/example/protocol/openid-connect/auth"
+        token_url: "https://keycloak.example.com/realms/example/protocol/openid-connect/token"
+        api_url: "https://keycloak.example.com/realms/example/protocol/openid-connect/userinfo"
 
 vso:
   vaultStaticSecrets:
     alertmanagerMattermost:
-      mount: homelab
+      mount: example
       path: platforms/production/core/prometheus-stack
     grafanaDbAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/core/prometheus-stack
     grafanaDbApp:
-      mount: homelab
+      mount: example
       path: platforms/production/core/prometheus-stack
     grafanaPgBackup:
-      mount: homelab
+      mount: example
       path: platforms/production/core/prometheus-stack
     monitoringAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/core/prometheus-stack
     monitoringSso:
-      mount: homelab
+      mount: example
       path: platforms/production/core/prometheus-stack

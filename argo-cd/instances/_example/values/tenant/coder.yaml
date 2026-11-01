@@ -16,7 +16,7 @@ coder:
     - name: CODER_ACCESS_URL
       value: "https://coder.example.com"
     - name: CODER_OIDC_ISSUER_URL
-      value: "https://keycloak.example.com/realms/homelab"
+      value: "https://keycloak.example.com/realms/example"
     - name: CODER_OIDC_CLIENT_ID
       value: coder
     - name: CODER_OIDC_CLIENT_SECRET
@@ -56,17 +56,17 @@ cnpg:
 vso:
   vaultStaticSecrets:
     coderDbInfos:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/coder
     coderDbAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/coder
     coderDbApp:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/coder
     coderPgBackup:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/coder
     coderSso:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/coder

@@ -249,14 +249,14 @@ Each app's `VaultAuth` logs in with Kubernetes auth as the `vso` ServiceAccount 
 VSO talks to Vault over TLS through the operator-wide `default` VaultConnection in `vault-operator-system`, which validates the server against the `vault-tls` secret (`defaultVaultConnection` in [argo-cd/apps/vault-operator/values.yaml](../argo-cd/apps/vault-operator/values.yaml)). No app `VaultAuth` sets `vaultConnectionRef`, and VSO falls back to that `default` connection when it is unset. Each app's `vso-utils` values still render a per-namespace `<release>-vso-default` VaultConnection pointing at the local `vault-tls` secret (the `ca.crt`-only copy bank-vaults writes into every namespace listed in the Vault resource's `caNamespaces`, `["*"]` here; an instance that restricts it must include every namespace holding a VaultConnection), but no `VaultAuth` references those connections: an invalid one only produces VSO error events and does not stop secret delivery. Traefik validates Vault's own certificate through a `BackendTLSPolicy`, which only accepts a ConfigMap CA reference: the `trust-manager` app publishes it as `vault-ca-bundle` in `vault-operator-system`, read from the same `vault-tls` secret. When secrets do stop syncing, `ohmlab check` reports the failing `VaultStaticSecret` resources first.
 
 Each app also gets a dedicated least-privilege Vault policy
-(`homelab/data/platforms/+/+/<app>`, read-only) and a Kubernetes auth role
+(`<instance>/data/platforms/+/+/<app>` in the KV mount named after the instance, read-only) and a Kubernetes auth role
 bound to the `vso` ServiceAccount **in the app's own namespace** — a role
 bound to the wrong namespace fails with `403 namespace not authorized`.
 
 Values that cannot be generated are declared as empty placeholders under `ohmlab.vault.secrets` and set by hand in Vault. The ohmlab controller keeps a key that exists, generates one that is missing, and leaves a placeholder declared as `""` for a person to fill in; to regenerate keys, set `rotate.token` on the entry ([docs/08-controller.md](08-controller.md)). The GitHub App of the runner scale sets is one: put its `id`, `installationId` and `privateKey` (the PEM) in a JSON file and patch them in, so the key never lands in the shell history, then delete the file. VSO builds the `github-app` Secret that every scale set references from them.
 
 ```sh
-vault kv patch -mount=homelab platforms/production/tenant/actions-runner-controller - < github-app.json
+vault kv patch -mount=<instance> platforms/production/tenant/actions-runner-controller - < github-app.json
 # {"githubApp": {"id": "...", "installationId": "...", "privateKey": "-----BEGIN RSA PRIVATE KEY-----\n..."}}
 ```
 
@@ -339,7 +339,7 @@ Some dashboards are already delivered with the installation but more can be adde
 Alertmanager posts every alert except the always-firing `Watchdog` to a Mattermost incoming webhook in the channel `alerts`, through its Slack-compatible receiver (`kube-prometheus-stack.alertmanager.config` in [argo-cd/apps/prometheus-stack/values.yaml](../argo-cd/apps/prometheus-stack/values.yaml)). Mattermost generates the hook id, so the webhook URL cannot be seeded: create the channel and an incoming webhook locked to it in Mattermost, then store the URL once by hand in the Vault field `alertmanagerMattermostWebhookUrl` (mount `homelab`, path `platforms/production/core/prometheus-stack`) with `vault kv patch`, never `vault kv put`, which would replace the whole path and wipe the Grafana, Keycloak and Postgres credentials stored next to it:
 
 ```sh
-printf '%s' 'http://mattermost.mattermost.svc.cluster.local:8065/hooks/<id>' | vault kv patch -mount=homelab platforms/production/core/prometheus-stack alertmanagerMattermostWebhookUrl=-
+printf '%s' 'http://mattermost.mattermost.svc.cluster.local:8065/hooks/<id>' | vault kv patch -mount=<instance> platforms/production/core/prometheus-stack alertmanagerMattermostWebhookUrl=-
 ```
 
 Use the in-cluster Service form of the URL shown above rather than the public one: delivery then doesn't depend on Traefik or the public hostname, and the Mattermost NetworkPolicy admits Alertmanager on that port. VSO delivers the field to the `alertmanager-mattermost` secret within its hourly refresh, and Alertmanager reads it on every notification, so no restart is needed. While the field is empty or missing, every notification fails (`unsupported protocol scheme ""` in the Alertmanager logs) and no alert reaches anyone.

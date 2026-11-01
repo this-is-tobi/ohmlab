@@ -35,7 +35,7 @@ metadata:
   name: production-core-keycloak
   namespace: vault-operator-system
 spec:
-  path: homelab/platforms/production/core/keycloak   # <mount>/<path>
+  path: <instance>/platforms/production/core/keycloak   # <mount>/<path>, the mount named after the instance
   data:
     admin:
       username: admin

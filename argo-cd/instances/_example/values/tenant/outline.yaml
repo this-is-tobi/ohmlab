@@ -17,9 +17,9 @@ outline:
       region: fr-par
   auth:
     oidc:
-      authUri: "https://keycloak.example.com/realms/homelab/protocol/openid-connect/auth"
-      tokenUri: "https://keycloak.example.com/realms/homelab/protocol/openid-connect/token"
-      userInfoUri: "https://keycloak.example.com/realms/homelab/protocol/openid-connect/userinfo"
+      authUri: "https://keycloak.example.com/realms/example/protocol/openid-connect/auth"
+      tokenUri: "https://keycloak.example.com/realms/example/protocol/openid-connect/token"
+      userInfoUri: "https://keycloak.example.com/realms/example/protocol/openid-connect/userinfo"
 
 cnpg:
   cluster:
@@ -35,23 +35,23 @@ cnpg:
 vso:
   vaultStaticSecrets:
     outlineConfig:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/outline
     outlineS3:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/outline
     outlineValkeyAuth:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/outline
     outlineDbAdmin:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/outline
     outlineDbApp:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/outline
     outlinePgBackup:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/outline
     outlineSso:
-      mount: homelab
+      mount: example
       path: platforms/production/tenant/outline

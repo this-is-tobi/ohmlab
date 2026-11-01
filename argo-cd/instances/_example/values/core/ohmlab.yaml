@@ -57,7 +57,7 @@ argo-cd:
       # instance for a full example wired to VSO).
       # oidc.config: |
       #   name: "Keycloak"
-      #   issuer: "https://sso.core.example.com/realms/homelab"
+      #   issuer: "https://sso.core.example.com/realms/example"
       #   clientID: "argo-cd-core"
       #   clientSecret: "$argocd-core-oidc:OIDC_CLIENT_SECRET"
       #   requestedScopes: ["openid", "profile", "email", "groups"]
