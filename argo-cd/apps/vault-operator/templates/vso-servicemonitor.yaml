@@ -1,0 +1,33 @@
+{{- /* Only where the Prometheus Operator CRDs exist, as for Vault's monitor: the subchart's own monitor (telemetry.serviceMonitor) is not gated on them, so it stays off. */}}
+{{- if and .Values.vso.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+---
+# The Vault Secrets Operator's controller metrics, behind the chart's
+# kube-rbac-proxy: it admits a token allowed to get the /metrics non-resource
+# URL. Prometheus sends its own service account token, which the kubelet
+# rotates (an authorization Secret would have to hold a long-lived token in
+# this namespace), and the proxy serves a self-signed certificate.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vault-secrets-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: vso
+spec:
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vso
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      control-plane: controller-manager
+  endpoints:
+  - port: https
+    scheme: https
+    path: /metrics
+    interval: 30s
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tlsConfig:
+      insecureSkipVerify: true
+{{- end }}

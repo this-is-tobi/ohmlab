@@ -1,0 +1,25 @@
+{{- /* Only where the Prometheus Operator CRDs exist, as for Vault's monitor: the subchart's own monitor is not gated on them, so it stays off. */}}
+{{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" }}
+---
+# The bank-vaults operator's own metrics (controller-runtime and the Go
+# runtime), served without authentication on its Service's http-metrics port.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vault-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: vault-operator
+spec:
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vault-operator
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+  - port: http-metrics
+    path: /metrics
+    interval: 30s
+{{- end }}

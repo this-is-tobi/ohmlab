@@ -15,6 +15,8 @@ gateway:
 networkPolicy:
   enabled: false
   egressDeny: true
+  # The ports the chart's monitors scrape: 8200 (Vault), 8383 (the bank-vaults
+  # operator) and 8443 (the Vault Secrets Operator, behind kube-rbac-proxy).
   prometheusScrapePorts: []
   extraIngress: []
   extraEgress: []
@@ -44,16 +46,6 @@ vault-operator:
     capabilities:
       drop:
       - ALL
-  webhook:
-    enabled: true
-    replicas: 2
-    pdb:
-      create: true
-      maxUnavailable: 1
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: true
 
 # The KV mount of the core tier's secrets: the ohmlab system's, one for every
 # instance. The tenant tier's secrets are in the instance's own mount
@@ -692,11 +684,6 @@ vso:
     #   role: "default"  # Must exist in Vault
     #   serviceAccount: default
     #   tokenAudiences: ["vault"]
-  metrics:
-    service:
-      enabled: true
-      type: ClusterIP
-      port: 8080
   # VSO resources: VaultConnection and VaultAuth for managing VSO secrets
   vaultConnection:
     default:
