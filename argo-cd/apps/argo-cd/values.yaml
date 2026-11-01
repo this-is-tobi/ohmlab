@@ -398,7 +398,9 @@ argo-cd:
     pdb:
       enabled: true
       maxUnavailable: 1
-    # Webhook is exposed via HTTPRoute (gateway wildcard TLS) — no Ingress.
+    # No Ingress. An instance that wants Git webhooks routes to the
+    # controller and admits its gateway with a networkPolicy.extraIngress rule
+    # for the webhook port (docs/05-services.md).
     ingress:
       enabled: false
     metrics:

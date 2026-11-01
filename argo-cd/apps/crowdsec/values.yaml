@@ -214,16 +214,15 @@ crowdsec:
         whitelist-local.yaml: |
           name: local/k8s-whitelist
           description: "Whitelist local and cluster networks"
-          # Never ban these. Both common pod CIDRs are listed so this works
-          # under either CNI without editing (an unused range just never
-          # matches). ⚠ The LAN entry is an example — set it to your own
-          # subnet. Deliberately kept narrow (/24, not the whole
-          # 192.168.0.0/16) so a wrong value under-matches rather than
-          # silently exempting a wide range from all bans.
+          # Never ban the cluster's own ranges. Both common pod CIDRs are
+          # listed so this works under either CNI without editing (an unused
+          # range just never matches). An instance that trusts its LAN sets
+          # this whole file in its values, with its LAN range added; keep it
+          # narrow, so that a wrong value under-matches rather than exempting
+          # a wide range from every ban.
           whitelist:
             reason: "local network"
             cidr:
-              - "192.168.1.0/24" # LAN — set this to your actual subnet
               - "10.42.0.0/16" # k3s + flannel default pod CIDR
               - "10.45.0.0/16" # pod CIDR used by this repo's cilium config
               - "10.43.0.0/16" # k3s default service CIDR

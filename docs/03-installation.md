@@ -216,6 +216,20 @@ Keep the core tier's secrets where they are too, with `systemMount: homelab` in 
 
 > **`syncWave` semantics**: on an AppSet-generated Application, the sync-wave annotation alone orders **nothing** — apps sync in parallel and converge by retry. To actually enforce the ordering, enable progressive sync (`progressiveSync.enabled: true` in the `instance-manager` chart values); it maps waves onto ApplicationSet `RollingSync` steps. Requires the alpha `ApplicationSetProgressiveSyncs` feature gate, which the `ohmlab` chart enables on the core ArgoCD. It also turns automated sync off on the generated Applications: the ApplicationSet controller syncs an app again only when its revision changes, so drift at the same commit (a hand edit, a chart that renders more once a CRD exists) waits for the next commit or a manual sync.
 
+#### Your network
+
+The charts carry no network of their own. An instance sets its own ranges and addresses, and a chart that needs one stops rendering until it is set.
+
+| Value | App | Required | What it is |
+| --- | --- | --- | --- |
+| `lanOnly.sourceRange` | traefik | yes | The source ranges the `lan-only` Middleware lets through: your LAN or VPN, and the pod range of in-cluster callers of a gated UI. |
+| `lanOnly.sourceRange` | longhorn, cilium | with `gateway.enabled` | Their own copy of that Middleware; keep the three in sync. |
+| `cilium.k8sServiceHost` | cilium | yes | The address the Cilium agents reach the Kubernetes API at: an API server VIP or a control-plane node. |
+| `crowdsecBouncer.clientTrustedIPs` | traefik | no, empty | Ranges that bypass the CrowdSec bouncer entirely, e.g. your LAN, so that a false positive cannot lock you out of it. A range here escapes every CrowdSec decision. |
+| `crowdsec.config.postoverflows.s01-whitelist.whitelist-local.yaml` | crowdsec | no | The ranges CrowdSec never bans. The chart's file lists the cluster's pod and service ranges; to trust your LAN too, set the whole file with your LAN added. |
+
+The example instance uses documentation addresses (`192.0.2.0/24`, `192.0.2.10`, RFC 5737), which match no real network: replace them.
+
 ### What the apps expect from each other
 
 Waves are not enforced by default (see the `syncWave` semantics above), so an app whose chart ships objects of another app's CRDs fails its first sync and converges once that app is up, provided it is up within the retry window: a failed automated sync is retried three times (about three and a half minutes) and then not again for the same commit. An app still failed after that stays so until you sync it once by hand or push a new commit. When you enable a subset, enable the providers first:
@@ -341,7 +355,7 @@ Create your own instance folder — copy [argo-cd/instances/_example](../argo-cd
 - **Storage** — `longhorn` assumes bare-metal disks. On a cloud provider, disable it and use the provider's own `StorageClass` (set it as default, or set `storageClass` explicitly on the apps that request one).
 - **Ingress exposure** — the `traefik` app's Service is type `LoadBalancer`. A cloud provider assigns a real external IP automatically, so drop the `spec.externalIPs` list this repo uses (that exists only because it runs bare metal without an LB controller).
 - **CNI** — managed clusters ship their own; leave the `cilium` app disabled. Read the CNI caveat at the top of any `templates/networkpolicy.yaml` before enabling `networkPolicy` — the rules were verified against Cilium and rely on three CNI-specific behaviours.
-- **Pod/service CIDRs** — anything referencing `10.42.0.0/16` / `10.45.0.0/16` / `10.43.0.0/16` (NetworkPolicy `ipBlock` rules, `lanOnly.sourceRange`, crowdsec's `allowed_ranges`) must match your cluster's actual ranges.
+- **Pod/service CIDRs** — anything referencing `10.42.0.0/16` / `10.45.0.0/16` / `10.43.0.0/16` (NetworkPolicy `ipBlock` rules, crowdsec's `allowed_ranges` and its whitelist) must match your cluster's actual ranges, and so must the pod range in your `lanOnly.sourceRange` (see [Your network](#your-network)).
 - **Node labels** — apps pinning workloads with `nodeSelector: {node-type: worker}` (CNPG databases, Vault) need that label to exist, or the selector removed.
 - **Gateway-host services** — HAProxy, PiHole, WireGuard and the gateway CrowdSec engine are Ansible-managed Docker services on a separate host. They have no in-cluster equivalent; ignore them unless you replicate that setup.
 

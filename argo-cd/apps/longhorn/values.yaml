@@ -10,8 +10,8 @@ gateway:
 
 # -- lan-only Middleware (templates/middleware-lan-only.yaml), for gating a
 # UI to trusted networks. Rendered only when gateway.enabled is true.
-# ⚠ These defaults are almost certainly wrong for your environment — set
-# them per-instance. Include your own LAN/VPN range, plus your cluster's
+# Required, with no default: the render stops until the instance sets its
+# own ranges. Include your own LAN/VPN range, plus your cluster's
 # pod CIDR if in-cluster callers need to reach the gated UI (the pod CIDR
 # depends on your CNI: k3s+flannel defaults to 10.42.0.0/16, this repo's
 # Cilium config uses 10.45.0.0/16).
@@ -21,8 +21,7 @@ gateway:
 # internal source and this matches everything — treat it as
 # defense-in-depth, not an auth boundary.
 lanOnly:
-  sourceRange:
-  - 192.168.1.0/24 # example — set this to your actual LAN subnet
+  sourceRange: []
 
 # Zero-trust NetworkPolicy for this namespace (templates/networkpolicy.yaml).
 # Disabled by default — real rules live in the instance override.

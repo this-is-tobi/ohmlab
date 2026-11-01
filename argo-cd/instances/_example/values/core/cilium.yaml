@@ -8,3 +8,8 @@ gateway:
   apexTlsSecret: gateway-wildcard-tls
   extraListeners: []
   tlsPassthroughListeners: []
+
+cilium:
+  # The address the agents reach the Kubernetes API at (required): an API
+  # server VIP or a control-plane node.
+  k8sServiceHost: 192.0.2.10 # documentation address (RFC 5737): replace with yours

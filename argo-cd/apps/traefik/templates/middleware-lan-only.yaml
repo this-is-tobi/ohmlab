@@ -1,3 +1,6 @@
+{{- if not .Values.lanOnly.sourceRange }}
+{{- fail "lanOnly.sourceRange is required: the source ranges the lan-only Middleware lets through (your LAN or VPN, and the pod range of in-cluster callers)" }}
+{{- end }}
 ---
 # Gate for *.int.ohmlab.fr UIs (hubble, traefik dashboard, longhorn — see
 # each app's HTTPRoute filters). The Scaleway DNS zone has a deep wildcard,

@@ -27,8 +27,8 @@ gateway:
 
 # -- lan-only Middleware (templates/middleware-lan-only.yaml), for gating a
 # UI to trusted networks. Rendered only when gateway.enabled is true.
-# ⚠ These defaults are almost certainly wrong for your environment — set
-# them per-instance. Include your own LAN/VPN range, plus your cluster's
+# Required, with no default: the render stops until the instance sets its
+# own ranges. Include your own LAN/VPN range, plus your cluster's
 # pod CIDR if in-cluster callers need to reach the gated UI (the pod CIDR
 # depends on your CNI: k3s+flannel defaults to 10.42.0.0/16, this repo's
 # Cilium config uses 10.45.0.0/16).
@@ -38,8 +38,7 @@ gateway:
 # internal source and this matches everything — treat it as
 # defense-in-depth, not an auth boundary.
 lanOnly:
-  sourceRange:
-  - 192.168.1.0/24 # example — set this to your actual LAN subnet
+  sourceRange: []
 
 # VSO integration — delivers the Hubble UI oauth2-proxy's Keycloak client
 # creds from Vault. First VSO usage in kube-system: role/policy scoped to
@@ -193,9 +192,11 @@ cilium:
   # --- Kube-proxy coexistence (PHASE 1) ---
   # kube-proxy stays in charge of Services; Cilium only does CNI + policy.
   kubeProxyReplacement: false
-  # Direct API access via the HAProxy VIP — avoids depending on kube-proxy
-  # for the agent's own control-plane connectivity.
-  k8sServiceHost: 192.168.1.99
+  # The address the agents reach the Kubernetes API at (an API server VIP,
+  # e.g. an HAProxy in front of the control plane, or a control-plane node),
+  # so that they do not depend on kube-proxy for their own connection to it.
+  # Required, with no default: it is the cluster's own (templates/checks.yaml).
+  k8sServiceHost: ""
   k8sServicePort: 6443
 
   # --- Routing: vxlan overlay (same model as flannel) ---

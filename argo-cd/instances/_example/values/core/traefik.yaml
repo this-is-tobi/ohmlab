@@ -27,3 +27,9 @@ gateway:
   tlsPassthroughListeners: []
   # - name: tls-teleport
   #   hostname: "*.teleport.core.example.com"
+
+# The ranges the lan-only Middleware lets through (required): your LAN or VPN,
+# and your cluster's pod range if in-cluster callers reach a gated UI.
+lanOnly:
+  sourceRange:
+  - 192.0.2.0/24 # documentation range (RFC 5737): replace with yours

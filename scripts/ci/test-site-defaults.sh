@@ -38,15 +38,13 @@ field() { yq ea -r "$1" "$work/out.yaml" | grep -v '^$' | grep -v '^---$' | past
 # The ApplicationSet webhook (port "webhook" of the controller): no chart opens
 # it on its own; an instance that wants Git webhooks routes to it and admits
 # its gateway's namespace with an extraIngress rule.
+check "no chart template names a gateway namespace" "" \
+  "$(grep -rln 'kubernetes.io/metadata.name: traefik' "$ROOT"/argo-cd/apps/*/templates "$ROOT/utils/helm/templates" 2>/dev/null | sed "s#$ROOT/##" | paste -sd, -)"
+
 webhook_ports='select(.kind == "NetworkPolicy") | .spec.ingress[]?.ports[]?.port | select(. == "webhook" or . == 7000)'
-server_route='[{"name":"argocd-server","hostnames":["argo-cd.example.com"],"rules":[{"backendService":"argocd-server","backendPort":80}]}]'
-render "$ROOT/argo-cd/apps/argo-cd" "$EXAMPLE/tenant/argo-cd.yaml" --set gateway.enabled=true --set-json "gateway.routes=$server_route"
-check "the tenant Argo CD opens no webhook port without a route to it" "" "$(field "$webhook_ports")"
-# The Service carries the release's prefix (argo-cd-argocd-... for a release
-# named argo-cd).
 appset_route='[{"name":"argocd-appset-webhook","hostnames":["appset.example.com"],"rules":[{"backendService":"argo-cd-argocd-applicationset-controller","backendPort":7000}]}]'
 render "$ROOT/argo-cd/apps/argo-cd" "$EXAMPLE/tenant/argo-cd.yaml" --set gateway.enabled=true --set-json "gateway.routes=$appset_route"
-check "a route to the controller, whatever its release prefix, opens the tenant webhook port" "webhook" "$(field "$webhook_ports")"
+check "the tenant Argo CD opens no webhook port, even with a route to it" "" "$(field "$webhook_ports")"
 
 extra='[{"name":"appset-webhook","podSelector":{"matchLabels":{"app.kubernetes.io/name":"argocd-applicationset-controller"}},"rules":[{"from":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"gw"}}}],"ports":[{"port":"webhook","protocol":"TCP"}]}]}]'
 admits='select(.kind == "NetworkPolicy" and .metadata.name == "allow-extra-ingress-appset-webhook") | .spec.ingress[] | .from[].namespaceSelector.matchLabels["kubernetes.io/metadata.name"] + ":" + (.ports[].port | tostring)'
@@ -54,5 +52,52 @@ render "$ROOT/argo-cd/apps/argo-cd" "$EXAMPLE/tenant/argo-cd.yaml" --set network
 check "an instance opens the tenant webhook port with extraIngress" "gw:webhook" "$(field "$admits")"
 render "$ROOT/utils/helm" "$EXAMPLE/core/ohmlab.yaml" --set networkPolicy.enabled=true --set-json "networkPolicy.extraIngress=$extra"
 check "an instance opens the core webhook port with extraIngress" "gw:webhook" "$(field "$admits")"
+
+# refuses <label> <message> <chart dir> <example values file> [<helm args>...]:
+# the chart does not render, and says why.
+refuses() {
+  local label="$1" message="$2" chart="$3" vf="$4"
+  shift 4
+  args=()
+  app_args "$vf" || { echo "FAIL no manager parameters for $vf"; fail=1; return; }
+  if helm template t "$chart" "${args[@]}" "$@" >/dev/null 2>"$work/err"; then
+    echo "FAIL $label: it renders"; fail=1
+  elif grep -qF -- "$message" "$work/err"; then echo "ok   $label"; else
+    echo "FAIL $label: expected '$message', got: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1
+  fi
+}
+renders() { # renders <label> <chart dir> <example values file> [<helm args>...]
+  local label="$1"
+  shift
+  : >"$work/err"
+  render "$@"
+  if [ -s "$work/err" ] && grep -q Error "$work/err"; then echo "FAIL $label"; fail=1; else echo "ok   $label"; fi
+}
+
+# Trust lists exempt a range from CrowdSec's decisions: by default they hold
+# no LAN, only the cluster's own ranges.
+render "$ROOT/argo-cd/apps/traefik" "$EXAMPLE/core/traefik.yaml"
+check "the bouncer trusts no range by default" "none" \
+  "$(field 'select(.kind == "Middleware" and .metadata.name == "crowdsec-bouncer") | .spec.plugin.bouncer.clientTrustedIPs // "none"')"
+render "$ROOT/argo-cd/apps/crowdsec" "$EXAMPLE/core/crowdsec.yaml"
+# The file is a multi-line string: read it whole, not through field.
+check "the CrowdSec whitelist trusts only in-cluster ranges by default" "10.42.0.0/16,10.45.0.0/16,10.43.0.0/16" \
+  "$(yq e -r 'select(.kind == "ConfigMap" and .metadata.name == "crowdsec-postoverflows-s01-whitelist") | .data["whitelist-local.yaml"]' "$work/out.yaml" \
+    | grep -v '^---$' | yq '.whitelist.cidr | join(",")')"
+
+# Allow lists and the API server address have no default: a render without
+# them stops and says what to set.
+for empty in '[]' 'null'; do
+  refuses "Traefik does not render without lanOnly.sourceRange ($empty)" "lanOnly.sourceRange is required" \
+    "$ROOT/argo-cd/apps/traefik" "$EXAMPLE/core/traefik.yaml" --set-json "lanOnly.sourceRange=$empty"
+done
+for app in longhorn cilium; do
+  refuses "$app does not render its Gateway without lanOnly.sourceRange" "lanOnly.sourceRange is required" \
+    "$ROOT/argo-cd/apps/$app" "$EXAMPLE/core/$app.yaml" --set gateway.enabled=true --set-json 'lanOnly.sourceRange=[]'
+  renders "$app renders without lanOnly.sourceRange when its Gateway is off" \
+    "$ROOT/argo-cd/apps/$app" "$EXAMPLE/core/$app.yaml" --set gateway.enabled=false --set-json 'lanOnly.sourceRange=[]'
+done
+refuses "Cilium does not render without its API server address" "cilium.k8sServiceHost is required" \
+  "$ROOT/argo-cd/apps/cilium" "$EXAMPLE/core/cilium.yaml" --set cilium.k8sServiceHost=
 
 exit "$fail"

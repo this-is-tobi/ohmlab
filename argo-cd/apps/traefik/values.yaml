@@ -191,17 +191,16 @@ crowdsecBouncer:
   # enforcement", never to "all ingress traffic blocked". -1 = never block
   # on LAPI-unreachable (overrides the plugin's own fail-closed default).
   updateMaxFailure: -1
-  # Bypass the bouncer entirely for trusted (LAN) traffic, so a false
-  # positive can't lock you out of your own network. Keep in sync with the
-  # crowdsec app's postoverflows local-network whitelist.
-  # ⚠ Set this to your own trusted range per-instance.
-  clientTrustedIPs:
-  - 192.168.1.0/24 # example — set this to your actual LAN subnet
+  # Ranges that bypass the bouncer entirely, e.g. the instance's LAN, so that
+  # a false positive cannot lock it out of its own network. None by default:
+  # a range here escapes every CrowdSec decision. Keep in sync with the
+  # crowdsec app's postoverflows whitelist.
+  clientTrustedIPs: []
 
 # -- lan-only Middleware (templates/middleware-lan-only.yaml), for gating
 # internal UIs to trusted networks.
-# ⚠ These defaults are almost certainly wrong for your environment — set
-# them per-instance. Include your own LAN/VPN range, plus your cluster's
+# Required, with no default: the render stops until the instance sets its
+# own ranges. Include your own LAN/VPN range, plus your cluster's
 # pod CIDR if in-cluster callers (e.g. Prometheus scraping a gated UI)
 # need through. The pod CIDR depends on your CNI: k3s+flannel defaults to
 # 10.42.0.0/16, this repo's Cilium config uses 10.45.0.0/16.
@@ -211,8 +210,7 @@ crowdsecBouncer:
 # internal source and this matches everything — treat it as
 # defense-in-depth, not an auth boundary.
 lanOnly:
-  sourceRange:
-  - 192.168.1.0/24 # example — set this to your actual LAN subnet
+  sourceRange: []
 
 # -- VSO (Vault Secrets Operator) integration
 # Delivers the crowdsec bouncer LAPI key from Vault as a Secret in this
