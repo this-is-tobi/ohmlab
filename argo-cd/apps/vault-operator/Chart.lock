@@ -7,6 +7,6 @@ dependencies:
   version: 1.6.2
 - name: backup-utils
   repository: https://this-is-tobi.github.io/helm-charts
-  version: 2.5.6
-digest: sha256:5802fba49970bc178118b48ba2e7f33d848359d7b731af512cd9e87ba737c368
-generated: "2026-10-21T18:14:08.570876364Z"
+  version: 2.5.7
+digest: sha256:d44e0bd1c4109b6a0868ab1a5749f1cae216d67d4477cadf4265083add20f779
+generated: "2026-11-01T18:11:20.055801431Z"
