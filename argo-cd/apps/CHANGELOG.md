@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.10.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.9.1...catalog-v0.10.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* an instance must set lanOnly.sourceRange (traefik, and longhorn and cilium when their gateway is on) and cilium.k8sServiceHost. The bouncer's clientTrustedIPs and CrowdSec's whitelist no longer trust 192.168.1.0/24: an instance that relied on it sets its own ranges. The tenant argo-cd chart no longer opens the ApplicationSet webhook port; use networkPolicy.extraIngress.
+* **instance-manager:** instance.env is now a segment of every secret's path and must be a lowercase DNS label; another value fails the manager's render.
+* **keycloak:** the realm import moves from keycloakConfigCli.config.homelab.inline to realms.defaults, realms.system and realms.instance; an instance that overrides the old keys moves its overrides there.
+* **vault-operator:** an instance that keeps its core secrets in its own KV mount must set systemMount to that mount's name in its vault-operator values before upgrading, or its core apps lose access to their secrets.
+* a chart rendered without the instance-manager now falls back to the KV mount ohmlab, the realm ohmlab shown as Ohmlab and the Gateway ohmlab-gateway, and the Traefik Gateway follows names.gateway instead of names.traefikGateway.
+* **instance-manager:** an instance that ran on the fixed names now gets names derived from its folder name. Before upgrading, pin in instance.yaml the ones that differ: names.vaultMount: homelab, names.keycloakRealm: <the realm stored in Vault>, names.keycloakRealmDisplayName: Homelab, names.gateway: homelab-gateway-traefik (Traefik) or homelab-gateway (APISIX, Cilium). names.traefikGateway is gone, and a folder name that is not a lowercase DNS label of at most 55 characters, or that is master, sys, auth, identity or cubbyhole, fails the manager render.
+
+### Features
+
+* **coder:** deliver coder's database and SSO secrets from Vault ([8893aed](https://github.com/this-is-tobi/ohmlab/commit/8893aeddcfc6451d338f51c21d2784c7b9fe971f))
+* default every chart's Vault mount and path to the manager's ([401bd18](https://github.com/this-is-tobi/ohmlab/commit/401bd18fae8227acc5a0eb9d00f4a3e9c14c983f))
+* fall back to the ohmlab names, with one Gateway name for every implementation ([22107ee](https://github.com/this-is-tobi/ohmlab/commit/22107eeba71535008e41673c0045041e3e9cc4d7))
+* **instance-manager:** derive the instance's names from its name ([f5a0bd0](https://github.com/this-is-tobi/ohmlab/commit/f5a0bd074b3237f6fc737aa120dc35f46f2e9861))
+* **instance-manager:** give each app its Vault mount and path prefix ([c3f2783](https://github.com/this-is-tobi/ohmlab/commit/c3f2783e20d9e078ea62964614d735b5358c4c49))
+* **instance-manager:** pass the instance's names to every app as Helm parameters ([eb97308](https://github.com/this-is-tobi/ohmlab/commit/eb973089f9e25046eaf72945ba8cf8322a82d9fb))
+* **keycloak:** import the ohmlab system realm next to the instance's ([c00f057](https://github.com/this-is-tobi/ohmlab/commit/c00f0573a0bd34938862e2409e63d60bfe7a63b1))
+* **keycloak:** keep only the tenant apps' clients in the instance's realm ([b79ac13](https://github.com/this-is-tobi/ohmlab/commit/b79ac13fe74a460821081d3055302203c42ea872))
+* **keycloak:** take the realm display name from the instance, with Homelab as default ([1197e69](https://github.com/this-is-tobi/ohmlab/commit/1197e691f5acdd150a370609b245173c4994cdde))
+* no site-specific defaults in the charts ([dc6d37b](https://github.com/this-is-tobi/ohmlab/commit/dc6d37b03e5b78dadeb54abc4631fb86ca85918a))
+* take the gateway names from the instance, with today's names as defaults ([a8f949c](https://github.com/this-is-tobi/ohmlab/commit/a8f949c25ef70a9df5329cde7647106a82be91ec))
+* **vault-operator:** keep the core tier's secrets in the system mount ([e1b9d32](https://github.com/this-is-tobi/ohmlab/commit/e1b9d32a6abe332fd643d897460ed5b285a1633f))
+* **vault-operator:** take the KV mount from the instance, with homelab as default ([6116407](https://github.com/this-is-tobi/ohmlab/commit/61164074c08b1b36fdb4a98ded555f4be62052ae))
+
+
+### Bug Fixes
+
+* **argo-cd:** open the ApplicationSet webhook only behind a route to it ([6e7c916](https://github.com/this-is-tobi/ohmlab/commit/6e7c91628fbecec5c8f67656972ebe119cacbe2f))
+* **deps:** update etcd docker tag to v0.9.0 ([2cec347](https://github.com/this-is-tobi/ohmlab/commit/2cec347105bc6fdceef1911d9ba2a4eea8312e9b))
+* **deps:** update helm release alloy to v1.15.0 ([59cec9b](https://github.com/this-is-tobi/ohmlab/commit/59cec9bc65763feb449483f25e5662e01999d1cd))
+* **deps:** update helm release argo-workflows to v2.0.15 ([b2f98c5](https://github.com/this-is-tobi/ohmlab/commit/b2f98c5e8f412bbe327c99d4b4abd8af5633026f))
+* **deps:** update helm release backup-utils to v2.5.7 ([902a52e](https://github.com/this-is-tobi/ohmlab/commit/902a52e57643ab5391388fd3657409590bb55005))
+* **deps:** update helm release coder to v2.38.5 ([94f77c0](https://github.com/this-is-tobi/ohmlab/commit/94f77c0fda731a6ed106a6700c9a7fa3acdfa02e))
+* **deps:** update helm release teleport-cluster to v18.11.8 ([a69a136](https://github.com/this-is-tobi/ohmlab/commit/a69a1363d21fc20da4d6d9a3d6369684fa0d17dc))
+* **ohmlab-controller:** run the 0.3.1 controller built by the renamed repository ([3e8e6f8](https://github.com/this-is-tobi/ohmlab/commit/3e8e6f8954de9717d8bc39afb3ff08487b3c1264))
+
 ## [0.9.1](https://github.com/this-is-tobi/homelab/compare/catalog-v0.9.0...catalog-v0.9.1) (2026-10-28)
 
 
