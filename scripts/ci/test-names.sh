@@ -29,6 +29,9 @@ render() {
   helm template t "$chart" "$@" >"$work/out.yaml" 2>"$work/err" || { echo "FAIL $chart does not render: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1; }
 }
 field() { yq ea -r "$1" "$work/out.yaml" | grep -v '^$' | grep -v '^---$' | paste -sd, -; }
+# The example values leave every secret's mount and path to the manager: a
+# chart rendered from them needs the manager's Vault parameters.
+manager_vault=(--set-string global.ohmlab.vault.mount=ohmlab --set-string global.ohmlab.vault.pathPrefix=platforms/production/core)
 # policy_paths <name>: the paths a policy of the Vault CR grants, in order.
 policy_paths() {
   yq ea -r "select(.kind == \"Vault\") | .spec.externalConfig.policies[] | select(.name == \"$1\") | .rules" "$work/out.yaml" \
@@ -36,7 +39,7 @@ policy_paths() {
 }
 
 # Gateways: one name for every implementation.
-traefik=(-f "$EXAMPLE/core/traefik.yaml" --set gateway.enabled=true --set gateway.name=)
+traefik=(-f "$EXAMPLE/core/traefik.yaml" "${manager_vault[@]}" --set gateway.enabled=true --set gateway.name=)
 render traefik "${traefik[@]}"
 check "the Traefik Gateway falls back to ohmlab-gateway" ohmlab-gateway "$(field 'select(.kind == "Gateway") | .metadata.name')"
 render traefik "${traefik[@]}" --set-string global.ohmlab.names.gateway=lab-gateway
@@ -67,6 +70,26 @@ render vault-operator "${vault[@]}" --set-string global.ohmlab.names.vaultMount=
 check "a system mount equal to the instance's is one KV mount" lab "$(field "$kv")"
 check "the controller's policy covers that mount once" "lab/data/platforms/+/+/*,lab/metadata/platforms/+/+/*" "$(policy_paths ohmlab-controller-vault)"
 
+# A chart's VaultStaticSecrets read the mount the manager gives its tier
+# (global.ohmlab.vault.mount), under the manager's path prefix and the app's own
+# segment (global.ohmlab.vault.pathPrefix), unless an entry sets its own.
+vss='select(.kind == "VaultStaticSecret") | .spec.mount + " " + .spec.path'
+vault_params=(--set-string global.ohmlab.vault.mount=m)
+render gitea -f "$EXAMPLE/tenant/gitea.yaml" "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/tenant
+check "gitea's secrets take the manager's mount and path" "m platforms/p/tenant/gitea" "$(yq ea -r "$vss" "$work/out.yaml" | grep -v '^---$' | sort -u | paste -sd, -)"
+render cilium -f "$EXAMPLE/core/cilium.yaml" "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/core
+check "cilium's secrets are under hubble" "m platforms/p/core/hubble" "$(yq ea -r "$vss" "$work/out.yaml" | grep -v '^---$' | sort -u | paste -sd, -)"
+if helm template t "$ROOT/argo-cd/apps/gitea" -f "$EXAMPLE/tenant/gitea.yaml" "${vault_params[@]}" >/dev/null 2>"$work/err"; then
+  echo "FAIL gitea renders its secrets without a path"; fail=1
+elif grep -q 'path is required' "$work/err"; then echo "ok   a secret without a path prefix nor a path of its own does not render"; else
+  echo "FAIL a secret without a path: expected 'path is required', got: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1
+fi
+oidc_at='select(.kind == "VaultStaticSecret" and .metadata.name == "vault-oidc-credentials") | .spec.mount + " " + .spec.path'
+render vault-operator --set vault.enabled=true "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/core
+check "Vault's OIDC credentials take the manager's mount and path" "m platforms/p/core/keycloak" "$(field "$oidc_at")"
+render vault-operator --set vault.enabled=true
+check "without the manager, Vault's OIDC credentials are at ohmlab, platforms/production/core/keycloak" "ohmlab platforms/production/core/keycloak" "$(field "$oidc_at")"
+
 # Keycloak: the system realm, ohmlab, holds the core apps' clients; the
 # instance's realm the tenant apps'. Only realm names, display names, client IDs,
 # group paths and user counts of the realm import are read.
@@ -79,7 +102,7 @@ shape='([.groups[].path] | join(",")) + " " + (.users | length | tostring)'
 core=argo-cd-core,grafana-core,hubble-core,longhorn-core,vault-core
 tenant=argo-cd,gitea,rustfs
 all=argo-cd,argo-cd-core,gitea,grafana-core,hubble-core,longhorn-core,rustfs,vault-core
-render keycloak -f "$EXAMPLE/core/keycloak.yaml" --set-string global.ohmlab.names.keycloakRealm=lab --set-string global.ohmlab.names.keycloakRealmDisplayName=Lab
+render keycloak -f "$EXAMPLE/core/keycloak.yaml" "${manager_vault[@]}" --set-string global.ohmlab.names.keycloakRealm=lab --set-string global.ohmlab.names.keycloakRealmDisplayName=Lab
 check "one realm file each, named after the realm" lab.json,ohmlab.json "$(realms 'keys | join(",")')"
 check "the system realm is ohmlab, shown as Ohmlab" "ohmlab|Ohmlab" "$(realms '.["ohmlab.json"] | .realm + "|" + .displayName')"
 check "the system realm holds the core clients" "$core" "$(realms ".[\"ohmlab.json\"] | $ids")"
@@ -91,7 +114,7 @@ check "both realms have the admin group and one user" "/admin 1|/admin 1" "$(rea
 check "the system realm's admin group carries the core client roles" grafana-core "$(realms '.["ohmlab.json"] | [.groups[].clientRoles | keys[]] | join(",")')"
 check "the config-cli Job reads that Secret" keycloak-config-cli-config-realms "$(field 'select(.kind == "Job" and .metadata.name == "keycloak-config-cli") | .spec.template.spec.volumes[] | select(.name == "config") | .secret.secretName')"
 check "no KEYCLOAK_REALM in the config Secret nor in the config-cli env" "" "$(field 'select(.kind == "VaultStaticSecret" and .spec.destination.name == "keycloak-config") | .spec.destination.transformation.templates | keys | .[] | select(. == "KEYCLOAK_REALM")')$(field 'select(.kind == "Job" and .metadata.name == "keycloak-config-cli") | .spec.template.spec.containers[].env[]?.name | select(. == "KEYCLOAK_REALM")')"
-render keycloak -f "$EXAMPLE/core/keycloak.yaml"
+render keycloak -f "$EXAMPLE/core/keycloak.yaml" "${manager_vault[@]}"
 check "without names, the two realms are one: ohmlab" ohmlab.json "$(realms 'keys | join(",")')"
 check "that realm is shown as Ohmlab" "ohmlab|Ohmlab" "$(realms '.["ohmlab.json"] | .realm + "|" + .displayName')"
 check "that realm holds both tiers' clients" "$all" "$(realms ".[\"ohmlab.json\"] | $ids")"

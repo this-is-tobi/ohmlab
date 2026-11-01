@@ -25,24 +25,3 @@ cnpg:
     enabled: true
     endpointURL: "https://s3.example.com"
     destinationPath: "s3://backups/cnpg"
-
-vso:
-  vaultStaticSecrets:
-    vaultwardenAdmin:
-      mount: example
-      path: platforms/production/tenant/vaultwarden
-    vaultwardenDbInfos:
-      mount: example
-      path: platforms/production/tenant/vaultwarden
-    vaultwardenDbAdmin:
-      mount: example
-      path: platforms/production/tenant/vaultwarden
-    vaultwardenDbApp:
-      mount: example
-      path: platforms/production/tenant/vaultwarden
-    vaultwardenPgBackup:
-      mount: example
-      path: platforms/production/tenant/vaultwarden
-    vaultwardenSso:
-      mount: example
-      path: platforms/production/tenant/vaultwarden

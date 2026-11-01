@@ -147,7 +147,7 @@ jobs:
               instance-manager) args=(--set instance.name=ci --set repoURL=https://example.com/ci.git) ;;
               *)
                 vf=$(values_file "$name")
-                if [ -n "$vf" ]; then args=(-f "$vf"); fi
+                if [ -n "$vf" ] && ! app_args "$vf"; then failures=$((failures + 1)); fi
                 ;;
             esac
             echo "::group::$name ${args[*]:-}"

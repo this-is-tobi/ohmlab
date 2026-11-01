@@ -454,10 +454,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by prometheus-stack).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/prometheus-stack{{ end }}'
   vaultStaticSecrets:
     monitoringAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: prometheus-stack-vso-default
       refreshAfter: 1h
@@ -476,8 +480,6 @@ vso:
             password:
               text: '{{ get .Secrets "admin" | dig "password" "" }}'
     monitoringSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: prometheus-stack-vso-default
       refreshAfter: 1h
@@ -496,8 +498,6 @@ vso:
             OIDC_CLIENT_SECRET:
               text: '{{ get .Secrets "keycloak" | dig "clientSecret" "" }}'
     alertmanagerMattermost:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: prometheus-stack-vso-default
       refreshAfter: 1h
@@ -520,8 +520,6 @@ vso:
             webhookUrl:
               text: '{{ get .Secrets "alertmanagerMattermostWebhookUrl" | default "" }}'
     grafanaDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: prometheus-stack-vso-default
       refreshAfter: 1h
@@ -540,8 +538,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     grafanaDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: prometheus-stack-vso-default
       refreshAfter: 1h
@@ -560,8 +556,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     grafanaPgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: prometheus-stack-vso-default
       refreshAfter: 1h

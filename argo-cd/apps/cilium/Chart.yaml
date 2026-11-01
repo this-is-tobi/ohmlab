@@ -12,7 +12,7 @@ dependencies:
   # oauth2-proxy) can't schedule until a CNI is running.
   - name: vso-utils
     alias: vso
-    version: 2.1.0
+    version: 2.2.0
     repository: https://this-is-tobi.github.io/helm-charts
     condition: vso.enabled
   - name: oauth2-proxy

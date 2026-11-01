@@ -58,9 +58,3 @@ clusterIssuers:
           webhook:
             groupName: acme.scaleway.com
             solverName: scaleway
-
-vso:
-  vaultStaticSecrets:
-    scwCreds:
-      mount: ohmlab
-      path: platforms/production/core/cert-manager

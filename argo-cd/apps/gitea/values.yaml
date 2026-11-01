@@ -297,13 +297,17 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by gitea).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/gitea{{ end }}'
   vaultStaticSecrets:
     # Valkey password + full connection URIs (password embedded, so they are
     # delivered as a secret and injected via GITEA__* env vars rather than
     # living in the plain-text app.ini config).
     giteaValkeyAuth:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: gitea-vso-default
       refreshAfter: 1h
@@ -326,8 +330,6 @@ vso:
             queue-conn:
               text: 'rediss://:{{ get .Secrets "valkey" | dig "password" "" }}@gitea-valkey:6380/0?pool_size=100&idle_timeout=180s&skipverify=true&'
     giteaAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: gitea-vso-default
       refreshAfter: 1h
@@ -346,8 +348,6 @@ vso:
             password:
               text: '{{ get .Secrets "admin" | dig "password" "" }}'
     giteaDbInfos:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: gitea-vso-default
       refreshAfter: 1h
@@ -368,8 +368,6 @@ vso:
             DB_PORT:
               text: '{{ get .Secrets "postgres" | dig "port" "" }}'
     giteaDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: gitea-vso-default
       refreshAfter: 1h
@@ -388,8 +386,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     giteaDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: gitea-vso-default
       refreshAfter: 1h
@@ -408,8 +404,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     giteaPgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: gitea-vso-default
       refreshAfter: 1h
@@ -436,8 +430,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
     giteaSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: gitea-vso-default
       refreshAfter: 1h

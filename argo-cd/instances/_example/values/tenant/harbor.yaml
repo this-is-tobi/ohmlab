@@ -28,30 +28,3 @@ cnpg:
     enabled: false
     endpointURL: "https://s3.example.com"
     destinationPath: "s3://backups/cnpg"
-
-vso:
-  vaultStaticSecrets:
-    harborAdmin:
-      mount: example
-      path: platforms/production/tenant/harbor
-    harborSecretkey:
-      mount: example
-      path: platforms/production/tenant/harbor
-    harborS3:
-      mount: example
-      path: platforms/production/tenant/harbor
-    harborDbInfos:
-      mount: example
-      path: platforms/production/tenant/harbor
-    harborDbAdmin:
-      mount: example
-      path: platforms/production/tenant/harbor
-    harborDbApp:
-      mount: example
-      path: platforms/production/tenant/harbor
-    harborPgBackup:
-      mount: example
-      path: platforms/production/tenant/harbor
-    harborSso:
-      mount: example
-      path: platforms/production/tenant/harbor

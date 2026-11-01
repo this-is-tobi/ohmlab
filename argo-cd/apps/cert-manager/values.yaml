@@ -126,10 +126,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by cert-manager).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/cert-manager{{ end }}'
   vaultStaticSecrets:
     scwCreds:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: cert-manager-vso-default
       refreshAfter: 1h

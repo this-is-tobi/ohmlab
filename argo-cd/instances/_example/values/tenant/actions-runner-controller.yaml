@@ -60,9 +60,3 @@ runner-group-002:
         image: ghcr.io/actions/actions-runner:2.337.0
         command:
         - /home/runner/run.sh
-
-vso:
-  vaultStaticSecrets:
-    githubApp:
-      mount: example
-      path: platforms/production/tenant/actions-runner-controller

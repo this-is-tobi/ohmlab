@@ -27,11 +27,3 @@ gateway:
   tlsPassthroughListeners: []
   # - name: tls-teleport
   #   hostname: "*.teleport.core.example.com"
-
-# Vault Secrets Operator: the KV mount is the one the vault-operator chart creates, the path is
-# the app's own under platforms/<environment>/<tier>/<app>.
-vso:
-  vaultStaticSecrets:
-    traefikCrowdsecBouncerKey:
-      mount: ohmlab
-      path: platforms/production/core/traefik

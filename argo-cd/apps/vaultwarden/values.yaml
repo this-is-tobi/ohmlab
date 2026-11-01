@@ -42,10 +42,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by vaultwarden).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/vaultwarden{{ end }}'
   vaultStaticSecrets:
     vaultwardenAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: vaultwarden-vso-default
       refreshAfter: 1h
@@ -64,8 +68,6 @@ vso:
             password:
               text: '{{ get .Secrets "admin" | dig "password" "" }}'
     vaultwardenDbInfos:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: vaultwarden-vso-default
       refreshAfter: 1h
@@ -86,8 +88,6 @@ vso:
             DB_PORT:
               text: '{{ get .Secrets "postgres" | dig "port" "" }}'
     vaultwardenDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: vaultwarden-vso-default
       refreshAfter: 1h
@@ -106,8 +106,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     vaultwardenDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: vaultwarden-vso-default
       refreshAfter: 1h
@@ -126,8 +124,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     vaultwardenPgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: vaultwarden-vso-default
       refreshAfter: 1h
@@ -154,8 +150,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
     vaultwardenSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: vaultwarden-vso-default
       refreshAfter: 1h

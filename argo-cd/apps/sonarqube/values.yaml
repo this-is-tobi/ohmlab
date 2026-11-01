@@ -193,10 +193,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by sonarqube).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/sonarqube{{ end }}'
   vaultStaticSecrets:
     sonarqubeAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: sonarqube-vso-default
       refreshAfter: 1h
@@ -219,8 +223,6 @@ vso:
             monitoringPasscode:
               text: '{{ get .Secrets "admin" | dig "monitoringPassword" "" }}'
     sonarqubeProperties:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: sonarqube-vso-default
       refreshAfter: 1h
@@ -238,8 +240,6 @@ vso:
               text: |
                 sonar.auth.oidc.clientSecret.secured: '{{ get .Secrets "keycloak" | dig "clientSecret" "" }}'
     sonarqubeDbInfos:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: sonarqube-vso-default
       refreshAfter: 1h
@@ -260,8 +260,6 @@ vso:
             DB_PORT:
               text: '{{ get .Secrets "postgres" | dig "port" "" }}'
     sonarqubeDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: sonarqube-vso-default
       refreshAfter: 1h
@@ -280,8 +278,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     sonarqubeDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: sonarqube-vso-default
       refreshAfter: 1h
@@ -300,8 +296,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     sonarqubePgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: sonarqube-vso-default
       refreshAfter: 1h
@@ -328,8 +322,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
     sonarqubeSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: sonarqube-vso-default
       refreshAfter: 1h

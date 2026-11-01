@@ -1,7 +1,1 @@
 sops: {}
-
-vso:
-  vaultStaticSecrets:
-    sopsAgeKeyFile:
-      mount: ohmlab
-      path: platforms/production/core/sops

@@ -43,7 +43,11 @@ for chart in "$ROOT/utils/helm" "$ROOT"/argo-cd/apps/*/; do
 
   args=()
   vf=$(values_file "$name")
-  [ -n "$vf" ] && args=(-f "$vf")
+  if [ -n "$vf" ] && ! app_args "$vf"; then
+    echo "FAIL $name: the manager of ${vf%/values/*} does not render"
+    failures=$((failures + 1))
+    continue
+  fi
   if [ -f "$chart/Chart.lock" ] && [ ! -d "$chart/charts" ]; then
     helm dependency build "$chart" >/dev/null 2>&1 || { echo "FAIL $name: helm dependency build"; failures=$((failures + 1)); continue; }
   fi

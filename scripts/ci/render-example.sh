@@ -10,6 +10,8 @@ set -uo pipefail
 
 ROOT="${CATALOG_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 EXAMPLE="$ROOT/argo-cd/instances/_example"
+# shellcheck source=scripts/lib/instances.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/instances.sh"
 
 failures=0
 for chart in "$ROOT/utils/helm" "$ROOT"/argo-cd/apps/*/; do
@@ -23,7 +25,12 @@ for chart in "$ROOT/utils/helm" "$ROOT"/argo-cd/apps/*/; do
     args=(-f "$EXAMPLE/instance.yaml" --set instance.name=example)
   else
     for scope in core tenant; do
-      if [ -f "$EXAMPLE/values/$scope/$name.yaml" ]; then args=(-f "$EXAMPLE/values/$scope/$name.yaml"); break; fi
+      if [ -f "$EXAMPLE/values/$scope/$name.yaml" ]; then
+        # The example leaves its secrets' mount and path to the manager.
+        app_args "$EXAMPLE/values/$scope/$name.yaml" 2>"${TMPDIR:-/tmp}/render-example.err" \
+          || { echo "FAIL $name: the example's manager does not render: $(head -c 240 "${TMPDIR:-/tmp}/render-example.err")"; failures=$((failures + 1)); continue 2; }
+        break
+      fi
     done
   fi
 

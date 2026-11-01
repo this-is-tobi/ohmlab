@@ -47,24 +47,3 @@ cnpg:
     enabled: true
     endpointURL: "https://s3.example.com"
     destinationPath: "s3://backups/cnpg"
-
-vso:
-  vaultStaticSecrets:
-    mattermostDbSecret:
-      mount: example
-      path: platforms/production/tenant/mattermost
-    mattermostS3:
-      mount: example
-      path: platforms/production/tenant/mattermost
-    mattermostDbInfos:
-      mount: example
-      path: platforms/production/tenant/mattermost
-    mattermostDbAdmin:
-      mount: example
-      path: platforms/production/tenant/mattermost
-    mattermostDbApp:
-      mount: example
-      path: platforms/production/tenant/mattermost
-    mattermostPgBackup:
-      mount: example
-      path: platforms/production/tenant/mattermost

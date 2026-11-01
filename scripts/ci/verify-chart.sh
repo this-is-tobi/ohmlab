@@ -16,6 +16,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/lib/instances.sh
+source "$ROOT/scripts/lib/instances.sh"
 # shellcheck source=scripts/lib/verify-oci.sh
 source "$ROOT/scripts/lib/verify-oci.sh"
 
@@ -65,6 +67,7 @@ ok "the chart is $name $version"
 export HELM_REPOSITORY_CONFIG="$work/repositories.yaml" HELM_REPOSITORY_CACHE="$work/helm-cache"
 values="$ROOT/argo-cd/instances/_example/values/core/$name.yaml"
 [ -f "$values" ] || fail "no example values for $name ($values)"
-helm template example "$package" -f "$values" >/dev/null 2>"$work/err" \
+app_args "$values" 2>"$work/err" || fail "the example's manager does not render: $(head -c 300 "$work/err")"
+helm template example "$package" "${args[@]}" >/dev/null 2>"$work/err" \
   || fail "the chart does not render with the example instance: $(head -c 300 "$work/err")"
 ok "renders with the example instance without a Helm repository"

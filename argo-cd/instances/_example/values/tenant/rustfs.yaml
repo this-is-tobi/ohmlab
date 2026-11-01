@@ -22,12 +22,3 @@ rustfs:
     enabled: false
   dataPersistence:
     size: 250Gi
-
-vso:
-  vaultStaticSecrets:
-    rustfsOidc:
-      mount: example
-      path: platforms/production/tenant/rustfs
-    rustfsAdmin:
-      mount: example
-      path: platforms/production/tenant/rustfs

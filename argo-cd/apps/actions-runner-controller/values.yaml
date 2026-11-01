@@ -33,12 +33,16 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by actions-runner-controller).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/actions-runner-controller{{ end }}'
   vaultStaticSecrets:
     # GitHub App credentials, in the keys the runner scale sets expect. The
     # Vault path holds githubApp.{id,installationId,privateKey}.
     githubApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: actions-runner-controller-vso-default
       refreshAfter: 1h

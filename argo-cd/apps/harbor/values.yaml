@@ -163,10 +163,14 @@ vso:
       address: "https://vault.vault-operator-system.svc.cluster.local:8200"
       skipTLSVerify: false
       caCertSecretRef: vault-tls
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by harbor).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/harbor{{ end }}'
   vaultStaticSecrets:
     harborAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: harbor-vso-default
       refreshAfter: 1h
@@ -185,8 +189,6 @@ vso:
             password:
               text: '{{ get .Secrets "admin" | dig "password" "" }}'
     harborSecretkey:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: harbor-vso-default
       refreshAfter: 1h
@@ -203,8 +205,6 @@ vso:
             secretKey:
               text: '{{ get .Secrets "admin" | dig "secretKey" "" }}'
     harborS3:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: harbor-vso-default
       refreshAfter: 1h
@@ -231,8 +231,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "s3" | dig "region" "" }}'
     harborDbInfos:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: harbor-vso-default
       refreshAfter: 1h
@@ -253,8 +251,6 @@ vso:
             DB_PORT:
               text: '{{ get .Secrets "postgres" | dig "port" "" }}'
     harborDbAdmin:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: harbor-vso-default
       refreshAfter: 1h
@@ -273,8 +269,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "admin" "password" "" }}'
     harborDbApp:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: harbor-vso-default
       refreshAfter: 1h
@@ -293,8 +287,6 @@ vso:
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
     harborPgBackup:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: harbor-vso-default
       refreshAfter: 1h
@@ -321,8 +313,6 @@ vso:
             S3_REGION:
               text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
     harborSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: harbor-vso-default
       refreshAfter: 1h

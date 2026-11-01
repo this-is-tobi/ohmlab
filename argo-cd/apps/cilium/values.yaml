@@ -65,12 +65,16 @@ vso:
   # vaultConnectionRef, so VSO uses the operator's `default` connection
   # (vault-operator-system, CA from vault-tls); a second one would only
   # duplicate it.
+  # The mount and path of each secret that sets none: the ones the manager
+  # gives this app's tier (global.ohmlab.vault.mount, and
+  # global.ohmlab.vault.pathPrefix followed by hubble).
+  vaultStaticSecretDefaults:
+    mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/hubble{{ end }}'
   vaultStaticSecrets:
     # Keys match what the oauth2-proxy chart's `existingSecret` support
     # expects verbatim (same pattern as longhorn's longhornSso).
     hubbleSso:
-      mount: ""
-      path: ""
       type: kv-v2
       vaultAuthRef: cilium-vso-default
       refreshAfter: 1h
