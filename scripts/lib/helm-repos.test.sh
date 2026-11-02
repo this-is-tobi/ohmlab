@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Exercises vendor_dependencies from scripts/lib/helm-repos.sh with a stubbed
-# helm: every chart is built without refreshing the indexes again, several at a
-# time but never more than asked, transient failures are retried, and a chart
-# that cannot be built is reported without stopping the others.
+# Exercises scripts/lib/helm-repos.sh with a stubbed helm. vendor_dependencies:
+# every chart is built without refreshing the indexes again, several at a time
+# but never more than asked, transient failures are retried, and a chart that
+# cannot be built is reported without stopping the others. add_dependency_repos:
+# every http(s) repository is added once, a second call over other charts in the
+# same helm configuration (a pull request and then its base) adds what is new.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -17,8 +19,16 @@ export RETRY_DELAY=0
 
 # helm stub: records its arguments and how many builds run at the same time.
 # CHART_FAILS=<name>:<n> makes the chart <name> fail its first <n> builds.
+# `repo add` keeps helm's rule: adding a name again is skipped for the same URL
+# and refused for another one.
 cat >"$dir/bin/helm" <<'STUB'
 #!/usr/bin/env bash
+if [ "$1 $2" = "repo add" ]; then
+  known=$(awk -v n="$3" '$1 == n { print $2 }' "$STUB_DIR/repos" 2>/dev/null)
+  [ -n "$known" ] || { echo "$3 $4" >>"$STUB_DIR/repos"; exit 0; }
+  [ "$known" = "$4" ] && exit 0
+  echo "Error: repository name ($3) already exists, please specify a different name" >&2; exit 1
+fi
 [ "$1 $2" = "dependency build" ] || exit 0
 chart=${*: -1}; name=$(basename "$chart")
 echo "$*" >>"$STUB_DIR/calls"
@@ -77,4 +87,29 @@ vendor_dependencies "$dir/logs" "${two[@]}"; check "a rerun in the same director
 reset
 vendor_dependencies "$dir/logs"; check "no chart is not an error" "0" "$?"
 check "...and helm is not run" "no" "$([ -e "$dir/stub/calls" ] && echo yes || echo no)"
+
+# deps <name> <repository>...: writes a chart depending on each repository and
+# prints its Chart.yaml. added: the URLs the stub was given, sorted.
+deps() {
+  local chart="$dir/deps/$1" repo
+  shift
+  mkdir -p "$chart"
+  {
+    printf 'apiVersion: v2\nname: %s\nversion: 0.1.0\ndependencies:\n' "$(basename "$chart")"
+    for repo in "$@"; do printf -- '- name: x\n  version: 1.0.0\n  repository: %s\n' "$repo"; done
+  } >"$chart/Chart.yaml"
+  printf '%s/Chart.yaml\n' "$chart"
+}
+added() { awk '{ print $2 }' "$dir/stub/repos" 2>/dev/null | sort | paste -sd' ' -; }
+
+reset
+add_dependency_repos "$(deps one https://a.example/charts https://b.example)" "$(deps two https://b.example oci://registry.example/charts https://c.example/)"; rc=$?
+check "the repositories of the charts are added" "0" "$rc"
+check "...every http(s) one once, and no OCI one" "https://a.example/charts https://b.example https://c.example/" "$(added)"
+
+reset
+add_dependency_repos "$(deps head https://a.example https://c.example)"
+add_dependency_repos "$(deps base https://a.example https://b.example https://c.example)"; rc=$?
+check "a second call over other charts succeeds" "0" "$rc"
+check "...and adds the repository the first one did not" "https://a.example https://b.example https://c.example" "$(added)"
 exit "$fail"

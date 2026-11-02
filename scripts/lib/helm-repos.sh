@@ -19,11 +19,14 @@ retry() {
 # add_dependency_repos <Chart.yaml>...: `helm repo add` every http(s) repository
 # the charts depend on, then refresh the indexes. `helm dependency build` fails
 # for a repository that is not added first (OCI repositories need nothing).
+# A repository is named after a checksum of its URL: helm skips adding a name
+# again with the same URL but refuses it with another one, and a second call
+# over other charts in the same helm configuration (a pull request, then its
+# base) must find each URL under the name it already has.
 add_dependency_repos() {
-  local i=0 repo
+  local repo
   while IFS= read -r repo; do
-    i=$((i + 1))
-    retry 3 helm repo add "repo$i" "$repo" >/dev/null
+    retry 3 helm repo add "repo-$(printf '%s' "$repo" | cksum | cut -d' ' -f1)" "$repo" >/dev/null
   done < <(yq -N '.dependencies[]?.repository' "$@" 2>/dev/null | grep '^http' | sort -u)
   retry 3 helm repo update >/dev/null
 }
