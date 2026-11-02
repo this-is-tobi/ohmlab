@@ -13,10 +13,11 @@ GATE_CATALOG="\${{ contains(fromJSON(needs.release.outputs.paths-released), 'arg
 VERSION_UTILS="\${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}"
 VERSION_CATALOG="\${{ fromJSON(needs.release.outputs.release-outputs)['argo-cd/apps--version'] }}"
 
-# config <path>... -> the packages of a config; argo-cd/apps is released as
-# `simple`, with the version file that type updates
+# config <path>... -> the packages of a config, and a manifest listing the same
+# ones; argo-cd/apps is released as `simple`, with the version file that type
+# updates
 config() {
-  local p out='' sep=''
+  local p out='' versions='' sep=''
   rm -rf "$dir/argo-cd"
   for p in "$@"; do
     if [ "$p" = argo-cd/apps ]; then
@@ -26,9 +27,11 @@ config() {
     else
       out="$out$sep\"$p\": {\"release-type\": \"go\"}"
     fi
+    versions="$versions$sep\"$p\": \"0.0.0\""
     sep=','
   done
   printf '{"packages": {%s}}\n' "$out" >"$dir/config.json"
+  printf '{%s}\n' "$versions" >"$dir/.release-please-manifest.json"
 }
 
 # workflow <job yaml>... -> a workflow with the release job plus the given jobs
@@ -203,5 +206,26 @@ check "a version file named by version-file is the one that must exist" 1
 has "the finding names the configured file" "argo-cd/apps/VERSION"
 echo 0.0.0 >"$dir/argo-cd/apps/VERSION"
 check "the configured version file is enough" 0
+
+# release-please counts a package without a manifest entry as never released
+# and opens its first release again; an entry without a package is the other
+# half of a package renamed in one of the two files only.
+config utils argo-cd/apps
+workflow "$utils_image" "$utils_attest" "$utils_binaries" "$catalog_build" "$catalog_attest"
+jq 'del(.utils)' "$dir/.release-please-manifest.json" >"$dir/manifest.next" && mv "$dir/manifest.next" "$dir/.release-please-manifest.json"
+check "a package without a manifest entry is refused" 1
+has "the finding names the package" "'utils' is a package of"
+
+config utils argo-cd/apps
+workflow "$utils_image" "$utils_attest" "$utils_binaries" "$catalog_build" "$catalog_attest"
+jq '.cli = "0.0.0"' "$dir/.release-please-manifest.json" >"$dir/manifest.next" && mv "$dir/manifest.next" "$dir/.release-please-manifest.json"
+check "a manifest entry that is no package is refused" 1
+has "the finding names the path" "'cli' has an entry in"
+
+config utils argo-cd/apps
+workflow "$utils_image" "$utils_attest" "$utils_binaries" "$catalog_build" "$catalog_attest"
+rm "$dir/.release-please-manifest.json"
+check "a missing manifest is refused" 1
+has "the finding names the manifest" "release-please-manifest.json does not exist"
 
 exit "$fail"
