@@ -4,7 +4,7 @@ coder:
       type: ClusterIP
     ingress:
       enable: true
-      className: nginx
+      className: traefik
       host: ""
       wildcardHost: "*."
       annotations:

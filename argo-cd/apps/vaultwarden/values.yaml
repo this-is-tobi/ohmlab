@@ -32,7 +32,7 @@ vaultwarden:
   invitationOrgName: ""
   ingress:
     enabled: true
-    class: nginx
+    class: traefik
     nginxIngressAnnotations: false
     additionalAnnotations:
       cert-manager.io/cluster-issuer: letsencrypt-dns-prod

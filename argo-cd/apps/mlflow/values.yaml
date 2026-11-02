@@ -1,7 +1,7 @@
 mlflow:
   ingress:
     enabled: true
-    className: nginx
+    className: traefik
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-dns-prod
       traefik.ingress.kubernetes.io/router.middlewares: mlflow-oauth2-proxy@kubernetescrd

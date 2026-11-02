@@ -24,7 +24,7 @@ harbor:
     ingress:
       hosts:
         core: ""
-      className: nginx
+      className: traefik
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-dns-prod
   externalURL: ""

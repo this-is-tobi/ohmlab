@@ -70,7 +70,7 @@
 # Tier-flexible apps  [IMPORTANT]
 # -----------------------------------------------------------------------------
 # Some apps are needed on whichever cluster runs the workloads — typically:
-#   longhorn, cert-manager, ingress-nginx, apisix, cilium, vault, keycloak,
+#   longhorn, cert-manager, apisix, cilium, vault, keycloak,
 #   teleport, prometheus-stack, crowdsec.
 #
 # These are listed BOTH in core.yaml AND in tenant.yaml (disabled in both, with
@@ -166,10 +166,6 @@ apps:
   enabled: "false"
   syncWave: 10
 
-  # [TIER-FLEXIBLE] Ingress controller — terminates TLS and routes external traffic.
-- app: ingress-nginx
-  enabled: "false"
-  syncWave: 10
   # [TIER-FLEXIBLE] Traefik v3 — recommended ingress + Gateway API implementation
   # (stateless, Kubernetes-API-only config).
 - app: traefik

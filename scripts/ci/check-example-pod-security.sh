@@ -48,8 +48,6 @@ tenant/teleport Job/teleport-auth-test pod-security-restricted
 tenant/teleport Job/teleport-proxy-test pod-security-restricted
 # Containers without CPU and memory limits (Audit).
 core/apisix Deployment/apisix-ingress-controller require-resource-limits
-core/ingress-nginx Job/ingress-nginx-admission-create require-resource-limits
-core/ingress-nginx Job/ingress-nginx-admission-patch require-resource-limits
 core/ohmlab Deployment/argocd-redis require-resource-limits
 core/prometheus-stack Job/prometheus-stack-kube-prom-admission-create require-resource-limits
 core/prometheus-stack Job/prometheus-stack-kube-prom-admission-patch require-resource-limits

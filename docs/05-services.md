@@ -302,7 +302,7 @@ The main Kyverno policies guarding admissions (see
 | Policy                    | Action  | Notes                                                                                          |
 | ------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
 | `pod-security-baseline`   | Enforce | PSS baseline; infra namespaces needing hostPath excluded                                       |
-| `require-non-root`        | Enforce | runAsNonRoot; nginx/log-reader namespaces excluded                                             |
+| `require-non-root`        | Enforce | runAsNonRoot; infra namespaces whose pods need root excluded (crowdsec, longhorn, ...)         |
 | `disallow-latest-tag`     | Enforce | `:latest` blocked; `kube-system` and `kyverno` excluded                                        |
 | `require-resource-limits` | Audit   | stays Audit — blocking operator-created pods unexpectedly is worse than a report               |
 | `verify-images`           | Enforce | this repo's images must be signed by its release workflow, with provenance naming this repo    |

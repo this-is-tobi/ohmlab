@@ -106,7 +106,7 @@ check "a Secret the chart renders and VSO writes is refused" 1 "$(secret s k; vs
 check "it passes once Argo CD leaves VSO its fields and the data" 0 "$(secret s k; vss s k)" "$leaves_vso"
 check "it is still refused with only the data ignored, as VSO's labels drift" 1 "$(secret s k; vss s k)" "$data_only"
 check "two VaultStaticSecrets writing one Secret are refused" 1 "$(VSS_NAME=one vss s k; VSS_NAME=two vss s j)"
-check "a Secret its app creates at runtime is known by name" 0 "$(reads ingress-nginx-admission cert)" "[]" core/ingress-nginx
-check "that name is known to its own app only" 1 "$(reads ingress-nginx-admission cert)" "[]" tenant/other
+check "a Secret its app creates at runtime is known by name" 0 "$(reads prometheus-stack-kube-prom-admission cert)" "[]" core/prometheus-stack
+check "that name is known to its own app only" 1 "$(reads prometheus-stack-kube-prom-admission cert)" "[]" tenant/other
 
 exit "$fail"

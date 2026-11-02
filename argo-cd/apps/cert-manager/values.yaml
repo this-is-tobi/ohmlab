@@ -63,7 +63,7 @@ scaleway-certmanager-webhook:
 defaultWildcard:
   enabled: true
   dnsZone: ""
-  ingressNamespace: ingress-nginx
+  ingressNamespace: traefik
   secretName: default-wildcard-tls
   issuerRef:
     kind: ClusterIssuer

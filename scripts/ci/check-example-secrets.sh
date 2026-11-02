@@ -27,7 +27,6 @@ EXAMPLE="$ROOT/argo-cd/instances/_example"
 # than renders: "<tier>/<app> <Secret>", one per line.
 RUNTIME='core/ohmlab argocd-redis
 tenant/argo-cd argocd-redis
-core/ingress-nginx ingress-nginx-admission
 core/prometheus-stack prometheus-stack-kube-prom-admission'
 
 # check_stream <tier>/<app> <ignoreDifferences JSON>: reads the app's

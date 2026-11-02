@@ -142,7 +142,7 @@ crowdsec:
       operator: Exists
       effect: NoSchedule
 
-  # -- AppSec WAF: inspects HTTP requests forwarded by ingress-nginx
+  # -- AppSec WAF: inspects the HTTP requests an ingress controller's CrowdSec bouncer forwards to it
   appsec:
     enabled: false
     acquisitions:
