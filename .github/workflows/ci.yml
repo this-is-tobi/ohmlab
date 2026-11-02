@@ -509,10 +509,14 @@ jobs:
     with:
       LOG_OPTS: ${{ format('{0}..{1}', github.event.pull_request.base.sha, github.sha) }}
 
+  # Renovate writes the commit header itself, and for a docker tag that is a
+  # timestamped version it passes 100 characters on its own.
   lint-commits:
     uses: this-is-tobi/github-workflows/.github/workflows/lint-commits.yml@v0
     permissions:
       contents: read
+    with:
+      MAX_SUBJECT_LENGTH: 120
 
   # The single check to require in branch protection: path-gated jobs that
   # were skipped count as passed.
