@@ -3,6 +3,19 @@ apisix:
 
   replicaCount: 2
 
+  # The image's own user, `apisix` (636), by number: runAsNonRoot cannot verify
+  # a name. The root filesystem stays writable, the entrypoint generates
+  # conf/nginx.conf there.
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+    runAsNonRoot: true
+    runAsUser: 636
+    runAsGroup: 636
+    seccompProfile:
+      type: RuntimeDefault
+
   service:
     type: LoadBalancer
     http:
@@ -35,6 +48,24 @@ apisix:
 
   ingress-controller:
     enabled: true
+    # The manager runs as 65532 and the ADC sidecar as root unless told
+    # otherwise: both as 65532, since the chart's one container context covers
+    # the two. The pod context merges with the chart's own fsGroup.
+    deployment:
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
     config:
       apisix:
         adminAPIVersion: v3
