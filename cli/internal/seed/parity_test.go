@@ -12,8 +12,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/this-is-tobi/ohmlab/utils/internal/secretgen"
-	"github.com/this-is-tobi/ohmlab/utils/internal/vault"
+	"github.com/this-is-tobi/ohmlab/cli/internal/secretgen"
+	"github.com/this-is-tobi/ohmlab/cli/internal/vault"
 )
 
 // Parity: the engine the controller runs must leave Vault in the state the CLI

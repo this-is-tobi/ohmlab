@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	vaultclient "github.com/this-is-tobi/ohmlab/utils/internal/vault"
+	vaultclient "github.com/this-is-tobi/ohmlab/cli/internal/vault"
 )
 
 var identityCmd = &cobra.Command{
