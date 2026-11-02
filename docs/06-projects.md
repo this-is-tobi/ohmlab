@@ -150,7 +150,7 @@ The user-facing ArgoCD instance lives at <https://gitops.\<your-domain\>> (in na
 
 ### Authoring CI workflows
 
-- [Gitea Actions runners](https://about.gitea.com/) are deployed cluster-wide via [actions-runner-controller](https://github.com/actions/actions-runner-controller).
+- [GitHub Actions](https://docs.github.com/actions) self-hosted runners are deployed via [actions-runner-controller](https://github.com/actions/actions-runner-controller), one runner scale set per repository, organization or enterprise. They run in its `kubernetes-novolume` mode, every pod as a non-root user: a job runs in the runner pod, or in a pod of its own when it declares a `container`. A job image or service container that needs root fails, `sudo` does not work, and there is no Docker daemon, so build images on GitHub-hosted runners or with a daemonless builder.
 - [Argo Workflows](https://argoproj.github.io/workflows/) is available for batch / DAG-style pipelines.
 
 ## Contributor

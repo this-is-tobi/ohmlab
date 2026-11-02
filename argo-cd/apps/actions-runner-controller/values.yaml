@@ -4,15 +4,205 @@ arc-controller:
   labels: {}
   serviceAccount:
     name: actions-runner-controller-sa
+  # The image's own user (distroless nonroot); the chart gives /tmp an emptyDir.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 
 # One runner scale set per dependency alias of Chart.yaml; configure them in
 # the instance values (see argo-cd/instances/_example). Each one authenticates
 # with the GitHub App Secret delivered from Vault (vso.vaultStaticSecrets.githubApp).
+# Runners run in kubernetes-novolume mode, every pod non-root: a job runs in
+# the runner pod, or in a pod of its own when it declares a container (created
+# by the runner's container hook, see hookTemplate below). No pod is
+# privileged, so there is no Docker daemon: build images on GitHub-hosted
+# runners or with a daemonless builder.
 runner-group-001:
   githubConfigSecret: github-app
+  containerMode:
+    type: kubernetes-novolume
+  # The listener pod the controller runs for the scale set, from the
+  # controller's image.
+  listenerTemplate:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: listener
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
+  template:
+    spec:
+      # The runner image's own user.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: runner
+        # Pin a version: the Kyverno policy refuses the latest tag.
+        image: ghcr.io/actions/actions-runner:2.337.0
+        command:
+        - /home/runner/run.sh
+        env:
+        # A job that declares no container runs in the runner pod rather than
+        # failing.
+        - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+          value: "false"
+        - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
+          value: /home/runner/hook-template/job-pod.yaml
+        volumeMounts:
+        - name: hook-template
+          mountPath: /home/runner/hook-template
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "2"
+            memory: 4Gi
+      volumes:
+      - name: hook-template
+        configMap:
+          name: runner-hook-template
 
 runner-group-002:
   githubConfigSecret: github-app
+  containerMode:
+    type: kubernetes-novolume
+  # The listener pod the controller runs for the scale set, from the
+  # controller's image.
+  listenerTemplate:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: listener
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
+  template:
+    spec:
+      # The runner image's own user.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: runner
+        # Pin a version: the Kyverno policy refuses the latest tag.
+        image: ghcr.io/actions/actions-runner:2.337.0
+        command:
+        - /home/runner/run.sh
+        env:
+        # A job that declares no container runs in the runner pod rather than
+        # failing.
+        - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+          value: "false"
+        - name: ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE
+          value: /home/runner/hook-template/job-pod.yaml
+        volumeMounts:
+        - name: hook-template
+          mountPath: /home/runner/hook-template
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "2"
+            memory: 4Gi
+      volumes:
+      - name: hook-template
+        configMap:
+          name: runner-hook-template
+
+# The template the runners' container hook applies to the pods it creates for
+# container jobs and steps (templates/hook-template.yaml): its pod fields
+# replace the hook's and `$job` stands for the job container (ADR 0134 of
+# actions/runner-container-hooks). Job and service containers run as the
+# runner's user: an image that needs root fails, as require-non-root refuses
+# its pod.
+hookTemplate:
+  spec:
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1001
+      runAsGroup: 1001
+      seccompProfile:
+        type: RuntimeDefault
+    containers:
+    - name: $job
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: "2"
+          memory: 4Gi
 
 vso:
   extraObjects:

@@ -34,7 +34,6 @@ KNOWN_DEFAULT='
 # privileged container (pod-security-baseline), both Enforce.
 core/apisix Deployment/apisix require-non-root
 core/apisix Deployment/apisix-ingress-controller require-non-root
-tenant/actions-runner-controller Deployment/actions-runner-controller-gha-rs-controller require-non-root
 tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-baseline
 tenant/teleport Deployment/teleport-auth require-non-root
 tenant/teleport Deployment/teleport-proxy require-non-root
@@ -42,7 +41,6 @@ tenant/teleport Job/teleport-auth-test require-non-root
 tenant/teleport Job/teleport-proxy-test require-non-root
 # Tenant pods short of the restricted profile, which stays Audit until every
 # tenant chart meets it.
-tenant/actions-runner-controller Deployment/actions-runner-controller-gha-rs-controller pod-security-restricted
 tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-restricted
 tenant/teleport Deployment/teleport-auth pod-security-restricted
 tenant/teleport Deployment/teleport-proxy pod-security-restricted
@@ -57,7 +55,6 @@ core/prometheus-stack Job/prometheus-stack-kube-prom-admission-create require-re
 core/prometheus-stack Job/prometheus-stack-kube-prom-admission-patch require-resource-limits
 core/vault Deployment/vault-agent-injector require-resource-limits
 core/vault StatefulSet/vault require-resource-limits
-tenant/actions-runner-controller Deployment/actions-runner-controller-gha-rs-controller require-resource-limits
 tenant/argo-workflows Deployment/argo-workflows-server require-resource-limits
 tenant/argo-workflows Deployment/argo-workflows-workflow-controller require-resource-limits
 tenant/argo-workflows Job/argo-workflows-crd-install require-resource-limits

@@ -100,7 +100,7 @@ apps:
   namespace: argo-cd
   syncWave: 100
 
-  # Gitea Actions self-hosted runners controller.
+  # GitHub Actions self-hosted runners controller.
 - app: actions-runner-controller
   enabled: "false"
   syncWave: 110
