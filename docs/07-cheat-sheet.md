@@ -2,8 +2,8 @@
 
 ## ohmlab CLI
 
-The Go CLI in [utils/](../utils/) ships operational commands (built as
-`ghcr.io/this-is-tobi/ohmlab/cli`, or `go run .` from `utils/`):
+The Go CLI in [cli/](../cli/) ships operational commands (built as
+`ghcr.io/this-is-tobi/ohmlab/cli`, or `go run .` from `cli/`):
 
 ```sh
 # Read-only platform health sweep: nodes, ArgoCD apps, VSO secret sync,

@@ -24,7 +24,7 @@ that is the one call the controller makes to remove a path (it removes every
 version and the metadata), and only when the chart allows deletion. The same
 two stanzas cover the system mount, then the instance's when it is another
 one, or only ohmlab.controller.kvMount when set.
-utils/internal/seed/testdata/controller-policy*.hcl hold the text for one mount,
+cli/internal/seed/testdata/controller-policy*.hcl hold the text for one mount,
 and scripts/ci/check-controller-policy.sh keeps the two equal.
 */}}
 {{- define "vault-operator.controllerPolicy" -}}
