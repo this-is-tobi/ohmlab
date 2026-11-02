@@ -15,6 +15,13 @@ vault:
     # Drive probes / injector / service scheme from TLS state.
     tlsDisable: false
   server:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
     extraEnvironmentVars:
       VAULT_CACERT: /vault/userconfig/vault-server-tls/ca.crt
     volumes:
@@ -96,5 +103,12 @@ vault:
       enabled: true
   injector:
     replicas: 3
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
     metrics:
       enabled: true

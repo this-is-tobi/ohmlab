@@ -37,12 +37,6 @@ tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-baseline
 # tenant chart meets it.
 tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-restricted
 # Containers without CPU and memory limits (Audit).
-core/apisix Deployment/apisix-ingress-controller require-resource-limits
-core/ohmlab Deployment/argocd-redis require-resource-limits
-core/prometheus-stack Job/prometheus-stack-kube-prom-admission-create require-resource-limits
-core/prometheus-stack Job/prometheus-stack-kube-prom-admission-patch require-resource-limits
-core/vault Deployment/vault-agent-injector require-resource-limits
-core/vault StatefulSet/vault require-resource-limits
 tenant/argo-workflows Deployment/argo-workflows-server require-resource-limits
 tenant/argo-workflows Deployment/argo-workflows-workflow-controller require-resource-limits
 tenant/argo-workflows Job/argo-workflows-crd-install require-resource-limits

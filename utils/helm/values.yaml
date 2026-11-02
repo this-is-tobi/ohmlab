@@ -181,6 +181,14 @@ argo-cd:
           cpu: "1"
           memory: 64Mi
   redis:
+    # The Deployment that runs when redis-ha is off (a bootstrap on one node).
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
     metrics:
       enabled: true
       serviceMonitor:

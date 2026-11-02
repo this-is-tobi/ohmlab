@@ -87,6 +87,16 @@ kube-prometheus-stack:
       limits:
         cpu: 500m
         memory: 512Mi
+    # The create and patch Jobs of the admission webhook, which share this block.
+    admissionWebhooks:
+      patch:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
     # Applies to the config-reloader (init + sidecar) in prometheus/alertmanager pods.
     # Idle almost always but bursty on reload: a 100m quota throttled it
     # for most of its CFS periods (CPUThrottlingHigh), so the limit only

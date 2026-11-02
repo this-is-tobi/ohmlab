@@ -92,6 +92,10 @@ A Helm chart to deploy ohmlab.
 | argo-cd.redis-ha.splitBrainDetection.resources.requests.memory | string | `"32Mi"` |  |
 | argo-cd.redis.metrics.enabled | bool | `true` |  |
 | argo-cd.redis.metrics.serviceMonitor.enabled | bool | `true` |  |
+| argo-cd.redis.resources.limits.cpu | string | `"250m"` |  |
+| argo-cd.redis.resources.limits.memory | string | `"256Mi"` |  |
+| argo-cd.redis.resources.requests.cpu | string | `"50m"` |  |
+| argo-cd.redis.resources.requests.memory | string | `"64Mi"` |  |
 | argo-cd.redisSecretInit.resources.limits.cpu | string | `"200m"` |  |
 | argo-cd.redisSecretInit.resources.limits.memory | string | `"128Mi"` |  |
 | argo-cd.redisSecretInit.resources.requests.cpu | string | `"10m"` |  |
