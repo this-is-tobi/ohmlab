@@ -14,8 +14,8 @@ import (
 	"gopkg.in/yaml.v3"
 	sigsyaml "sigs.k8s.io/yaml"
 
-	v1alpha1 "github.com/this-is-tobi/ohmlab/utils/api/v1alpha1"
-	"github.com/this-is-tobi/ohmlab/utils/internal/seed"
+	v1alpha1 "github.com/this-is-tobi/ohmlab/cli/api/v1alpha1"
+	"github.com/this-is-tobi/ohmlab/cli/internal/seed"
 )
 
 var validateCmd = &cobra.Command{

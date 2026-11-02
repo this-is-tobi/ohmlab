@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/this-is-tobi/ohmlab/utils/internal/secretgen"
-	"github.com/this-is-tobi/ohmlab/utils/internal/vault"
+	"github.com/this-is-tobi/ohmlab/cli/internal/secretgen"
+	"github.com/this-is-tobi/ohmlab/cli/internal/vault"
 )
 
 // KV is the part of Vault the engine uses. *vault.Client implements it.

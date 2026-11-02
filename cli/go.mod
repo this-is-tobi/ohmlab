@@ -1,4 +1,4 @@
-module github.com/this-is-tobi/ohmlab/utils
+module github.com/this-is-tobi/ohmlab/cli
 
 go 1.26.0
 

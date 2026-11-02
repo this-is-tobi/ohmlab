@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/this-is-tobi/ohmlab/utils/cmd/sonarqube"
+	"github.com/this-is-tobi/ohmlab/cli/cmd/sonarqube"
 )
 
 func init() {
