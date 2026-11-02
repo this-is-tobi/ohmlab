@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.11.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.10.0...catalog-v0.11.0) (2026-11-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* an instance that lists ingress-nginx must drop the entry (moving to traefik or apisix if it is enabled) before taking this catalog revision: the entry would point at a chart that no longer exists, which validate-instance.yml refuses. An app whose Ingress relied on the nginx class default now gets traefik's.
+
+### Features
+
+* drop ingress-nginx from the catalog ([d3a3a76](https://github.com/this-is-tobi/ohmlab/commit/d3a3a768109dac6447fc34c8258c515d078c3cb4))
+* **trivy-operator:** run infra assessment, its node-collector held to what it needs ([19aad49](https://github.com/this-is-tobi/ohmlab/commit/19aad49782a650c00906ec678e3e1f32c62ed82e))
+
+
+### Bug Fixes
+
+* **actions-runner-controller:** run the controller, listeners, runners and job pods non-root ([565291b](https://github.com/this-is-tobi/ohmlab/commit/565291b909438483a1f9648351f876e03ad0a2c5))
+* **apisix:** run the gateway and the ingress controller with its ADC sidecar as non-root users ([d04d33d](https://github.com/this-is-tobi/ohmlab/commit/d04d33d2952444cb287a31146ac2c654efad8375))
+* **deps:** update ghcr.io/actions/actions-runner docker tag to v2.338.2 ([ccb46a7](https://github.com/this-is-tobi/ohmlab/commit/ccb46a7d602bf02b3a90d141883ef1fdf167ff2a))
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.4.0 ([3142b3d](https://github.com/this-is-tobi/ohmlab/commit/3142b3df1b2c60abaa2bef366203f7be705d1321))
+* **deps:** update helm release homepage to v0.2.0 ([beb83f2](https://github.com/this-is-tobi/ohmlab/commit/beb83f206ec707454c98811e3ddb8d5fa2be6eaa))
+* **deps:** update helm release loki to v20.2.1 ([6f904ac](https://github.com/this-is-tobi/ohmlab/commit/6f904acb775f581259cc88f842c47e0f88f71778))
+* **deps:** update helm release traefik to v42.2.0 ([db6b89c](https://github.com/this-is-tobi/ohmlab/commit/db6b89c24a405ce18a22ef863f402e5825ff09e5))
+* **deps:** update helm release trivy-operator to v0.38.1 ([e147018](https://github.com/this-is-tobi/ohmlab/commit/e147018ba64ddee5e3d02274bef5342868ff5e8d))
+* **deps:** update keycloak docker tag to v0.22.0 ([12b6e28](https://github.com/this-is-tobi/ohmlab/commit/12b6e284ed9b848574aad84dfe4f9303e302fa50))
+* **deps:** update kube-prometheus-stack docker tag to v92.17.0 ([8942910](https://github.com/this-is-tobi/ohmlab/commit/8942910f39a9a49509b8bfca0d2b4645c135ad26))
+* give argo-workflows, harbor, the mlflow proxy and sonarqube's init containers limits ([c77c687](https://github.com/this-is-tobi/ohmlab/commit/c77c687b2e2ab629f8edad47cd99463c057cbf2b))
+* give argo-workflows, mlflow, outline and coder the restricted pod profile ([2e2e0db](https://github.com/this-is-tobi/ohmlab/commit/2e2e0db190d8627efa3084a2ff70e034b545ceef))
+* give argocd-redis, the Prometheus admission Jobs, vault and the apisix controller limits ([e8f6046](https://github.com/this-is-tobi/ohmlab/commit/e8f6046554ca839feae8bd5d127f9e4b0e18a59b))
+* **mlflow:** give oauth2-proxy its credentials from Vault through existingSecret ([3529a08](https://github.com/this-is-tobi/ohmlab/commit/3529a081461b485961f56beb247ae268037c98c6))
+* **rustfs:** run RustFS under the container runtime's default seccomp profile ([3531516](https://github.com/this-is-tobi/ohmlab/commit/35315169fb2bc94571a7fe109f232bb5646f04d0))
+* say lanOnly.sourceRange is required when lanOnly itself is null ([e8891c6](https://github.com/this-is-tobi/ohmlab/commit/e8891c696fc9b4faf0a3a2837d940faa39401620))
+* **sonarqube:** drop the privileged sysctl init container, run the webapp download non-root ([e4b7d2d](https://github.com/this-is-tobi/ohmlab/commit/e4b7d2d792d936d21648c0f65a0210d568a15797))
+* **teleport:** run the auth server, proxies and config-check Jobs as the image's non-root user ([1b171dd](https://github.com/this-is-tobi/ohmlab/commit/1b171dd9ec0caa3e671181de66c41ee133ac86ab))
+* **trivy-operator:** run the operator and its scans non-root, against one shared database ([fe036d9](https://github.com/this-is-tobi/ohmlab/commit/fe036d9210cf87a45f049fe103c577d7e49bdd41))
+* **vault-operator:** scrape the bank-vaults operator and the Vault Secrets Operator ([fd06a5f](https://github.com/this-is-tobi/ohmlab/commit/fd06a5f1f312dac7437c99a1ded1bfc9b0310059))
+* **vaultwarden:** give the chart its values, a Postgres cluster and the restricted pod profile ([e982423](https://github.com/this-is-tobi/ohmlab/commit/e982423640c6dc73d9339b9c3dd1065663204434))
+
 ## [0.10.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.9.1...catalog-v0.10.0) (2026-11-01)
 
 
