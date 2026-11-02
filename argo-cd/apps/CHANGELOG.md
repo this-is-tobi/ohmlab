@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.12.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.11.0...catalog-v0.12.0) (2026-11-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ohmlab:** the chart is no longer at utils/helm. An instance whose core.yaml gives the ohmlab app chartPath: utils/helm, or reads the chart from a catalog bundle by that path, now uses charts/ohmlab.
+
+### Bug Fixes
+
+* **deps:** update ghcr.io/cloudnative-pg/postgresql docker tag to v17.11-202611020810-standard-trixie ([95853fc](https://github.com/this-is-tobi/ohmlab/commit/95853fc99d00e013d010f10b7e582c2065cf2a0c))
+* **kyverno:** bind the pod spec of the trivy exception without cel.bind ([d6e1759](https://github.com/this-is-tobi/ohmlab/commit/d6e1759c8f779f41aaa2673dd1eb94f55d4b9603))
+
+
+### Code Refactoring
+
+* **ohmlab:** move the bootstrap chart to charts/ohmlab ([c6c6630](https://github.com/this-is-tobi/ohmlab/commit/c6c663071ea73c727daca26de35f00b8fb99dd42))
+
 ## [0.11.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.10.0...catalog-v0.11.0) (2026-11-02)
 
 
