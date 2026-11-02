@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.4.1...chart-v0.4.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* give argocd-redis, the Prometheus admission Jobs, vault and the apisix controller limits ([e8f6046](https://github.com/this-is-tobi/ohmlab/commit/e8f6046554ca839feae8bd5d127f9e4b0e18a59b))
+
 ## [0.4.1](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.4.0...chart-v0.4.1) (2026-11-02)
 
 
