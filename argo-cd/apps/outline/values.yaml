@@ -4,7 +4,7 @@ outline:
     tag: 1.12.0
   ingress:
     enabled: true
-    className: nginx
+    className: traefik
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-dns-prod
     hosts:

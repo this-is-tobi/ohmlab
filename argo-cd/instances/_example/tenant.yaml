@@ -20,7 +20,7 @@
 # Tier-flexible apps  [IMPORTANT]
 # -----------------------------------------------------------------------------
 # Some cluster-infra apps are listed BOTH here and in core.yaml — typically:
-#   longhorn, cert-manager, ingress-nginx, apisix, cilium, vault, keycloak,
+#   longhorn, cert-manager, apisix, cilium, vault, keycloak,
 #   teleport, prometheus-stack, crowdsec.
 #
 # Pick ONE tier per instance and enable the app there; leave the other side
@@ -42,11 +42,6 @@ apps:
 
   # [TIER-FLEXIBLE] X.509 certificate management.
 - app: cert-manager
-  enabled: "false"
-  syncWave: 85
-
-  # [TIER-FLEXIBLE] Ingress controller — terminates TLS and routes external traffic.
-- app: ingress-nginx
   enabled: "false"
   syncWave: 85
 
