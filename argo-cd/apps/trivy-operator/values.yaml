@@ -6,6 +6,7 @@ trivy-operator:
     metricsExposedSecretInfo: true
     metricsConfigAuditInfo: true
     metricsRbacAssessmentInfo: true
+    metricsInfraAssessmentInfo: true
     metricsImageInfo: true
     metricsClusterComplianceInfo: true
     # Scans share one vulnerability database through the built-in Trivy server
@@ -18,12 +19,13 @@ trivy-operator:
     # Each image's SBOM is kept (a ClusterSbomReport, about 0.5 MiB in etcd), so
     # a rescan reads it rather than pulling the image again.
     clusterSbomCacheEnabled: true
-    # Off: node-collector knows only kubeadm's layout (its one spec is
-    # k8s-cis-1.23), so on k3s it evaluates no check at all, even as root. It
-    # still needs the host's PID namespace and paths, which
-    # pod-security-baseline refuses, and its mounts create the missing kubeadm
-    # directories on every node.
-    infraAssessmentScannerEnabled: false
+    # node-collector's Jobs need the host's PID namespace and host paths: the
+    # kyverno chart admits them through its trivy-node-collector-baseline
+    # exception, which holds them to their image, read-only host paths and no
+    # other host namespace. Its one spec is kubeadm's (k8s-cis-1.23), so on k3s
+    # it evaluates no check, and its mounts create the kubeadm directories it
+    # reads where a node lacks them.
+    infraAssessmentScannerEnabled: true
   serviceMonitor:
     enabled: true
   # The operator image's own user, declared so that require-non-root admits it.

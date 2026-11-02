@@ -278,3 +278,227 @@ spec:
   containers:
   - image: nginx:1.27
     name: a
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-collector-6fbc4cc977-h26k8
+  namespace: trivy-operator
+spec:
+  hostPID: true
+  containers:
+  - name: node-collector
+    image: ghcr.io/aquasecurity/node-collector:0.3.1
+    volumeMounts:
+    - name: var-lib-kubelet
+      mountPath: /var/lib/kubelet
+      readOnly: true
+    - name: etc-kubernetes
+      mountPath: /etc/kubernetes
+      readOnly: true
+  volumes:
+  - name: var-lib-kubelet
+    hostPath:
+      path: /var/lib/kubelet
+  - name: etc-kubernetes
+    hostPath:
+      path: /etc/kubernetes
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-collector-hostnetwork
+  namespace: trivy-operator
+spec:
+  hostPID: true
+  hostNetwork: true
+  containers:
+  - name: node-collector
+    image: ghcr.io/aquasecurity/node-collector:0.3.1
+    volumeMounts:
+    - name: var-lib-kubelet
+      mountPath: /var/lib/kubelet
+      readOnly: true
+  volumes:
+  - name: var-lib-kubelet
+    hostPath:
+      path: /var/lib/kubelet
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-collector-writable
+  namespace: trivy-operator
+spec:
+  hostPID: true
+  containers:
+  - name: node-collector
+    image: ghcr.io/aquasecurity/node-collector:0.3.1
+    volumeMounts:
+    - name: var-lib-kubelet
+      mountPath: /var/lib/kubelet
+      readOnly: true
+    - name: etc-kubernetes
+      mountPath: /etc/kubernetes
+  volumes:
+  - name: var-lib-kubelet
+    hostPath:
+      path: /var/lib/kubelet
+  - name: etc-kubernetes
+    hostPath:
+      path: /etc/kubernetes
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-collector-other-image
+  namespace: trivy-operator
+spec:
+  hostPID: true
+  containers:
+  - name: node-collector
+    image: docker.io/library/busybox:1.37
+    volumeMounts:
+    - name: var-lib-kubelet
+      mountPath: /var/lib/kubelet
+      readOnly: true
+  volumes:
+  - name: var-lib-kubelet
+    hostPath:
+      path: /var/lib/kubelet
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-collector-sidecar
+  namespace: trivy-operator
+spec:
+  hostPID: true
+  containers:
+  - name: node-collector
+    image: ghcr.io/aquasecurity/node-collector:0.3.1
+    volumeMounts:
+    - name: var-lib-kubelet
+      mountPath: /var/lib/kubelet
+      readOnly: true
+  - name: b
+    image: nginx:1.27
+  volumes:
+  - name: var-lib-kubelet
+    hostPath:
+      path: /var/lib/kubelet
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-collector-wrong-ns
+  namespace: other
+spec:
+  hostPID: true
+  containers:
+  - name: node-collector
+    image: ghcr.io/aquasecurity/node-collector:0.3.1
+    volumeMounts:
+    - name: var-lib-kubelet
+      mountPath: /var/lib/kubelet
+      readOnly: true
+  volumes:
+  - name: var-lib-kubelet
+    hostPath:
+      path: /var/lib/kubelet
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scan-vulnerabilityreport-6fbc4cc977
+  namespace: trivy-operator
+spec:
+  hostPID: true
+  containers:
+  - name: node-collector
+    image: ghcr.io/aquasecurity/node-collector:0.3.1
+    volumeMounts:
+    - name: var-lib-kubelet
+      mountPath: /var/lib/kubelet
+      readOnly: true
+  volumes:
+  - name: var-lib-kubelet
+    hostPath:
+      path: /var/lib/kubelet
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: node-collector-6fbc4cc977
+  namespace: trivy-operator
+spec:
+  template:
+    metadata:
+      labels:
+        app: node-collector
+    spec:
+      restartPolicy: Never
+      hostPID: true
+      containers:
+      - name: node-collector
+        image: ghcr.io/aquasecurity/node-collector:0.3.1
+        volumeMounts:
+        - name: var-lib-kubelet
+          mountPath: /var/lib/kubelet
+          readOnly: true
+      volumes:
+      - name: var-lib-kubelet
+        hostPath:
+          path: /var/lib/kubelet
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: node-collector-hostnetwork-job
+  namespace: trivy-operator
+spec:
+  template:
+    metadata:
+      labels:
+        app: node-collector
+    spec:
+      restartPolicy: Never
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: node-collector
+        image: ghcr.io/aquasecurity/node-collector:0.3.1
+        volumeMounts:
+        - name: var-lib-kubelet
+          mountPath: /var/lib/kubelet
+          readOnly: true
+      volumes:
+      - name: var-lib-kubelet
+        hostPath:
+          path: /var/lib/kubelet
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-collector-hostipc
+  namespace: trivy-operator
+spec:
+  hostPID: true
+  hostIPC: true
+  containers:
+  - name: node-collector
+    image: ghcr.io/aquasecurity/node-collector:0.3.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: node-collector-init-other-image
+  namespace: trivy-operator
+spec:
+  hostPID: true
+  initContainers:
+  - name: setup
+    image: docker.io/library/busybox:1.37
+  containers:
+  - name: node-collector
+    image: ghcr.io/aquasecurity/node-collector:0.3.1

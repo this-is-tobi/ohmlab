@@ -209,8 +209,6 @@ jobs:
         run: scripts/ci/test-ohmlab-controller-chart.sh
       - name: Test the vault-operator chart's monitors
         run: scripts/ci/test-vault-operator-chart.sh
-      - name: Test the settings trivy-operator builds its scan pods from
-        run: scripts/ci/test-trivy-operator-chart.sh
       - name: Check that the controller's Vault policy is the one the tests run under
         run: scripts/ci/check-controller-policy.sh
       - name: Validate the VaultSeed objects each instance would deploy
@@ -267,6 +265,8 @@ jobs:
           scripts/ci/check-no-legacy-kyverno.test.sh
       - name: Unit-test the CEL policies
         run: scripts/ci/test-kyverno-policies.sh
+      - name: Test the pods trivy-operator creates at runtime
+        run: scripts/ci/test-trivy-operator-chart.sh
       - name: Check that the example's pods pass the kyverno chart's pod policies
         run: |
           scripts/ci/check-example-pod-security.test.sh
