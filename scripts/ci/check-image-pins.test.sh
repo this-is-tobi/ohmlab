@@ -41,8 +41,10 @@ check "a pin in an instance values file is checked too" 1 \
   argo-cd/instances/i/values/core/x.yaml
 check "a tree without pins passes" 0 \
   "$(tree nopins 'ghcr.io/this-is-tobi/ohmlab/*' argo-cd/apps/x/values.yaml '')"
-check "a pin matching only the old wildcard passes while it is listed" 0 \
-  "$(tree old 'ghcr.io/this-is-tobi/homelab/*,ghcr.io/this-is-tobi/ohmlab/*' argo-cd/apps/x/values.yaml "ghcr.io/this-is-tobi/homelab/ohmlab-controller:0.3.0@$digest")"
+check "a pin matching only the first of two listed wildcards passes" 0 \
+  "$(tree first 'ghcr.io/this-is-tobi/mirror/*,ghcr.io/this-is-tobi/ohmlab/*' argo-cd/apps/x/values.yaml "ghcr.io/this-is-tobi/mirror/mattermost:12.0.1@$digest")"
+check "a pin matching only the last of two listed wildcards passes" 0 \
+  "$(tree last 'ghcr.io/this-is-tobi/mirror/*,ghcr.io/this-is-tobi/ohmlab/*' argo-cd/apps/x/values.yaml "ghcr.io/this-is-tobi/ohmlab/controller:0.4.0@$digest")"
 check "an image without a digest is ignored" 0 \
   "$(tree nodigest 'ghcr.io/this-is-tobi/ohmlab/*' argo-cd/instances/i/values/tenant/x.yaml 'ghcr.io/this-is-tobi/tools/gh-runner:1.5.0')"
 
