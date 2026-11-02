@@ -35,17 +35,9 @@ KNOWN_DEFAULT='
 core/apisix Deployment/apisix require-non-root
 core/apisix Deployment/apisix-ingress-controller require-non-root
 tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-baseline
-tenant/teleport Deployment/teleport-auth require-non-root
-tenant/teleport Deployment/teleport-proxy require-non-root
-tenant/teleport Job/teleport-auth-test require-non-root
-tenant/teleport Job/teleport-proxy-test require-non-root
 # Tenant pods short of the restricted profile, which stays Audit until every
 # tenant chart meets it.
 tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-restricted
-tenant/teleport Deployment/teleport-auth pod-security-restricted
-tenant/teleport Deployment/teleport-proxy pod-security-restricted
-tenant/teleport Job/teleport-auth-test pod-security-restricted
-tenant/teleport Job/teleport-proxy-test pod-security-restricted
 # Containers without CPU and memory limits (Audit).
 core/apisix Deployment/apisix-ingress-controller require-resource-limits
 core/ohmlab Deployment/argocd-redis require-resource-limits
