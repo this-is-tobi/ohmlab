@@ -91,6 +91,15 @@ sonarqube:
   extraVolumeMounts:
   - name: webapp
     mountPath: /opt/sonarqube/web
+  # The chart's init containers (they copy files and fetch the plugin jars).
+  initContainers:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
   extraInitContainers:
   - name: download-webapp
     image: docker.io/busybox:1.38
@@ -104,6 +113,13 @@ sonarqube:
       runAsGroup: 0
       seccompProfile:
         type: RuntimeDefault
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
     volumeMounts:
     - name: webapp
       mountPath: /web
