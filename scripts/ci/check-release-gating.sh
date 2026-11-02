@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Check the release setup of cd.yml against release-please-config.json.
 #
-#   check-release-gating.sh [release-please-config.json [workflow.yml]]
+#   check-release-gating.sh [release-please-config.json [workflow.yml [manifest.json]]]
 #
 # The release job answers for every package of release-please-config.json at
 # once, and `releases-created` is true when any one of them was released. A job
@@ -19,11 +19,18 @@
 # A package released as `simple` also needs its version file in the repository:
 # release-please only updates one that exists, so without it the release PR
 # carries a changelog and no version, and the published artifact cannot say
-# which version it is. Needs yq and jq.
+# which version it is.
+#
+# The manifest lists the same packages as the config. A package missing from it
+# counts as never released: release-please opens its first release again
+# instead of continuing from the last one, which is what a package renamed in
+# the config only would get. An entry that names no package is the same
+# mistake seen from the other file. Needs yq and jq.
 set -euo pipefail
 
 CONFIG=${1:-release-please-config.json}
 WORKFLOW=${2:-.github/workflows/cd.yml}
+MANIFEST=${3:-$(dirname "$CONFIG")/.release-please-manifest.json}
 
 packages=$(jq -c '[.packages | keys[]]' "$CONFIG")
 jobs=$(yq -o=json '.jobs' "$WORKFLOW")
@@ -93,5 +100,24 @@ while IFS=$'\t' read -r path file; do
   fi
 done < <(jq -r '.packages | to_entries[] | select(.value["release-type"] == "simple") | [.key, (.value["version-file"] // "version.txt")] | @tsv' "$CONFIG")
 
-[ "$fail" = 0 ] && say "ok   every package release runs only its own jobs and has what its release type updates"
+if [ ! -f "$MANIFEST" ]; then
+  say "FAIL $MANIFEST does not exist: release-please needs the version each package was last released at"
+  fail=1
+else
+  entries=$(jq -c 'keys' "$MANIFEST")
+  for path in $(jq -r '.[]' <<<"$packages"); do
+    if ! jq -e --arg p "$path" 'index($p) != null' <<<"$entries" >/dev/null; then
+      say "FAIL '$path' is a package of $CONFIG but has no entry in $MANIFEST: release-please would release it as new instead of continuing from its last release"
+      fail=1
+    fi
+  done
+  for path in $(jq -r '.[]' <<<"$entries"); do
+    if ! jq -e --arg p "$path" 'index($p) != null' <<<"$packages" >/dev/null; then
+      say "FAIL '$path' has an entry in $MANIFEST but is not a package of $CONFIG: renamed in one of the two files only?"
+      fail=1
+    fi
+  done
+fi
+
+[ "$fail" = 0 ] && say "ok   every package release runs only its own jobs, has a manifest entry and has what its release type updates"
 exit "$fail"
