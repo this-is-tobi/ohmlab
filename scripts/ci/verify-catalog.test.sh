@@ -70,12 +70,12 @@ chmod +x "$dir/bin/"*
 bundle() {
   local root="$dir/tree"
   rm -rf "$root"
-  mkdir -p "$root/argo-cd/apps/foo" "$root/argo-cd/apps/bar/charts" "$root/utils/helm" "$root/argo-cd/instances/_example"
+  mkdir -p "$root/argo-cd/apps/foo" "$root/argo-cd/apps/bar/charts" "$root/charts/ohmlab" "$root/argo-cd/instances/_example"
   printf '%s\n' "$1" >"$root/argo-cd/apps/version.txt"
   printf 'apiVersion: v2\nname: foo\nversion: 0.1.0\n' >"$root/argo-cd/apps/foo/Chart.yaml"
   printf 'apiVersion: v2\nname: bar\nversion: 0.1.0\n' >"$root/argo-cd/apps/bar/Chart.yaml"
   printf 'dependencies: []\n' >"$root/argo-cd/apps/bar/Chart.lock"
-  printf 'apiVersion: v2\nname: ohmlab\nversion: 0.1.0\n' >"$root/utils/helm/Chart.yaml"
+  printf 'apiVersion: v2\nname: ohmlab\nversion: 0.1.0\n' >"$root/charts/ohmlab/Chart.yaml"
   [ "${2:-vendor}" = vendor ] || rmdir "$root/argo-cd/apps/bar/charts"
   tar -czf "$dir/layer.tar.gz" -C "$root" .
 }

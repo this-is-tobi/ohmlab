@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the catalog bundle: one tar.gz with the layout of this repository,
 # holding every chart of argo-cd/apps with its dependencies vendored (Chart.lock
-# is honoured), the ohmlab bootstrap chart (utils/helm) and the example instance.
+# is honoured), the ohmlab bootstrap chart (charts/ohmlab) and the example instance.
 # Argo CD renders an app straight from it with `path: argo-cd/apps/<chart>`, with
 # no access to any upstream chart repository.
 #
@@ -22,7 +22,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/scripts/lib/helm-repos.sh"
 
 out="${1:?usage: build-catalog.sh <output-dir>}"
-PATHS=(argo-cd/apps argo-cd/instances/_example utils/helm)
+PATHS=(argo-cd/apps argo-cd/instances/_example charts/ohmlab)
 
 die() { echo "build-catalog: $*" >&2; exit 1; }
 
@@ -40,10 +40,10 @@ git ls-files -z --cached --others --exclude-standard -- "${PATHS[@]}" \
 export HELM_REPOSITORY_CONFIG="$work/repositories.yaml"
 export HELM_REPOSITORY_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/ohmlab-catalog/helm"
 mkdir -p "$HELM_REPOSITORY_CACHE"
-add_dependency_repos "$stage"/argo-cd/apps/*/Chart.yaml "$stage/utils/helm/Chart.yaml"
+add_dependency_repos "$stage"/argo-cd/apps/*/Chart.yaml "$stage/charts/ohmlab/Chart.yaml"
 
 charts=()
-for chart in "$stage"/argo-cd/apps/*/ "$stage/utils/helm"; do
+for chart in "$stage"/argo-cd/apps/*/ "$stage/charts/ohmlab"; do
   chart="${chart%/}"
   [ -f "$chart/Chart.yaml" ] || continue
   yq -e '.dependencies | length > 0' "$chart/Chart.yaml" >/dev/null 2>&1 || continue

@@ -57,16 +57,16 @@ printf 'other: {}\n' >"$r/argo-cd/instances/_example/values/tenant/other.yaml"
 check "and fails on a key that chart does not read" 1 "$r" "'other'"
 
 r=$(tree path)
-mkdir -p "$r/utils/helm/templates"
-printf 'apiVersion: v2\nname: ohmlab\nversion: 0.1.0\ndependencies:\n- name: argo-cd\n  version: 1.0.0\n' >"$r/utils/helm/Chart.yaml"
-printf 'apps:\n- app: tools\n  chartPath: utils/helm\n' >"$r/argo-cd/instances/_example/tenant.yaml"
+mkdir -p "$r/charts/ohmlab/templates"
+printf 'apiVersion: v2\nname: ohmlab\nversion: 0.1.0\ndependencies:\n- name: argo-cd\n  version: 1.0.0\n' >"$r/charts/ohmlab/Chart.yaml"
+printf 'apps:\n- app: tools\n  chartPath: charts/ohmlab\n' >"$r/argo-cd/instances/_example/tenant.yaml"
 printf 'argo-cd: {}\n' >"$r/argo-cd/instances/_example/values/tenant/tools.yaml"
 check "an entry's chartPath is the chart it is checked against" 0 "$r"
 printf 'apps:\n- app: ohmlab\n' >"$r/argo-cd/instances/_example/tenant.yaml"
 printf 'argo-cd: {}\n' >"$r/argo-cd/instances/_example/values/tenant/ohmlab.yaml"
-check "the ohmlab app is checked against utils/helm without a chartPath" 0 "$r"
+check "the ohmlab app is checked against charts/ohmlab without a chartPath" 0 "$r"
 printf 'argocd: {}\n' >"$r/argo-cd/instances/_example/values/tenant/ohmlab.yaml"
-check "and fails on a key utils/helm does not read" 1 "$r" "'argocd'"
+check "and fails on a key charts/ohmlab does not read" 1 "$r" "'argocd'"
 
 r=$(tree missing)
 printf 'apps:\n- app: app\n- app: gone\n' >"$r/argo-cd/instances/_example/tenant.yaml"

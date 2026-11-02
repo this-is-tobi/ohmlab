@@ -8,7 +8,7 @@
 set -euo pipefail
 
 instance_dir="${1:?usage: ohmlab-chart.sh <instance-dir> [<local-chart-dir>]}"
-local_chart="${2:-utils/helm}"
+local_chart="${2:-charts/ohmlab}"
 core="$instance_dir/core.yaml"
 instance="$instance_dir/instance.yaml"
 

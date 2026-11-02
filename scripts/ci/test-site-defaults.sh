@@ -42,7 +42,7 @@ field() { yq e -r "$1" "$work/out.yaml" | grep -v '^$' | grep -v '^---$' | paste
 # it on its own; an instance that wants Git webhooks routes to it and admits
 # its gateway's namespace with an extraIngress rule.
 check "no chart template names a gateway namespace" "" \
-  "$(grep -rln 'kubernetes.io/metadata.name: traefik' "$ROOT"/argo-cd/apps/*/templates "$ROOT/utils/helm/templates" 2>/dev/null | sed "s#$ROOT/##" | paste -sd, -)"
+  "$(grep -rln 'kubernetes.io/metadata.name: traefik' "$ROOT"/argo-cd/apps/*/templates "$ROOT/charts/ohmlab/templates" 2>/dev/null | sed "s#$ROOT/##" | paste -sd, -)"
 
 webhook_ports='select(.kind == "NetworkPolicy") | .spec.ingress[]?.ports[]?.port | select(. == "webhook" or . == 7000)'
 appset_route='[{"name":"argocd-appset-webhook","hostnames":["appset.example.com"],"rules":[{"backendService":"argo-cd-argocd-applicationset-controller","backendPort":7000}]}]'
@@ -53,7 +53,7 @@ extra='[{"name":"appset-webhook","podSelector":{"matchLabels":{"app.kubernetes.i
 admits='select(.kind == "NetworkPolicy" and .metadata.name == "allow-extra-ingress-appset-webhook") | .spec.ingress[] | .from[].namespaceSelector.matchLabels["kubernetes.io/metadata.name"] + ":" + (.ports[].port | tostring)'
 render "$ROOT/argo-cd/apps/argo-cd" "$EXAMPLE/tenant/argo-cd.yaml" --set networkPolicy.enabled=true --set-json "networkPolicy.extraIngress=$extra"
 check "an instance opens the tenant webhook port with extraIngress" "gw:webhook" "$(field "$admits")"
-render "$ROOT/utils/helm" "$EXAMPLE/core/ohmlab.yaml" --set networkPolicy.enabled=true --set-json "networkPolicy.extraIngress=$extra"
+render "$ROOT/charts/ohmlab" "$EXAMPLE/core/ohmlab.yaml" --set networkPolicy.enabled=true --set-json "networkPolicy.extraIngress=$extra"
 check "an instance opens the core webhook port with extraIngress" "gw:webhook" "$(field "$admits")"
 
 # refuses <label> <message> <chart dir> <example values file> [<helm args>...]:

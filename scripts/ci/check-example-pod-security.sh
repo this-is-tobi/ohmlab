@@ -135,7 +135,7 @@ for tier in core tenant; do
     release=$(jq -r '.releaseName // .app' <<<"$entry")
     namespace=$(jq -r --arg default "$prefix$app$suffix" '.namespace // $default' <<<"$entry")
     dir="$ROOT/argo-cd/apps/$chart"
-    [ "$chart" = ohmlab ] && dir="$ROOT/utils/helm"
+    [ "$chart" = ohmlab ] && dir="$ROOT/charts/ohmlab"
     checked="$checked $tier/$app"
     if [ -f "$dir/Chart.lock" ] && [ ! -d "$dir/charts" ]; then
       helm dependency build "$dir" >/dev/null 2>&1 || { echo "FAIL $tier/$app: helm dependency build"; failures=$((failures + 1)); continue; }

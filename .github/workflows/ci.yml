@@ -24,7 +24,7 @@ jobs:
     with:
       GROUPS: >-
         {"utils": ["utils/*", "scripts/ci/utils-test-env*"],
-        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "utils/helm/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-site-defaults*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-example-secrets*", "scripts/ci/check-example-pod-security*", "scripts/ci/check-values-keys*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/test-vault-operator-chart*", "scripts/ci/test-trivy-operator-chart*", "scripts/ci/test-arc-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
+        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "charts/ohmlab/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-site-defaults*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-example-secrets*", "scripts/ci/check-example-pod-security*", "scripts/ci/check-values-keys*", "scripts/ci/check-vault-access*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/test-vault-operator-chart*", "scripts/ci/test-trivy-operator-chart*", "scripts/ci/test-arc-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
         "controller": ["utils/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/utils-test-env*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
@@ -112,7 +112,7 @@ jobs:
       - name: Add chart repositories from Chart.yaml dependencies
         run: |
           source scripts/lib/helm-repos.sh
-          add_dependency_repos utils/helm/Chart.yaml argo-cd/apps/*/Chart.yaml
+          add_dependency_repos charts/ohmlab/Chart.yaml argo-cd/apps/*/Chart.yaml
       - name: Lint, render and validate every chart
         run: |
           set -euo pipefail
@@ -122,7 +122,7 @@ jobs:
           # The dependencies of every chart are built first, several at a time:
           # fetching them one chart after the other is most of this step.
           locked=()
-          for chart in utils/helm argo-cd/apps/*/; do
+          for chart in charts/ohmlab argo-cd/apps/*/; do
             chart="${chart%/}"
             [ -f "$chart/Chart.lock" ] && locked+=("$chart")
           done
@@ -134,7 +134,7 @@ jobs:
             exit 1
           fi
           failures=0
-          for chart in utils/helm argo-cd/apps/*/; do
+          for chart in charts/ohmlab argo-cd/apps/*/; do
             chart="${chart%/}"
             [ -f "$chart/Chart.yaml" ] || continue
             name="$(basename "$chart")"
@@ -185,8 +185,8 @@ jobs:
           # `go install` leaves empty: stamp it like the upstream release does.
           go install -trimpath -ldflags "-s -w -X main.version=${HELM_DOCS_VERSION#v}" \
             "github.com/norwoodj/helm-docs/cmd/helm-docs@$HELM_DOCS_VERSION"
-          "$(go env GOPATH)/bin/helm-docs" --chart-search-root utils/helm
-          git diff --exit-code -- utils/helm/README.md
+          "$(go env GOPATH)/bin/helm-docs" --chart-search-root charts/ohmlab
+          git diff --exit-code -- charts/ohmlab/README.md
       - name: Check that every values key reaches a chart
         run: |
           scripts/ci/check-values-keys.test.sh
@@ -248,7 +248,7 @@ jobs:
         run: |
           shopt -s nullglob
           scripts/ci/check-dashboards.sh argo-cd/apps/*/dashboards/*.json \
-            argo-cd/apps/prometheus-stack/grafana-dashboards/*.json utils/helm/dashboards/*.json
+            argo-cd/apps/prometheus-stack/grafana-dashboards/*.json charts/ohmlab/dashboards/*.json
       - name: Install the Kyverno CLI
         env:
           KYVERNO_VERSION: 1.19.1

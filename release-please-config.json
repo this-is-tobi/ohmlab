@@ -10,12 +10,9 @@
       "component": "utils",
       "package-name": "ohmlab",
       "changelog-path": "CHANGELOG.md",
-      "initial-version": "0.1.0",
-      "exclude-paths": [
-        "utils/helm"
-      ]
+      "initial-version": "0.1.0"
     },
-    "utils/helm": {
+    "charts/ohmlab": {
       "release-type": "helm",
       "component": "chart",
       "package-name": "ohmlab",

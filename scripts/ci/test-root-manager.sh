@@ -6,7 +6,7 @@
 # dependencies must be built.
 set -uo pipefail
 
-CHART="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/utils/helm}"
+CHART="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/charts/ohmlab}"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0

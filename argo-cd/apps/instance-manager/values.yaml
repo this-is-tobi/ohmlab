@@ -77,7 +77,7 @@ namespaceSuffix: ""
 # and converge by retry.
 #
 # OPT-IN because it needs the alpha ApplicationSetProgressiveSyncs feature
-# gate on the ArgoCD instance (utils/helm values set
+# gate on the ArgoCD instance (charts/ohmlab values set
 # `applicationsetcontroller.enable.progressive.syncs: true`) and it changes
 # rollout behaviour: the AppSet controller drives each step's sync itself
 # and turns `syncPolicy.automated` off on the generated Applications (prune

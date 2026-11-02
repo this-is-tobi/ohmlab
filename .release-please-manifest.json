@@ -1,1 +1,1 @@
-{"argo-cd/apps":"0.11.0","utils":"0.4.0","utils/helm":"0.4.2"}
+{"argo-cd/apps":"0.11.0","utils":"0.4.0","charts/ohmlab":"0.4.2"}

@@ -27,8 +27,10 @@ ansible/secrets/
 *.dec.yaml.*
 *.enc.yaml.*
 
-# Helm charts (packaged or source)
+# Vendored chart dependencies and packaged charts, but not the root charts/
+# directory, which holds the bootstrap chart
 **/charts/
+!/charts/
 **/tmpcharts*/
 
 # Helm secret local values

@@ -34,11 +34,10 @@ if [ "${1:-}" = "--stdin" ]; then
 fi
 
 failures=0
-for chart in "$ROOT/utils/helm" "$ROOT"/argo-cd/apps/*/; do
+for chart in "$ROOT/charts/ohmlab" "$ROOT"/argo-cd/apps/*/; do
   chart="${chart%/}"
   [ -f "$chart/Chart.yaml" ] || continue
   name="$(basename "$chart")"
-  [ "$name" = helm ] && name=ohmlab
   [ "$name" = instance-manager ] && continue
 
   args=()
