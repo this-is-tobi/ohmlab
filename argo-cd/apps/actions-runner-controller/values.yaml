@@ -73,7 +73,7 @@ runner-group-001:
       containers:
       - name: runner
         # Pin a version: the Kyverno policy refuses the latest tag.
-        image: ghcr.io/actions/actions-runner:2.337.0
+        image: ghcr.io/actions/actions-runner:2.338.2
         command:
         - /home/runner/run.sh
         env:
@@ -144,7 +144,7 @@ runner-group-002:
       containers:
       - name: runner
         # Pin a version: the Kyverno policy refuses the latest tag.
-        image: ghcr.io/actions/actions-runner:2.337.0
+        image: ghcr.io/actions/actions-runner:2.338.2
         command:
         - /home/runner/run.sh
         env:
