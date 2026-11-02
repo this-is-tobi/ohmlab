@@ -1,6 +1,7 @@
 arc-controller: {}
 
 # Runner scale sets, keyed by the dependency aliases of the chart (runner-group-001 and runner-group-002).
+# Their mode, runner image and pod settings come from the chart; set what is the instance's here.
 runner-group-001:
   runnerScaleSetName: example-001
   # The repository, organization or enterprise the runners register to.
@@ -12,24 +13,6 @@ runner-group-001:
   controllerServiceAccount:
     namespace: actions-runner-controller
     name: actions-runner-controller-sa
-  containerMode:
-    type: dind # dind or kubernetes
-    # the following is required when containerMode.type=kubernetes
-    kubernetesModeWorkVolumeClaim:
-      accessModes:
-      - ReadWriteOnce
-      storageClassName: ""
-      resources:
-        requests:
-          storage: 5Gi
-  template:
-    spec:
-      containers:
-      - name: runner
-        # Pin a version: the Kyverno policy refuses the latest tag.
-        image: ghcr.io/actions/actions-runner:2.337.0
-        command:
-        - /home/runner/run.sh
 
 runner-group-002:
   runnerScaleSetName: example-002
@@ -42,21 +25,3 @@ runner-group-002:
   controllerServiceAccount:
     namespace: actions-runner-controller
     name: actions-runner-controller-sa
-  containerMode:
-    type: dind # dind or kubernetes
-    # the following is required when containerMode.type=kubernetes
-    kubernetesModeWorkVolumeClaim:
-      accessModes:
-      - ReadWriteOnce
-      storageClassName: ""
-      resources:
-        requests:
-          storage: 5Gi
-  template:
-    spec:
-      containers:
-      - name: runner
-        # Pin a version: the Kyverno policy refuses the latest tag.
-        image: ghcr.io/actions/actions-runner:2.337.0
-        command:
-        - /home/runner/run.sh

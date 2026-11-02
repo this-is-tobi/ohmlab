@@ -1,0 +1,13 @@
+{{- with .Values.hookTemplate }}
+# The template the runners' container hook applies to the pods it creates for
+# container jobs and steps: the runners read it from this ConfigMap through
+# ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: runner-hook-template
+  namespace: {{ $.Release.Namespace }}
+data:
+  job-pod.yaml: |
+    {{- toYaml . | nindent 4 }}
+{{- end }}
