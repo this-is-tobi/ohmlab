@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.4.2...chart-v0.5.0) (2026-11-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ohmlab:** the chart is no longer at utils/helm. An instance whose core.yaml gives the ohmlab app chartPath: utils/helm, or reads the chart from a catalog bundle by that path, now uses charts/ohmlab.
+
+### Code Refactoring
+
+* **ohmlab:** move the bootstrap chart to charts/ohmlab ([c6c6630](https://github.com/this-is-tobi/ohmlab/commit/c6c663071ea73c727daca26de35f00b8fb99dd42))
+
 ## [0.4.2](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.4.1...chart-v0.4.2) (2026-11-02)
 
 
