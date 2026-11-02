@@ -16,7 +16,13 @@
   (dict "name" "system-upgrade-jobs-root-limits"
         "reason" "The same Jobs run as root (the installer writes to the host root) and the Plan API has no resources field, so their containers can never set runAsNonRoot or limits."
         "policies" (list "require-non-root" "require-resource-limits") "kinds" (list "Pod" "Job")
-        "ns" "system-upgrade" "prefix" "apply-" "allowed" (list)) }}
+        "ns" "system-upgrade" "prefix" "apply-" "allowed" (list))
+  (dict "name" "trivy-node-collector-baseline"
+        "reason" "trivy-operator's infra assessment runs a node-collector Job on every node, which reads the node's configuration through host paths and its processes through the host PID namespace. Exempt exactly those two baseline controls, for node-collector Jobs and pods whose every container runs the node-collector image, with neither the host network nor the host IPC namespace and every host path mounted read-only."
+        "policies" (list "pod-security-baseline") "kinds" (list "Pod" "Job")
+        "ns" "trivy-operator" "prefix" "node-collector-"
+        "allowed" (list "host-namespaces" "host-path-volumes")
+        "confined" `(spec.containers + spec.?initContainers.orValue([])).all(c, c.image.startsWith('ghcr.io/aquasecurity/node-collector:') || c.image.startsWith('ghcr.io/aquasecurity/node-collector@')) && !spec.?hostNetwork.orValue(false) && !spec.?hostIPC.orValue(false) && spec.?volumes.orValue([]).filter(v, has(v.hostPath)).all(v, (spec.containers + spec.?initContainers.orValue([])).all(c, c.?volumeMounts.orValue([]).filter(m, m.name == v.name).all(m, m.?readOnly.orValue(false))))`) }}
 {{- range $e := $exceptions }}
 ---
 apiVersion: policies.kyverno.io/v1
@@ -42,4 +48,12 @@ spec:
       object.kind in {{ $e.kinds | toJson }} &&
       object.metadata.namespace == {{ $e.ns | quote }} &&
       object.metadata.name.startsWith({{ $e.prefix | quote }})
+  {{- with $e.confined }}
+  # What the exempted pods must still look like, `spec` being the pod spec of
+  # the Pod or of the Job's template.
+  - name: confined
+    expression: >-
+      cel.bind(spec, object.kind == "Pod" ? object.spec : object.spec.template.spec,
+      {{ . }})
+  {{- end }}
 {{- end }}

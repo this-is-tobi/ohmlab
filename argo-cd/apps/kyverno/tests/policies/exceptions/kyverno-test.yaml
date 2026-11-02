@@ -111,3 +111,69 @@ results:
   resources:
   - other-in-rustfs
   result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - node-collector-6fbc4cc977-h26k8
+  result: pass
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - node-collector-hostnetwork
+  result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - node-collector-writable
+  result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - node-collector-other-image
+  result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - node-collector-sidecar
+  result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - node-collector-wrong-ns
+  result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - scan-vulnerabilityreport-6fbc4cc977
+  result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Job
+  resources:
+  - node-collector-6fbc4cc977
+  result: pass
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Job
+  resources:
+  - node-collector-hostnetwork-job
+  result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - node-collector-hostipc
+  result: fail
+- policy: pod-security-baseline
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - node-collector-init-other-image
+  result: fail
