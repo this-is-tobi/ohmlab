@@ -31,18 +31,8 @@ EXAMPLE="$ROOT/argo-cd/instances/_example"
 # its line is removed. POD_SECURITY_KNOWN replaces the list.
 KNOWN_DEFAULT='
 # Containers without CPU and memory limits (Audit).
-tenant/argo-workflows Deployment/argo-workflows-server require-resource-limits
-tenant/argo-workflows Deployment/argo-workflows-workflow-controller require-resource-limits
-tenant/argo-workflows Job/argo-workflows-crd-install require-resource-limits
-tenant/harbor Deployment/harbor-core require-resource-limits
-tenant/harbor Deployment/harbor-exporter require-resource-limits
-tenant/harbor Deployment/harbor-jobservice require-resource-limits
-tenant/harbor Deployment/harbor-portal require-resource-limits
-tenant/harbor Deployment/harbor-registry require-resource-limits
-tenant/harbor StatefulSet/harbor-redis require-resource-limits
+# The mlflow chart has no resources key for its dbchecker init container.
 tenant/mlflow Deployment/mlflow require-resource-limits
-tenant/mlflow Deployment/mlflow-sso require-resource-limits
-tenant/sonarqube StatefulSet/sonarqube-sonarqube require-resource-limits
 # An image from a registry off the allowlist (Audit).
 core/apisix StatefulSet/apisix-etcd restrict-image-registries
 '

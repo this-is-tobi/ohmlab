@@ -7,6 +7,13 @@ argo-workflows:
     workflowNamespaces:
     - argo-workflows
     replicas: 3
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
     serviceMonitor:
       enabled: true
     # Pod Security restricted wants a seccomp profile set: the container
@@ -16,6 +23,13 @@ argo-workflows:
         type: RuntimeDefault
   server:
     replicas: 3
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
     podSecurityContext:
       seccompProfile:
         type: RuntimeDefault
@@ -68,6 +82,14 @@ argo-workflows:
   crds:
     install: true
     keep: true
+    upgradeJob:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
 
 vso:
   extraObjects:
