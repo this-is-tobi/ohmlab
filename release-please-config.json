@@ -5,9 +5,9 @@
   "separate-pull-requests": true,
   "always-update": true,
   "packages": {
-    "utils": {
+    "cli": {
       "release-type": "go",
-      "component": "utils",
+      "component": "cli",
       "package-name": "ohmlab",
       "changelog-path": "CHANGELOG.md",
       "initial-version": "0.1.0"

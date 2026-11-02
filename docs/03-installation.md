@@ -440,7 +440,7 @@ Merging the PR is the upgrade: it starts in the next window, or right away if me
 Kubernetes does not support skipping a minor version, so Renovate opens one PR per minor, and minor bumps wait for approval on the dependency dashboard (patch bumps open on their own, after a week of soak). Before approving a minor:
 
 1. Check that every chart deployed on the cluster supports the new Kubernetes minor.
-2. In the same PR, bump by hand `KUBECTL_VERSION` in `utils/Dockerfile` and `controller.job.kubectlImage` in `argo-cd/apps/system-upgrade/values.yaml` to that minor (Renovate only moves their patch version).
+2. In the same PR, bump by hand `KUBECTL_VERSION` in `cli/Dockerfile` and `controller.job.kubectlImage` in `argo-cd/apps/system-upgrade/values.yaml` to that minor (Renovate only moves their patch version).
 
 ### Kubernetes application updates
 
@@ -452,7 +452,7 @@ Three parts are released from this repository, each with its own version, releas
 
 | Part | Published as | Git tag | Changelog |
 |---|---|---|---|
-| `ohmlab` CLI (`utils/`) | binaries on the GitHub release, image `ghcr.io/this-is-tobi/ohmlab/cli:X.Y.Z` | `vX.Y.Z` | `utils/CHANGELOG.md` |
+| `ohmlab` CLI (`cli/`) | binaries on the GitHub release, image `ghcr.io/this-is-tobi/ohmlab/cli:X.Y.Z` | `vX.Y.Z` | `cli/CHANGELOG.md` |
 | bootstrap chart (`charts/ohmlab`) | `oci://ghcr.io/this-is-tobi/charts/ohmlab`, version `X.Y.Z` | `chart-vX.Y.Z` | `charts/ohmlab/CHANGELOG.md` |
 | catalog (`argo-cd/apps`) | `oci://ghcr.io/this-is-tobi/ohmlab/catalog:X.Y.Z` | `catalog-vX.Y.Z` | `argo-cd/apps/CHANGELOG.md` |
 

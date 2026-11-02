@@ -60,8 +60,8 @@ jobs:
       - uses: azure/setup-helm@v5
       - uses: actions/setup-go@v7
         with:
-          go-version-file: ohmlab/utils/go.mod
-          cache-dependency-path: ohmlab/utils/go.sum
+          go-version-file: ohmlab/cli/go.mod
+          cache-dependency-path: ohmlab/cli/go.sum
       - uses: actions/checkout@v7
         if: inputs.base-ref != ''
         with:

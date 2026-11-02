@@ -22,7 +22,7 @@
       "groupName": "kyverno"
     },
     {
-      "description": "One release of utils/ publishes both images (the CLI toolbox and the controller): bump their pins in one change",
+      "description": "One release of cli/ publishes both images (the CLI toolbox and the controller): bump their pins in one change",
       "matchPackageNames": [
         "ghcr.io/this-is-tobi/ohmlab/cli",
         "ghcr.io/this-is-tobi/ohmlab/controller"
@@ -43,7 +43,7 @@
       ]
     },
     {
-      "description": "kubectl (utils/Dockerfile, the system-upgrade Job image) tracks the cluster's k3s minor \u2014 only patch bumps automatically, minors are bumped by hand together with the k3s version",
+      "description": "kubectl (cli/Dockerfile, the system-upgrade Job image) tracks the cluster's k3s minor \u2014 only patch bumps automatically, minors are bumped by hand together with the k3s version",
       "matchDepNames": [
         "kubernetes/kubernetes",
         "docker.io/rancher/kubectl"
@@ -77,7 +77,7 @@
       "prBodyNotes": [
         "#### Kubernetes minor checklist",
         "- [ ] every chart deployed on the cluster supports the new Kubernetes minor",
-        "- [ ] bump by hand `KUBECTL_VERSION` in `utils/Dockerfile` and `controller.job.kubectlImage` in `argo-cd/apps/system-upgrade/values.yaml` to the same minor"
+        "- [ ] bump by hand `KUBECTL_VERSION` in `cli/Dockerfile` and `controller.job.kubectlImage` in `argo-cd/apps/system-upgrade/values.yaml` to the same minor"
       ]
     },
     {
@@ -189,9 +189,9 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Pinned tool versions in utils/Dockerfile ARGs",
+      "description": "Pinned tool versions in cli/Dockerfile ARGs",
       "managerFilePatterns": [
-        "/^utils/Dockerfile$/"
+        "/^cli/Dockerfile$/"
       ],
       "matchStrings": [
         "ARG VAULT_VERSION=(?<currentValue>[0-9.]+)"
@@ -203,7 +203,7 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "/^utils/Dockerfile$/"
+        "/^cli/Dockerfile$/"
       ],
       "matchStrings": [
         "ARG KUBECTL_VERSION=(?<currentValue>v[0-9.]+)"
@@ -214,7 +214,7 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "/^utils/Dockerfile$/"
+        "/^cli/Dockerfile$/"
       ],
       "matchStrings": [
         "ARG HELM_VERSION=(?<currentValue>v[0-9.]+)"

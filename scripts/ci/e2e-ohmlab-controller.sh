@@ -12,7 +12,7 @@
 #                  (default ohmlab-controller:e2e)
 #   VAULT_IMAGE    the Vault image, preloaded when possible (default:
 #                  mirror.gcr.io/hashicorp/vault at the VAULT_VERSION of
-#                  utils/Dockerfile)
+#                  cli/Dockerfile)
 #   KIND_CLUSTER   the kind cluster to use; it is created when it does not exist
 #   KEEP           set to keep the cluster afterwards
 #   E2E_EXISTING_CLUSTER
@@ -27,14 +27,14 @@ IMAGE="${IMAGE:-ohmlab-controller:e2e}"
 # The Vault the toolbox image is built with, so there is one version to bump,
 # from the Docker Hub mirror the Dockerfile already pulls its base images from:
 # an anonymous pull straight from Docker Hub is rate limited on shared runners.
-VAULT_IMAGE="${VAULT_IMAGE:-mirror.gcr.io/hashicorp/vault:$(sed -n 's/^ARG VAULT_VERSION=//p' "$ROOT/utils/Dockerfile")}"
+VAULT_IMAGE="${VAULT_IMAGE:-mirror.gcr.io/hashicorp/vault:$(sed -n 's/^ARG VAULT_VERSION=//p' "$ROOT/cli/Dockerfile")}"
 CLUSTER="${KIND_CLUSTER:-ohmlab-e2e}"
 CTX="kind-$CLUSTER"
 NS_VAULT=vault-operator-system
 NS_CTL=ohmlab-system
 SA=ohmlab-controller-vault
-POLICY="$ROOT/utils/internal/seed/testdata/controller-policy.hcl"
-POLICY_DELETE="$ROOT/utils/internal/seed/testdata/controller-policy-allow-delete.hcl"
+POLICY="$ROOT/cli/internal/seed/testdata/controller-policy.hcl"
+POLICY_DELETE="$ROOT/cli/internal/seed/testdata/controller-policy-allow-delete.hcl"
 VAULT_TOKEN_ROOT=root
 
 k() { kubectl --context "$CTX" "$@"; }

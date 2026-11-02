@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The ohmlab controller's Vault policy lives in two places: the vault-operator
 # chart renders it into the Vault CR, and the Go tests (and the kind e2e) run the
-# controller under a copy in utils/internal/seed/testdata. A test that passes on
+# controller under a copy in cli/internal/seed/testdata. A test that passes on
 # a policy the cluster does not have proves nothing, so the two must be the same
 # text, comments aside. The Kubernetes-auth role that carries the policy is
 # checked too: bound to the controller's ServiceAccount and the token audience
@@ -14,7 +14,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CHART="$ROOT/argo-cd/apps/vault-operator"
-TESTDATA="$ROOT/utils/internal/seed/testdata"
+TESTDATA="$ROOT/cli/internal/seed/testdata"
 
 # normalize drops comments, blank lines and indentation, so only the policy remains.
 normalize() { sed -e 's/#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed -e '/^$/d'; }

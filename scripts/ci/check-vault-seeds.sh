@@ -6,14 +6,14 @@
 #
 #   check-vault-seeds.sh
 #
-# Needs helm and Go (it runs the CLI from utils/).
+# Needs helm and Go (it runs the CLI from cli/).
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=scripts/lib/instances.sh
 source "$ROOT/scripts/lib/instances.sh"
 failures=0
-(cd "$ROOT/utils" && go build -o "${TMPDIR:-/tmp}/ohmlab-validate" .) || { echo "FAIL: cannot build the CLI" >&2; exit 1; }
+(cd "$ROOT/cli" && go build -o "${TMPDIR:-/tmp}/ohmlab-validate" .) || { echo "FAIL: cannot build the CLI" >&2; exit 1; }
 trap 'rm -f "${TMPDIR:-/tmp}/ohmlab-validate" "${TMPDIR:-/tmp}/check-vault-seeds.$$.err"' EXIT
 
 for values in "$INSTANCES_DIR"/*/values/core/vault-operator.yaml; do

@@ -15,9 +15,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Opens or updates one release PR per package: utils/ (the CLI) and
-  # argo-cd/apps (the catalog bundle). Nothing below publishes anything until
-  # its PR is merged, and each job below runs only for its own package
+  # Opens or updates one release PR per package: cli/ (the CLI and the
+  # controller), charts/ohmlab (the bootstrap chart) and argo-cd/apps (the
+  # catalog bundle). Nothing below publishes anything until its PR is merged,
+  # and each job below runs only for its own package
   # (scripts/ci/check-release-gating.sh).
   release:
     uses: this-is-tobi/github-workflows/.github/workflows/release-app.yml@v0
@@ -35,21 +36,21 @@ jobs:
   # `latest` moves with releases only, never with an unreleased main.
   image:
     needs: release
-    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'utils') }}
+    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'cli') }}
     uses: this-is-tobi/github-workflows/.github/workflows/build-docker.yml@v0
     permissions:
       contents: read
       packages: write
     with:
       IMAGE_NAME: ghcr.io/this-is-tobi/ohmlab/cli
-      IMAGE_TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
-      IMAGE_DOCKERFILE: utils/Dockerfile
-      IMAGE_CONTEXT: utils/
+      IMAGE_TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['cli--version'] }}
+      IMAGE_DOCKERFILE: cli/Dockerfile
+      IMAGE_CONTEXT: cli/
       LATEST_TAG: true
       BUILD_AMD64: true
       BUILD_ARM64: true
       BUILD_ARGS: |
-        VERSION=${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
+        VERSION=${{ fromJSON(needs.release.outputs.release-outputs)['cli--version'] }}
         COMMIT=${{ github.sha }}
         BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
@@ -71,22 +72,22 @@ jobs:
   # with the CLI under the same version.
   image-controller:
     needs: release
-    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'utils') }}
+    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'cli') }}
     uses: this-is-tobi/github-workflows/.github/workflows/build-docker.yml@v0
     permissions:
       contents: read
       packages: write
     with:
       IMAGE_NAME: ghcr.io/this-is-tobi/ohmlab/controller
-      IMAGE_TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
-      IMAGE_DOCKERFILE: utils/Dockerfile
-      IMAGE_CONTEXT: utils/
+      IMAGE_TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['cli--version'] }}
+      IMAGE_DOCKERFILE: cli/Dockerfile
+      IMAGE_CONTEXT: cli/
       IMAGE_TARGET: controller
       LATEST_TAG: true
       BUILD_AMD64: true
       BUILD_ARM64: true
       BUILD_ARGS: |
-        VERSION=${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
+        VERSION=${{ fromJSON(needs.release.outputs.release-outputs)['cli--version'] }}
         COMMIT=${{ github.sha }}
         BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
@@ -124,12 +125,12 @@ jobs:
       - name: Verify the published image
         env:
           IMAGE: ${{ needs.image-controller.outputs.image }}@${{ needs.image-controller.outputs.digest }}
-          VERSION: ${{ fromJSON(needs.release.outputs.release-outputs)['utils--version'] }}
+          VERSION: ${{ fromJSON(needs.release.outputs.release-outputs)['cli--version'] }}
         run: scripts/ci/verify-image.sh "$IMAGE" "$VERSION"
 
   binaries:
     needs: release
-    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'utils') }}
+    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'cli') }}
     uses: this-is-tobi/github-workflows/.github/workflows/release-go.yml@v0
     # release-go declares packages: write for configurations that push images;
     # GitHub refuses to start the run if the caller grants less, even though
@@ -138,7 +139,7 @@ jobs:
       contents: write
       packages: write
     with:
-      WORKING_DIRECTORY: utils
+      WORKING_DIRECTORY: cli
     secrets:
       APP_CLIENT_ID: ${{ secrets.APP_CLIENT_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
@@ -153,8 +154,8 @@ jobs:
       id-token: write
       attestations: write
     with:
-      TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['utils--tag_name'] }}
-      WORKING_DIRECTORY: utils
+      TAG: ${{ fromJSON(needs.release.outputs.release-outputs)['cli--tag_name'] }}
+      WORKING_DIRECTORY: cli
       PROVENANCE: true
       SBOM: true
       SIGN: true
@@ -281,9 +282,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version=$(jq -r '.utils' .release-please-manifest.json)
+          version=$(jq -r '.cli' .release-please-manifest.json)
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::.release-please-manifest.json holds no product version (utils): '$version'"
+            echo "::error::.release-please-manifest.json holds no product version (cli): '$version'"
             exit 1
           fi
           gh release edit "v$version" --latest --repo "$GITHUB_REPOSITORY"
