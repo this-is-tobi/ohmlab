@@ -87,6 +87,8 @@ The app catalog under [argo-cd/apps/](../argo-cd/apps/) provides the following c
 | [Vault-operator](https://bank-vaults.dev/)                                        | Bank-Vaults operator (HA Vault cluster) + [VSO](https://developer.hashicorp.com/vault/docs/platform/k8s/vso) | [bank-vaults/vault-operator](https://artifacthub.io/packages/helm/bank-vaults/vault-operator) + [hashicorp/vault-secrets-operator](https://artifacthub.io/packages/helm/hashicorp/vault-secrets-operator) |
 | [Vaultwarden](https://github.com/dani-garcia/vaultwarden)                         | Password management service                                                                                  | [vaultwarden/vaultwarden](https://artifacthub.io/packages/helm/vaultwarden/vaultwarden)                                                                                                                   |
 
+> *__Node prerequisite:__ SonarQube's search engine needs `vm.max_map_count` of at least 262144 on the nodes that run it, or it fails its bootstrap checks and the pod restarts in a loop. The `common` / `hardening` Ansible role sets it. The chart's init container that used to do it ran privileged, which the baseline policy refuses, so it is off.*
+
 ### Versions
 
 All services helm charts and versions are managed through ArgoCD ApplicationSets with configuration stored in:

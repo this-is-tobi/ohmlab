@@ -49,7 +49,11 @@ sonarqube:
   monitoringPasscodeSecretKey: monitoringPasscode
   jvmOpts: "-javaagent:/opt/sonarqube/extensions/plugins/sonarqube-community-branch-plugin-26.3.0.jar=web"
   jvmCeOpts: "-javaagent:/opt/sonarqube/extensions/plugins/sonarqube-community-branch-plugin-26.3.0.jar=ce"
+  # Off: the init container that raised vm.max_map_count ran privileged, which
+  # the baseline policy refuses. The nodes that run SonarQube set it instead, to
+  # 262144 or more: the search engine fails its bootstrap checks below that.
   initSysctl:
+    enabled: false
     vmMaxMapCount: 262144
   prometheusMonitoring:
     podMonitor:
@@ -90,13 +94,23 @@ sonarqube:
   extraInitContainers:
   - name: download-webapp
     image: docker.io/busybox:1.38
+    # As the SonarQube user, so what it extracts is already owned by it.
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: [ALL]
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 0
+      seccompProfile:
+        type: RuntimeDefault
     volumeMounts:
     - name: webapp
       mountPath: /web
     command:
     - sh
     - -c
-    - wget -O /tmp/sonarqube-webapp.zip https://github.com/mc1arke/sonarqube-community-branch-plugin/releases/download/26.3.0/sonarqube-webapp.zip && unzip -o /tmp/sonarqube-webapp.zip -d /web && chmod -R 755 /web && chown -R 1000:0 /web && rm -f /tmp/sonarqube-webapp.zip
+    - wget -O /tmp/sonarqube-webapp.zip https://github.com/mc1arke/sonarqube-community-branch-plugin/releases/download/26.3.0/sonarqube-webapp.zip && unzip -o /tmp/sonarqube-webapp.zip -d /web && chmod -R 755 /web/* && rm -f /tmp/sonarqube-webapp.zip
 
 cnpg:
   fullnameOverride: sonarqube-pg-cluster
