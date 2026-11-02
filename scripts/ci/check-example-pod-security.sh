@@ -30,12 +30,6 @@ EXAMPLE="$ROOT/argo-cd/instances/_example"
 # failure not listed fails the run, and so does a listed one that passes, until
 # its line is removed. POD_SECURITY_KNOWN replaces the list.
 KNOWN_DEFAULT='
-# Refused at admission: pods that may run as root (require-non-root) or run a
-# privileged container (pod-security-baseline), both Enforce.
-tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-baseline
-# Tenant pods short of the restricted profile, which stays Audit until every
-# tenant chart meets it.
-tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-restricted
 # Containers without CPU and memory limits (Audit).
 core/apisix Deployment/apisix-ingress-controller require-resource-limits
 core/ohmlab Deployment/argocd-redis require-resource-limits
