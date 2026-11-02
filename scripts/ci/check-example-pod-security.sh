@@ -32,8 +32,6 @@ EXAMPLE="$ROOT/argo-cd/instances/_example"
 KNOWN_DEFAULT='
 # Refused at admission: pods that may run as root (require-non-root) or run a
 # privileged container (pod-security-baseline), both Enforce.
-core/apisix Deployment/apisix require-non-root
-core/apisix Deployment/apisix-ingress-controller require-non-root
 tenant/sonarqube StatefulSet/sonarqube-sonarqube pod-security-baseline
 tenant/teleport Deployment/teleport-auth require-non-root
 tenant/teleport Deployment/teleport-proxy require-non-root
