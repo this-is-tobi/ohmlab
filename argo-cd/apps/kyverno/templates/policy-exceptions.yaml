@@ -50,10 +50,13 @@ spec:
       object.metadata.name.startsWith({{ $e.prefix | quote }})
   {{- with $e.confined }}
   # What the exempted pods must still look like, `spec` being the pod spec of
-  # the Pod or of the Job's template.
+  # the Pod or of the Job's template. A one-element list stands in for a
+  # binding: the webhook that admits this object compiles the conditions
+  # without the bindings extension and refuses `cel.bind`, which the Kyverno
+  # CLI accepts.
   - name: confined
     expression: >-
-      cel.bind(spec, object.kind == "Pod" ? object.spec : object.spec.template.spec,
+      [object.kind == "Pod" ? object.spec : object.spec.template.spec].all(spec,
       {{ . }})
   {{- end }}
 {{- end }}

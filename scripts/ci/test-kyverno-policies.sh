@@ -55,6 +55,16 @@ if [ -n "$own_webhook" ]; then
   failures=$((failures + 1))
 fi
 
+# The webhook that admits a PolicyException compiles its match conditions
+# without the CEL bindings extension, so `cel.bind` is refused there although
+# the CLI evaluates it: the object never reaches the cluster and the sync of
+# the whole chart fails on it.
+bound=$(yq -o=json -N '.' "$work/rendered/exceptions.yaml" | jq -r 'select([.spec.matchConditions[]?.expression | contains("cel.bind(")] | any) | .metadata.name')
+if [ -n "$bound" ]; then
+  echo "::error::these PolicyExceptions use cel.bind in a match condition, which the admission webhook refuses (undeclared reference to 'cel'); bind with a one-element list instead, [value].all(name, expression): $bound"
+  failures=$((failures + 1))
+fi
+
 for d in "${dirs[@]}"; do
   t=$(basename "$d")
   cp -R "$d" "$work/tests/$t"
