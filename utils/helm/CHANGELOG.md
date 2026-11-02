@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.4.0...chart-v0.4.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **ohmlab:** run one Argo CD application controller ([53e9cd2](https://github.com/this-is-tobi/ohmlab/commit/53e9cd2d95c526f21e0a22ecce3ac24d79697721))
+
 ## [0.4.0](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.3.1...chart-v0.4.0) (2026-11-01)
 
 
