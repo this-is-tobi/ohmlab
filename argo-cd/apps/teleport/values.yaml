@@ -18,6 +18,28 @@ networkPolicy:
 
 server:
   enabled: true
+  # The image's own `nonroot` user (65532). fsGroup is what lets it open the
+  # auth server's volume: an existing one holds root-owned files, which the
+  # kubelet makes group-accessible when it mounts the volume with fsGroup set.
+  # The chart applies the pod-level context to the auth and proxy pods only, so
+  # the container-level one carries the user for the config-check Jobs too.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
   # Applied to both auth and proxy pods (and their init containers).
   resources:
     requests:
