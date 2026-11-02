@@ -1,7 +1,6 @@
-# Keep the build context to what the Go build needs. The helm chart tree is
-# not part of the image, and secret-values.yaml (gitignored but present
-# locally) must NEVER enter a build layer or the exported build cache.
-helm/
+# Keep the build context to what the Go build needs: secret-values.yaml
+# (gitignored but present locally) must NEVER enter a build layer or the
+# exported build cache.
 Dockerfile
 .dockerignore
 **/*.tgz

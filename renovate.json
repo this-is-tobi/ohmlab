@@ -151,10 +151,10 @@
       "enabled": false
     },
     {
-      "description": "Everything under argo-cd/apps (the catalog) and utils/helm (the bootstrap chart) is released by release-please: a dependency bump there is a releasable fix, so it is included in the next release of that part (chore commits are never released)",
+      "description": "Everything under argo-cd/apps (the catalog) and charts/ohmlab (the bootstrap chart) is released by release-please: a dependency bump there is a releasable fix, so it is included in the next release of that part (chore commits are never released)",
       "matchFileNames": [
         "argo-cd/apps/**",
-        "utils/helm/**"
+        "charts/ohmlab/**"
       ],
       "semanticCommitType": "fix"
     },
@@ -162,7 +162,7 @@
       "description": "A major bump of a chart dependency often carries breaking values changes: release it as a minor of the catalog or the chart (pre-1.0, a minor is the breaking level)",
       "matchFileNames": [
         "argo-cd/apps/**",
-        "utils/helm/**"
+        "charts/ohmlab/**"
       ],
       "matchUpdateTypes": [
         "major"

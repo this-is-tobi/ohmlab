@@ -124,11 +124,10 @@ for dir in "$INSTANCES_DIR"/*/; do
   prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
   suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
 
-  for chart in "$ROOT/utils/helm" "$ROOT"/argo-cd/apps/*/; do
+  for chart in "$ROOT/charts/ohmlab" "$ROOT"/argo-cd/apps/*/; do
     chart="${chart%/}"
     [ -f "$chart/Chart.yaml" ] || continue
     name="$(basename "$chart")"
-    [ "$name" = helm ] && name=ohmlab
     # Charts without the vso-utils dependency render no VSO objects, except
     # the two that write theirs by hand.
     case "$name" in

@@ -454,7 +454,7 @@ bootstrap_instance() {
   # The chart the self-managed `ohmlab` entry runs: the published chart at its
   # pinned version when the entry has a `catalog`, the local chart otherwise.
   local resolved chart_ref chart_version
-  resolved=$("$SCRIPT_PATH/scripts/ohmlab-chart.sh" "$instance_dir" "$SCRIPT_PATH/utils/helm") || exit 1
+  resolved=$("$SCRIPT_PATH/scripts/ohmlab-chart.sh" "$instance_dir" "$SCRIPT_PATH/charts/ohmlab") || exit 1
   IFS=$'\t' read -r chart_ref chart_version <<<"$resolved"
   local chart_args=("$chart_ref")
   if [[ -n "$chart_version" ]]; then

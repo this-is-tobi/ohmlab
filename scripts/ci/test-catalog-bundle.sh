@@ -57,12 +57,12 @@ mkdir "$work/bundle" && tar -xzf "$work/out/catalog.tar.gz" -C "$work/bundle" ||
 # The repository side of the comparison is a copy of the tracked files: rendering
 # the working tree would also render ignored local files (a plaintext secret).
 mkdir "$work/repo"
-git -C "$ROOT" ls-files -z -- argo-cd/apps argo-cd/instances/_example utils/helm \
+git -C "$ROOT" ls-files -z -- argo-cd/apps argo-cd/instances/_example charts/ohmlab \
   | while IFS= read -r -d '' f; do [ -f "$ROOT/$f" ] && printf '%s\0' "$f"; done \
   | (cd "$ROOT" && COPYFILE_DISABLE=1 tar --null -T - -cf -) | tar -xf - -C "$work/repo"
 
 # --- content ---------------------------------------------------------------
-tracked=$(git -C "$ROOT" ls-files -- argo-cd/apps argo-cd/instances/_example utils/helm | while IFS= read -r f; do [ -f "$ROOT/$f" ] && echo "$f"; done | sort)
+tracked=$(git -C "$ROOT" ls-files -- argo-cd/apps argo-cd/instances/_example charts/ohmlab | while IFS= read -r f; do [ -f "$ROOT/$f" ] && echo "$f"; done | sort)
 bundled=$(cd "$work/bundle" && find . -type f | sed 's|^\./||' | grep -v -E '/charts/[^/]+\.tgz$' | sort)
 extra=$(comm -13 <(echo "$tracked") <(echo "$bundled"))
 missing=$(comm -23 <(echo "$tracked") <(echo "$bundled"))
@@ -72,7 +72,7 @@ check "the files of the bundle are the tracked files, byte for byte" "" "$(diff 
 check "a plaintext secret and a stale vendored chart are left out" "" "$(cd "$work/bundle" && find . -name 'zz-canary*')"
 
 # --- vendored dependencies -----------------------------------------------------
-for lock in "$work"/bundle/argo-cd/apps/*/Chart.lock "$work/bundle/utils/helm/Chart.lock"; do
+for lock in "$work"/bundle/argo-cd/apps/*/Chart.lock "$work/bundle/charts/ohmlab/Chart.lock"; do
   [ -f "$lock" ] || continue
   dir=$(dirname "$lock")
   label="${dir#"$work"/bundle/}"
@@ -85,7 +85,7 @@ done
 export HELM_REPOSITORY_CONFIG="$work/repositories.yaml"
 export HELM_REPOSITORY_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/ohmlab-catalog/helm"
 mkdir -p "$HELM_REPOSITORY_CACHE"
-add_dependency_repos "$ROOT"/argo-cd/apps/*/Chart.yaml "$ROOT/utils/helm/Chart.yaml"
+add_dependency_repos "$ROOT"/argo-cd/apps/*/Chart.yaml "$ROOT/charts/ohmlab/Chart.yaml"
 
 # mask <file>: the lines of the render with the value of every key listed in
 # $work/volatile replaced, since a chart that generates random material changes
@@ -105,7 +105,7 @@ while IFS= read -r d; do instances+=("$d"); done < <(instance_dirs)
 
 # The repository side builds its own dependencies, independently of the bundle's.
 repo_charts=()
-for chartdir in utils/helm argo-cd/apps/*/; do
+for chartdir in charts/ohmlab argo-cd/apps/*/; do
   chartdir="${chartdir%/}"
   [ -f "$ROOT/$chartdir/Chart.yaml" ] || continue
   yq -e '.dependencies | length > 0' "$ROOT/$chartdir/Chart.yaml" >/dev/null 2>&1 && repo_charts+=("$work/repo/$chartdir")
@@ -113,10 +113,10 @@ done
 mkdir "$work/deps"
 vendor_dependencies "$work/deps" ${repo_charts[@]+"${repo_charts[@]}"}
 
-for chartdir in utils/helm argo-cd/apps/*/; do
+for chartdir in charts/ohmlab argo-cd/apps/*/; do
   chartdir="${chartdir%/}"
   [ -f "$ROOT/$chartdir/Chart.yaml" ] || continue
-  name=$(basename "$chartdir"); [ "$name" = helm ] && name=ohmlab
+  name=$(basename "$chartdir")
   if grep -qxF "$work/repo/$chartdir" "$work/deps/failed" 2>/dev/null; then
     bad "$name: helm dependency build in the repository"; continue
   fi

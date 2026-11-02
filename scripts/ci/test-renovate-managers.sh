@@ -98,7 +98,7 @@ check "a pre-release pin is left alone instead of half matched" "" \
 # Renovate still looks up under its old name never gets a bump again.
 ROOT="$(dirname "$CONFIG")"
 CD="$ROOT/.github/workflows/cd.yml"
-chart="ghcr.io/$(yq '.jobs["publish-chart"].with.REPOSITORY' "$CD")/$(yq '.name' "$ROOT/utils/helm/Chart.yaml")"
+chart="ghcr.io/$(yq '.jobs["publish-chart"].with.REPOSITORY' "$CD")/$(yq '.name' "$ROOT/charts/ohmlab/Chart.yaml")"
 tracked=$(jq -r '.customManagers[] | select((.description // "") | startswith("Pinned ohmlab bootstrap chart")) | .depNameTemplate' "$CONFIG")
 if [ "$tracked" = "$chart" ]; then echo "ok   the chart pin manager follows the chart cd.yml publishes"; else
   echo "FAIL the chart pin manager tracks '$tracked', cd.yml publishes '$chart'"; fail=1

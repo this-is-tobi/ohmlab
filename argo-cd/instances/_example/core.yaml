@@ -32,7 +32,7 @@
 #
 #   chartPath           override full chart path. Defaults to
 #                       `argo-cd/apps/<chart>`. Use this when the chart lives
-#                       outside the catalog, e.g. `utils/helm` for
+#                       outside the catalog, e.g. `charts/ohmlab` for
 #                       the self-managed bootstrap chart.
 #
 #   valuesPath          override values file path. Defaults to
@@ -99,7 +99,7 @@ apps:
   namespace: argocd-system
   syncWave: -10
   releaseName: ohmlab
-  chartPath: utils/helm
+  chartPath: charts/ohmlab
   # Or pin the published chart instead of the git path: replace `chartPath`
   # with `catalog: ohmlab` and `targetRevision: <chart version>`, and declare
   # `catalogs.ohmlab` in instance.yaml.

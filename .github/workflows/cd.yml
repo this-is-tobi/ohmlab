@@ -218,13 +218,13 @@ jobs:
   # is the one release-please wrote into Chart.yaml).
   publish-chart:
     needs: release
-    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'utils/helm') }}
+    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'charts/ohmlab') }}
     uses: this-is-tobi/github-workflows/.github/workflows/release-helm-local.yml@v0
     permissions:
       contents: read
       packages: write
     with:
-      CHART_PATH: utils/helm
+      CHART_PATH: charts/ohmlab
       REPOSITORY: this-is-tobi/charts
       HELM_REPOS: argo=https://argoproj.github.io/argo-helm,this-is-tobi=https://this-is-tobi.github.io/helm-charts
 
@@ -270,7 +270,7 @@ jobs:
   # would take it from the product, including one released in the same run.
   keep-latest:
     needs: release
-    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'argo-cd/apps') || contains(fromJSON(needs.release.outputs.paths-released), 'utils/helm') }}
+    if: ${{ contains(fromJSON(needs.release.outputs.paths-released), 'argo-cd/apps') || contains(fromJSON(needs.release.outputs.paths-released), 'charts/ohmlab') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

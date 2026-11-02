@@ -9,7 +9,7 @@
 #
 # The instances are INSTANCES_DIR's and the example. An entry is checked
 # against the chart its Application renders: its chartPath, else
-# argo-cd/apps/<chart or app>, utils/helm for the ohmlab app. Needs yq
+# argo-cd/apps/<chart or app>, charts/ohmlab for the ohmlab app. Needs yq
 # (mikefarah v4).
 set -uo pipefail
 
@@ -51,7 +51,7 @@ check_file() {
   done < <(yq -r '(. // {}) | keys | .[]' "$file")
 }
 
-for dir in "$ROOT"/argo-cd/apps/*/ "$ROOT/utils/helm/"; do
+for dir in "$ROOT"/argo-cd/apps/*/ "$ROOT/charts/ohmlab/"; do
   dir="${dir%/}"
   [ -f "$dir/Chart.yaml" ] && [ -f "$dir/values.yaml" ] && check_file "$dir/values.yaml" "$dir"
 done
@@ -64,7 +64,7 @@ while IFS= read -r inst; do
       # Argo CD refuses an entry without its values file: nothing to deploy.
       [ -f "$values" ] || continue
       if [ -n "$path" ]; then dir="$ROOT/$path"
-      elif [ "$chart" = ohmlab ]; then dir="$ROOT/utils/helm"
+      elif [ "$chart" = ohmlab ]; then dir="$ROOT/charts/ohmlab"
       else dir="$ROOT/argo-cd/apps/$chart"
       fi
       check_file "$values" "$dir"

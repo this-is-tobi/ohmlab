@@ -14,11 +14,10 @@ EXAMPLE="$ROOT/argo-cd/instances/_example"
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/instances.sh"
 
 failures=0
-for chart in "$ROOT/utils/helm" "$ROOT"/argo-cd/apps/*/; do
+for chart in "$ROOT/charts/ohmlab" "$ROOT"/argo-cd/apps/*/; do
   chart="${chart%/}"
   [ -f "$chart/Chart.yaml" ] || continue
   name="$(basename "$chart")"
-  [ "$name" = helm ] && name=ohmlab
 
   args=()
   if [ "$name" = instance-manager ]; then

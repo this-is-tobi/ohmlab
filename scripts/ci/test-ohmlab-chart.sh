@@ -35,13 +35,13 @@ catalogs='catalogs:
   ohmlab: ghcr.io/example/charts'
 
 d=$(instance plain '- app: ohmlab
-  chartPath: utils/helm')
-check "no catalog uses the local chart" "utils/helm$tab|0" "$(run "$d")"
+  chartPath: charts/ohmlab')
+check "no catalog uses the local chart" "charts/ohmlab$tab|0" "$(run "$d")"
 check "the local chart path is the second argument" "/some where/chart$tab|0" "$(run "$d" "/some where/chart")"
 
 d=$(instance none '- app: other
   enabled: "true"')
-check "no ohmlab entry uses the local chart" "utils/helm$tab|0" "$(run "$d")"
+check "no ohmlab entry uses the local chart" "charts/ohmlab$tab|0" "$(run "$d")"
 
 d=$(instance pinned '- app: ohmlab
   catalog: ohmlab

@@ -62,7 +62,7 @@ for scope in core tenant; do
   elements='[
     {"app":"plain"},
     {"app":"alias","chart":"other","releaseName":"rel"},
-    {"app":"inrepo","chartPath":"utils/helm","targetRevision":"v1"},
+    {"app":"inrepo","chartPath":"charts/ohmlab","targetRevision":"v1"},
     {"app":"ohmlab","catalog":"ohmlab","targetRevision":"0.1.3"},
     {"app":"renamed","catalog":"ohmlab","chart":"ohmlab","targetRevision":"0.1.3","releaseName":"ohmlab"},
     {"app":"unpinned","catalog":"ohmlab"},
@@ -76,7 +76,7 @@ for scope in core tenant; do
   check "$scope: chart override keeps the git path source" \
     '{"helm":{"releaseName":"rel","valueFiles":["$values/argo-cd/instances/t/values/'"$scope"'/alias.yaml"]},"path":"argo-cd/apps/other","repoURL":"'"$GIT"'","targetRevision":"main"}' "$(line 2)"
   check "$scope: chartPath and targetRevision overrides keep the git source" \
-    '{"helm":{"releaseName":"inrepo","valueFiles":["$values/argo-cd/instances/t/values/'"$scope"'/inrepo.yaml"]},"path":"utils/helm","repoURL":"'"$GIT"'","targetRevision":"v1"}' "$(line 3)"
+    '{"helm":{"releaseName":"inrepo","valueFiles":["$values/argo-cd/instances/t/values/'"$scope"'/inrepo.yaml"]},"path":"charts/ohmlab","repoURL":"'"$GIT"'","targetRevision":"v1"}' "$(line 3)"
   check "$scope: catalog entry becomes an OCI chart source" \
     '{"chart":"ohmlab","helm":{"releaseName":"ohmlab","valueFiles":["$values/argo-cd/instances/t/values/'"$scope"'/ohmlab.yaml"]},"repoURL":"'"$REGISTRY"'","targetRevision":"0.1.3"}' "$(line 4)"
   check "$scope: catalog entry with an explicit chart name" \
@@ -106,7 +106,7 @@ for scope in core tenant; do
   elements='[
     {"app":"gitea","catalog":"bundle"},
     {"app":"alias","chart":"other","catalog":"bundle"},
-    {"app":"ohmlab","chartPath":"utils/helm","catalog":"bundle"},
+    {"app":"ohmlab","chartPath":"charts/ohmlab","catalog":"bundle"},
     {"app":"old","catalog":"bundle","targetRevision":"0.1.0"},
     {"app":"floating","catalog":"unversioned"},
     {"app":"pinned","catalog":"unversioned","targetRevision":"0.3.0"},
@@ -121,7 +121,7 @@ for scope in core tenant; do
   check "$scope: a bundle entry with a chart override keeps the chart folder name" \
     '{"helm":{"releaseName":"alias","valueFiles":["$values/argo-cd/instances/t/values/'"$scope"'/alias.yaml"]},"path":"argo-cd/apps/other","repoURL":"'"$BUNDLE"'","targetRevision":"0.2.0"}' "$(line 2)"
   check "$scope: a bundle entry with a chartPath takes that path in the bundle" \
-    "$(source_json "$scope" ohmlab "$BUNDLE" utils/helm 0.2.0)" "$(line 3)"
+    "$(source_json "$scope" ohmlab "$BUNDLE" charts/ohmlab 0.2.0)" "$(line 3)"
   check "$scope: targetRevision of an entry overrides the version of its catalog" \
     "$(source_json "$scope" old "$BUNDLE" argo-cd/apps/old 0.1.0)" "$(line 4)"
   unversioned=$(line 5 | jq -r '.targetRevision // ""')
