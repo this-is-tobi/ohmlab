@@ -58,3 +58,7 @@ clusterIssuers:
           webhook:
             groupName: acme.scaleway.com
             solverName: scaleway
+
+# In-cluster TLS: the CA the services' certificates come from.
+internalCA:
+  enabled: true

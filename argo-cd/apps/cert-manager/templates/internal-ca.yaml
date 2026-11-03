@@ -1,0 +1,41 @@
+{{- with .Values.internalCA }}
+{{- if .enabled }}
+# Namespaced on purpose: only this namespace can mint self-signed certificates.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .name }}-selfsigned
+  namespace: {{ $.Release.Namespace }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  isCA: true
+  commonName: {{ .name }}
+  secretName: {{ .name }}
+  duration: {{ .duration }}
+  renewBefore: {{ .renewBefore }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    # A renewed root with the same key still verifies the leaves it signed.
+    rotationPolicy: Never
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: {{ .name }}-selfsigned
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .name }}
+spec:
+  ca:
+    secretName: {{ .name }}
+{{- end }}
+{{- end }}
