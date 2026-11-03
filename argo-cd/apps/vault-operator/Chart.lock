@@ -7,6 +7,6 @@ dependencies:
   version: 1.6.2
 - name: backup-utils
   repository: oci://ghcr.io/this-is-tobi/charts
-  version: 2.5.7
-digest: sha256:39539e20cd602990aa04a106e09161d8467f5b7a5094756dc5f4ee7b68fcc308
-generated: "2026-11-03T04:37:48.85496+01:00"
+  version: 2.5.8
+digest: sha256:b1be09080f5bc3acfc623bd055de861444ff426998cdc82c886a73472b093bfa
+generated: "2026-11-03T03:58:07.773167858Z"
