@@ -1,8 +1,5 @@
 # APISIX instance overrides — TEMPLATE.
 # Gateway API-based ingress; an alternative to traefik (enable one at a time).
-# See values/core/apisix.yaml of the homelab instance
-# (https://github.com/this-is-tobi/homelab) for a real, working example
-# (extra listeners, TLS passthrough for Teleport, CrowdSec-friendly log format).
 
 apisix:
   replicaCount: 2

@@ -76,9 +76,9 @@ crowdsec:
   # -- Agent: single Deployment (not a DaemonSet) that parses Traefik's
   # ingress access logs via the k8s pod-log API. It only ever needed
   # per-node placement for the /var/log/auth.log hostPath mount below —
-  # dropped, since every SSH path into this homelab is LAN/VPN-gated
-  # already, so per-node bruteforce detection wasn't adding coverage.
-  # 9 pods -> 1 (~30-60m CPU / ~350-650Mi memory reclaimed cluster-wide).
+  # dropped, since every SSH path into the cluster is LAN/VPN-gated by the
+  # gateway already, so per-node bruteforce detection wasn't adding coverage.
+  # One pod instead of one per node.
   agent:
     isDeployment: true
     # Every acquisition reads from Loki, so the chart's default hostPath

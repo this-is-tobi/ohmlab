@@ -16,5 +16,27 @@
 #     watchNamespaces:
 #     - vault-operator-system
 #
-# networkPolicy: allow egress to your API server (see the homelab instance's
-# values for the shape) and to the Vault pods on 8200, and Prometheus on 8080.
+# Zero-trust NetworkPolicy for the namespace: egress to your API server and to
+# the Vault pods on 8200 (DNS is added by the chart), Prometheus scrapes 8080.
+# networkPolicy:
+#   enabled: true
+#   prometheusScrapePorts:
+#   - { protocol: TCP, port: 8080 }
+#   extraEgress:
+#   - name: apiserver
+#     rules:
+#     - to:
+#       - ipBlock: { cidr: 192.0.2.10/32 } # your API server
+#       ports:
+#       - { protocol: TCP, port: 6443 }
+#   - name: vault
+#     rules:
+#     - to:
+#       - namespaceSelector:
+#           matchLabels:
+#             kubernetes.io/metadata.name: vault-operator-system
+#         podSelector:
+#           matchLabels:
+#             app.kubernetes.io/name: vault
+#       ports:
+#       - { protocol: TCP, port: 8200 }

@@ -1,5 +1,5 @@
 ---
-# Ansible-lint configuration for homelab project
+# Ansible-lint configuration for the ohmlab roles
 
 # Exclude paths from linting
 exclude_paths:

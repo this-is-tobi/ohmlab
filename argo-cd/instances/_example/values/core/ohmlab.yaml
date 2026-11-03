@@ -1,5 +1,4 @@
-# ohmlab wrapper values — TEMPLATE (see values/core/ohmlab.yaml of the homelab
-# instance, https://github.com/this-is-tobi/homelab, for a real, working example).
+# ohmlab wrapper values — TEMPLATE.
 #
 # Owns:
 # - The CORE ArgoCD installation (in argocd-system namespace)
@@ -53,8 +52,10 @@ argo-cd:
       argocdServerAdminPassword: ""
     cm:
       url: "" # e.g. https://gitops.core.example.com
-      # OIDC via Keycloak — enable once Keycloak is up (see the homelab
-      # instance for a full example wired to VSO).
+      # OIDC via Keycloak — enable once Keycloak is up. The client secret is
+      # the OIDC_CLIENT_SECRET key of the Secret `argocd-core-oidc` in
+      # argocd-system: create it out-of-band, or declare it as a
+      # `vso.vaultStaticSecrets` entry below once the Vault stack is running.
       # oidc.config: |
       #   name: "Keycloak"
       #   issuer: "https://sso.core.example.com/realms/ohmlab"
@@ -91,9 +92,8 @@ vso:
 # Optional, dormant CoreDNS replacement for your CNI/distro's bundled one
 # (templates/coredns.yaml in this chart, which explains the full
 # reasoning). coredns.enabled defaults to false in the base chart — leave
-# it off unless you've deliberately decided to take DNS ownership (see the
-# homelab instance for a worked example). If/when you do, supply your real
-# node list here:
+# it off unless you've deliberately decided to take DNS ownership. If/when you
+# do, supply your real node list here:
 # coredns:
 #   enabled: true
 #   replicas: 2

@@ -25,8 +25,9 @@ gateway:
   enabled: false
   gatewayName: ""
   gatewayNamespace: ""
-  # Extra gateways to also attach routes to (e.g. during the APISIX→Traefik
-  # migration): [{name, namespace?}] — sectionName is reused from the route.
+  # Extra gateways to also attach routes to (e.g. while moving from one gateway
+  # implementation to another): [{name, namespace?}] — sectionName is reused
+  # from the route.
   extraParentRefs: []
   routes: []
   # BackendTLSPolicy entries for TLS-serving backends (templates/
@@ -63,9 +64,9 @@ argo-cd:
     params:
       # TLS end-to-end: argocd-server serves TLS itself (self-signed at bootstrap,
       # then the cert-manager issued `argocd-server-tls` secret once the ingress
-      # is enabled). Instance ingress must set the APISIX upstream-scheme
-      # annotation — see values/core/ohmlab.yaml of the homelab instance,
-      # https://github.com/this-is-tobi/homelab.
+      # is enabled). The ingress or gateway in front of it has to speak TLS to
+      # the upstream: with `gateway.enabled`, a `gateway.backendTLSPolicies`
+      # entry does it.
       server.insecure: false
       # Feature gate for ApplicationSet RollingSync. Inert until an
       # instance-manager release opts in via `progressiveSync.enabled: true`
