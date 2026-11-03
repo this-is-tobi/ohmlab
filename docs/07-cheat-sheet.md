@@ -43,7 +43,7 @@ sudo nmap -sN 192.168.1.1/24
 kubectl -n traefik port-forward deploy/traefik 8080:8080
 # → http://localhost:8080/dashboard/
 
-# Test a hostname through the traefik path during the ingress migration
+# Test a hostname against one node, bypassing DNS
 curl -vk --resolve <host>:8443:<node-ip> https://<host>:8443/
 ```
 

@@ -45,12 +45,12 @@ __Setup configuration:__
   - [`core.yaml`](../argo-cd/instances/_example/core.yaml) — platform/core tier app catalog.
   - [`tenant.yaml`](../argo-cd/instances/_example/tenant.yaml) — user-facing apps catalog.
 - Configure values in [./argo-cd/instances/\<instance\>/values/core/](../argo-cd/instances/_example/values/core/) and [./argo-cd/instances/\<instance\>/values/tenant/](../argo-cd/instances/_example/values/tenant/).
-- For a brand-new instance, copy the documented template at [./argo-cd/instances/_example/](../argo-cd/instances/_example/) (folders prefixed with `_` are excluded by the root manager and treated as templates). See `Installation > Tier-flexible apps` for apps (ingress, cert-manager, keycloak, prometheus-stack, ...) that can live in either tier depending on topology.
+- For a brand-new instance, copy the documented template at [./argo-cd/instances/_example/](../argo-cd/instances/_example/) (folders prefixed with `_` are excluded by the root manager and treated as templates). See `Installation > Tier-flexible apps` for apps (cert-manager, keycloak, prometheus-stack, ...) that can live in either tier depending on topology.
 
 __Install:__
 ```sh
-# Set kubectl context
-kubectl config use-context homelab
+# Set kubectl context: the one `-k` added (named ohmlab by default), or your own
+kubectl config use-context ohmlab
 
 # Bootstrap (or upgrade) the mylab instance
 ./run.sh -b mylab

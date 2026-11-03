@@ -200,19 +200,7 @@ names:
 - Every Application of the instance gets the four names as Helm parameters, `global.ohmlab.names.<key>`. A chart takes its own explicit value first (for example `gateway.gatewayName` in an app's values), then the instance's name. A chart rendered without a manager falls back to the ohmlab names (`ohmlab`, `Ohmlab`, `ohmlab-gateway`).
 - The folder name has to be a lowercase DNS label of at most 55 characters, so that `<name>-gateway` is a valid Gateway name.
 - The manager chart refuses to render, instead of leaving a broken or derived name in place, on a key the product does not read, an empty name, a name with quotes, backslashes, braces or control characters, a Gateway that is not a DNS label, a realm or KV mount with characters Keycloak or Vault would not take, and a name those servers keep for themselves: the realm `master` (Keycloak's administration) and the mounts `sys`, `auth`, `identity` and `cubbyhole` (Vault's).
-- Every pull request of this repository renders the reference instance with the charts before and after the change, and fails on any object that would be deleted or renamed.
-
-Instances set up before the names were derived ran on fixed names: the KV mount `homelab` for both tiers, the realm stored in Vault under the `realm` key of the Keycloak path, the display name `Homelab`, the Gateway `homelab-gateway-traefik` (Traefik) or `homelab-gateway` (APISIX, Cilium). Pin the ones your instance's name does not give before you upgrade, for example:
-
-```yaml
-names:
-  vaultMount: homelab
-  keycloakRealm: homelab
-  keycloakRealmDisplayName: Homelab
-  gateway: homelab-gateway-traefik
-```
-
-Keep the core tier's secrets where they are too, with `systemMount: homelab` in `values/core/vault-operator.yaml`, until they are copied to `ohmlab`.
+- Every pull request of this repository renders the reference deployment with the charts before and after the change, and fails on any object that would be deleted or renamed.
 
 > **`syncWave` semantics**: on an AppSet-generated Application, the sync-wave annotation alone orders **nothing** — apps sync in parallel and converge by retry. To actually enforce the ordering, enable progressive sync (`progressiveSync.enabled: true` in the `instance-manager` chart values); it maps waves onto ApplicationSet `RollingSync` steps. Requires the alpha `ApplicationSetProgressiveSyncs` feature gate, which the `ohmlab` chart enables on the core ArgoCD. It also turns automated sync off on the generated Applications: the ApplicationSet controller syncs an app again only when its revision changes, so drift at the same commit (a hand edit, a chart that renders more once a CRD exists) waits for the next commit or a manual sync.
 
@@ -299,8 +287,8 @@ The `-k` flag fetches the kubeconfig from the master node and merges it into you
 Once the infrastructure is ready, bootstrap the GitOps stack with a single command:
 
 ```sh
-# Set kubectl context
-kubectl config use-context homelab
+# Set kubectl context: the one `-k` added (named ohmlab by default), or your own
+kubectl config use-context ohmlab
 
 # Bootstrap (or upgrade) the mylab instance
 ./run.sh -b mylab
@@ -353,7 +341,7 @@ The GitOps layer (`argo-cd/`) is independent of how the cluster was created — 
 Create your own instance folder — copy [argo-cd/instances/_example](../argo-cd/instances/_example) and see [Adding a new instance](#topologies). Points worth checking for a non-K3s cluster:
 
 - **Storage** — `longhorn` assumes bare-metal disks. On a cloud provider, disable it and use the provider's own `StorageClass` (set it as default, or set `storageClass` explicitly on the apps that request one).
-- **Ingress exposure** — the `traefik` app's Service is type `LoadBalancer`. A cloud provider assigns a real external IP automatically, so drop the `spec.externalIPs` list this repo uses (that exists only because it runs bare metal without an LB controller).
+- **Ingress exposure** — the `traefik` app's Service is type `LoadBalancer`. A cloud provider assigns a real external IP automatically, so leave `spec.externalIPs` unset: that static list is for bare metal without an LB controller (see [Networking choices](./04-infrastructure.md#networking-choices)).
 - **CNI** — managed clusters ship their own; leave the `cilium` app disabled. Read the CNI caveat at the top of any `templates/networkpolicy.yaml` before enabling `networkPolicy` — the rules were verified against Cilium and rely on three CNI-specific behaviours.
 - **Pod/service CIDRs** — anything referencing `10.42.0.0/16` / `10.45.0.0/16` / `10.43.0.0/16` (NetworkPolicy `ipBlock` rules, crowdsec's `allowed_ranges` and its whitelist) must match your cluster's actual ranges, and so must the pod range in your `lanOnly.sourceRange` (see [Your network](#your-network)).
 - **Node labels** — apps pinning workloads with `nodeSelector: {node-type: worker}` (CNPG databases, Vault) need that label to exist, or the selector removed.
@@ -563,16 +551,17 @@ The target cluster for each instance is set in its `instance.yaml.destination.se
 
 A handful of apps don't naturally belong in a single tier — they're needed *wherever workloads run*, regardless of whether the cluster is acting as a "core/admin" cluster or a "tenant/apps" cluster. The catalog lists them in **both** [`_example/core.yaml`](../argo-cd/instances/_example/core.yaml) and [`_example/tenant.yaml`](../argo-cd/instances/_example/tenant.yaml) with appropriate per-tier `syncWave`s; for any concrete instance you enable the entry in **exactly one** tier and leave the other disabled.
 
-| App                    | Where to enable                                                                     |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| `cert-manager`         | Wherever Ingress / TLS certificates are issued.                                     |
-| `traefik`              | Wherever an ingress controller is needed.                                           |
-| `keycloak`             | Wherever the SSO IdP runs (often tenant in SaaS, core in all-in-one).               |
-| `kubernetes-dashboard` | Wherever cluster admins want a UI; one per cluster.                                 |
-| `longhorn`             | Wherever block storage is needed (typically every cluster with stateful workloads). |
-| `prometheus-stack`     | Wherever observability is collected (often core in shared topologies).              |
-| `teleport`             | Wherever the access proxy runs.                                                     |
-| `vault`                | Wherever the secrets backend lives (often co-located with workloads consuming it).  |
+| App                | Where to enable                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `apisix`           | Wherever it is the ingress controller instead of `traefik`.                         |
+| `cert-manager`     | Wherever Ingress / TLS certificates are issued.                                     |
+| `cilium`           | Wherever the cluster runs the Cilium CNI.                                           |
+| `crowdsec`         | Wherever the ingress controller whose access logs it parses runs.                   |
+| `keycloak`         | Wherever the SSO IdP runs (often tenant in SaaS, core in all-in-one).               |
+| `longhorn`         | Wherever block storage is needed (typically every cluster with stateful workloads). |
+| `prometheus-stack` | Wherever observability is collected (often core in shared topologies).              |
+| `teleport`         | Wherever the access proxy runs.                                                     |
+| `vault`            | Wherever the secrets backend lives (often co-located with workloads consuming it).  |
 
 > Enabling a tier-flexible app in **both** tiers of the same instance would create two `Application`s with the same name and is not supported. The `_example` template ships with everything disabled to make this an explicit, deliberate choice.
 
@@ -642,23 +631,27 @@ defaultCatalog: product
 
 ### Sync waves
 
-Apps are reconciled in `syncWave` order. The ordering of the reference deployment:
+Apps are reconciled in `syncWave` order. The waves of the example instance, from [`_example/core.yaml`](../argo-cd/instances/_example/core.yaml) and [`_example/tenant.yaml`](../argo-cd/instances/_example/tenant.yaml):
 
-| Wave | Tier   | Apps                                     |
-| ---- | ------ | ---------------------------------------- |
-| -10  | core   | `ohmlab` (self)                          |
-| 0    | core   | `longhorn`                               |
-| 10   | core   | `cert-manager`, `vault-operator`         |
-| 11   | core   | `traefik`                                |
-| 13   | core   | `trust-manager`                          |
-| 15   | core   | `kyverno`                                |
-| 20   | core   | `cloudnative-pg`                         |
-| 50   | core   | `prometheus-stack`                       |
-| 55   | core   | `keycloak`                               |
-| 60   | core   | `crowdsec`, `system-upgrade`, `teleport` |
-| 100  | tenant | `argo-cd` (personal)                     |
-| 110  | tenant | `gitea`, `mattermost`, `rustfs`          |
-| 200  | tenant | `homepage`                               |
+| Wave  | Tier   | Apps                                                                                                                                                                                                                                       |
+| ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| -10   | core   | `ohmlab` (self)                                                                                                                                                                                                                            |
+| 0     | core   | `longhorn`                                                                                                                                                                                                                                 |
+| 5     | core   | `cilium`                                                                                                                                                                                                                                   |
+| 10    | core   | `cert-manager`, `vault-operator`                                                                                                                                                                                                           |
+| 11    | core   | `ohmlab-controller`, `traefik`                                                                                                                                                                                                             |
+| 12    | core   | `apisix`                                                                                                                                                                                                                                   |
+| 13    | core   | `trust-manager`                                                                                                                                                                                                                            |
+| 15    | core   | `kyverno`                                                                                                                                                                                                                                  |
+| 20    | core   | `cloudnative-pg`, `sops`, `vault`                                                                                                                                                                                                          |
+| 30    | core   | `keycloak`                                                                                                                                                                                                                                 |
+| 40    | core   | `teleport`                                                                                                                                                                                                                                 |
+| 50    | core   | `prometheus-stack`, `trivy-operator`                                                                                                                                                                                                       |
+| 60    | core   | `crowdsec`, `system-upgrade`                                                                                                                                                                                                               |
+| 80–98 | tenant | the [tier-flexible apps](#tier-flexible-apps), when an instance enables them in this tier (`longhorn` 80, `cilium` 82, `apisix` and `cert-manager` 85, `vault` 90, `keycloak` 95, `teleport` 96, `prometheus-stack` 97, `crowdsec` 98) |
+| 100   | tenant | `argo-cd` (personal)                                                                                                                                                                                                                       |
+| 110   | tenant | `actions-runner-controller`, `argo-workflows`, `coder`, `gitea`, `harbor`, `mattermost`, `mlflow`, `outline`, `rustfs`, `sonarqube`, `vaultwarden`                                                                                         |
+| 200   | tenant | `homepage`                                                                                                                                                                                                                                 |
 
 ### Core Services
 

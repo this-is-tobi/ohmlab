@@ -29,7 +29,7 @@ The admin owns the cluster lifecycle: provisioning hosts, bootstrapping ArgoCD, 
    ```
 3. Bootstrap the GitOps stack:
    ```sh
-   kubectl config use-context homelab
+   kubectl config use-context ohmlab # the context `-k` added, or your own
    ARGOCD_ADMIN_PASSWORD=<choose-a-password> ./run.sh -b mylab
    ```
 4. Once `keycloak` is healthy, enable OIDC for the core ArgoCD by uncommenting the `oidc.config` block in [argo-cd/instances/\<instance\>/values/core/ohmlab.yaml](../argo-cd/instances/_example/values/core/ohmlab.yaml).
@@ -51,8 +51,8 @@ The admin owns the cluster lifecycle: provisioning hosts, bootstrapping ArgoCD, 
    - **core** for infra / identity / observability / security / cluster-wide concerns.
    - **tenant** for user-facing apps.
    - **tier-flexible** for things that may live in either tier depending on topology
-     (e.g. ingress controller, cert-manager, longhorn, keycloak, prometheus-stack,
-     teleport, vault, kubernetes-dashboard). For these, list the entry in BOTH
+     (e.g. cert-manager, longhorn, keycloak, prometheus-stack, teleport, vault,
+     crowdsec). For these, list the entry in BOTH
      `_example/core.yaml` AND `_example/tenant.yaml` (with appropriate `syncWave`s
      per tier) but only enable it in **one** tier per concrete instance — enabling
      it in both would create duplicate Application names.
