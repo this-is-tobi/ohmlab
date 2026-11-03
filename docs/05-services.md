@@ -240,6 +240,29 @@ Services currently connected through SSO (client secrets are stored in Vault and
 
 Optional catalog apps (Coder, Harbor, Outline, SonarQube, ...) ship with the same Keycloak OIDC wiring and join the list when enabled.
 
+### In-cluster TLS
+
+Traffic between pods is meant to be TLS wherever it carries credentials or data. Two opt-in values give the cluster one internal CA for it, and the example instance turns both on:
+
+- `internalCA.enabled` in the `cert-manager` app: a self-signed root in cert-manager's namespace (10 years, renewed a year early with the same key) and the ClusterIssuer `ohmlab-internal-ca` on it.
+- `internalCaBundle.enabled` in the `trust-manager` app, which needs the first: the root as the ConfigMap `ohmlab-internal-ca` (key `ca.crt`) in every namespace listed in `trust-manager.app.targetNamespaces`, the only ones trust-manager may write to. It reads the root from an anchor certificate in its own namespace, so it never reads cert-manager's keys.
+
+An app gets its serving certificate from the issuer (cert-manager's 90-day default applies), and its clients trust the ConfigMap:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: my-app-tls
+spec:
+  secretName: my-app-tls
+  dnsNames:
+  - my-app.my-namespace.svc
+  issuerRef:
+    kind: ClusterIssuer
+    name: ohmlab-internal-ca
+```
+
 ### Secrets
 
 Secrets are sourced from Vault and synced into Kubernetes by the [Vault Secrets Operator](https://developer.hashicorp.com/vault/docs/platform/k8s/vso) (VSO). Each chart that needs secrets depends on the `vso-utils` subchart, which renders `VaultStaticSecret` custom resources pointing at a Vault path.

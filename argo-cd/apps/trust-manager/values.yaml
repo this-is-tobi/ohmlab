@@ -15,6 +15,16 @@ vaultCaBundle:
   name: vault-ca-bundle
   sourceSecret: vault-tls
 
+# Publishes the internal CA root (internalCA in the cert-manager app, which
+# this needs) as the ConfigMap `name` (key ca.crt) in the target namespaces.
+# The root's Secret stays in cert-manager's namespace: an anchor certificate
+# issued by `issuer` in the trust namespace carries the root as its ca.crt,
+# and the Bundle reads that.
+internalCaBundle:
+  enabled: false
+  name: ohmlab-internal-ca
+  issuer: ohmlab-internal-ca
+
 trust-manager:
   app:
     trust:

@@ -1,0 +1,36 @@
+{{- with .Values.internalCaBundle }}
+{{- if .enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .name }}-anchor
+  # trust-manager reads its sources there only.
+  namespace: {{ index $.Values "trust-manager" "app" "trust" "namespace" }}
+spec:
+  commonName: {{ .name }}-anchor
+  secretName: {{ .name }}-anchor
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: {{ .issuer }}
+---
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: {{ .name }}
+  annotations:
+    # The CRD ships with the trust-manager subchart of this same app.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  sources:
+  - secret:
+      name: {{ .name }}-anchor
+      key: ca.crt
+  target:
+    configMap:
+      key: ca.crt
+{{- end }}
+{{- end }}

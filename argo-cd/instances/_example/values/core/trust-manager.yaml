@@ -1,0 +1,4 @@
+# In-cluster TLS: publishes the root of the internal CA (internalCA in
+# cert-manager.yaml).
+internalCaBundle:
+  enabled: true
