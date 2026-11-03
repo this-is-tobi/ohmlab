@@ -107,6 +107,19 @@ clusterIssuers: []
 #             groupName: acme.scaleway.com
 #             solverName: scaleway
 
+# Internal CA for in-cluster TLS (templates/internal-ca.yaml): a self-signed
+# root kept in this namespace and the ClusterIssuer `name` (type ca) on it,
+# which apps get their serving certificates from (cert-manager's 90-day
+# default). The trust-manager app publishes the root (internalCaBundle).
+internalCA:
+  enabled: false
+  name: ohmlab-internal-ca
+  # Long: a new root has to reach every client that trusts the old one.
+  duration: 87600h # 10 years
+  # The key is kept on renewal, and the bundle follows the renewed root
+  # within one renewal of its anchor (90 days).
+  renewBefore: 8760h # 1 year
+
 vso:
   extraObjects:
   - apiVersion: v1
