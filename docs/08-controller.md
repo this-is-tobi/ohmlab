@@ -160,16 +160,8 @@ helm template vault-operator argo-cd/apps/vault-operator -f argo-cd/instances/<i
 
 It reports malformed templates, bcrypt targets and rotation keys that do not exist, key names with a dot, two objects on one path, repeated names and reference cycles. CI runs it over every instance.
 
-## Migrating from the post-config Job
-
-Earlier versions of the `vault-operator` chart seeded `ohmlab.vault.secrets` with a `vault-post-config` Job, which ran `ohmlab vault secret` after every sync. The controller replaces it with the same semantics, except that a reference follows its source, rotation is a one-shot token instead of `forceRotate`, and nothing waits for a hook. The current chart has no Job: an instance that still runs it moves over in two steps, then upgrades.
-
-1. **Shadow.** Enable the target with `observeOnly: true` and render the objects. The Job stays the only writer. The expected planned changes are `adopt` only; go on once they hold over enough resyncs to have seen the Job run and the controller's token renew.
-2. **Takeover.** Set `observeOnly: false`. The first reconcile writes only the owner markers, which creates no KV version. The Job can stay for one sync as a safety net. To go back, set `observeOnly: true`.
-3. **Upgrade.** The new chart drops the Job, its ServiceAccount and RBAC, its Vault policy and role, and `forceRotate`. bank-vaults does not delete what it no longer lists, so remove the role and the policy by hand: `vault delete auth/kubernetes/role/vault-post-config` and `vault policy delete vault-post-config`.
-
-Identity groups and their OIDC aliases are not the controller's: the `vault-operator` chart renders `ohmlab.vault.identity` into the Vault resource's `externalConfig`, where bank-vaults applies them.
-
 ## Not covered yet
 
 Harbor and SonarQube have target names reserved and no objects yet. Objects owned by applications in their own namespaces (so an adopter's app can declare its own configuration) are a later addition: the allow-list and the owner markers are what it will build on.
+
+Identity groups and their OIDC aliases are not the controller's either: the `vault-operator` chart renders `ohmlab.vault.identity` into the Vault resource's `externalConfig`, where bank-vaults applies them.
