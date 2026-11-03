@@ -6,7 +6,7 @@ dependencies:
   repository: https://helm.releases.hashicorp.com
   version: 1.6.2
 - name: backup-utils
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.5.7
-digest: sha256:d44e0bd1c4109b6a0868ab1a5749f1cae216d67d4477cadf4265083add20f779
-generated: "2026-11-01T18:11:20.055801431Z"
+digest: sha256:39539e20cd602990aa04a106e09161d8467f5b7a5094756dc5f4ee7b68fcc308
+generated: "2026-11-03T04:37:48.85496+01:00"

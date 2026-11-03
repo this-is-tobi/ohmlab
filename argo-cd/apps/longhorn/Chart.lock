@@ -3,10 +3,10 @@ dependencies:
   repository: https://charts.longhorn.io
   version: 1.13.0
 - name: vso-utils
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.2.0
 - name: oauth2-proxy
   repository: https://oauth2-proxy.github.io/manifests
   version: 10.7.1
-digest: sha256:b20d0b11d5d7489b0208eaee1b2ea4bf2ab7db148d01d31b3e2978deac377aa2
-generated: "2026-11-01T15:36:27.902068+01:00"
+digest: sha256:576bf30c365f6a288c7b15505b899ca7a6f1f70f2e8971f0251b6adad2f4bede
+generated: "2026-11-03T04:37:24.795133+01:00"

@@ -6,7 +6,7 @@ dependencies:
   repository: oci://ghcr.io/cloudpirates-io/helm-charts
   version: 0.9.0
 - name: vso-utils
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.2.0
-digest: sha256:d2d9974e020f47414d2b4c5149ea89f7d3656c2e14ab3312d4c09fb6cc6f1fd6
-generated: "2026-11-01T15:05:36.719995534Z"
+digest: sha256:695fa6d1d1d9aa894f19ded64b6695a208ab319c2018aa94fb96eae82dcc3544
+generated: "2026-11-03T04:36:58.725783+01:00"

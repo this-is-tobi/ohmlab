@@ -3,7 +3,7 @@ dependencies:
   repository: oci://ghcr.io/prometheus-community/charts
   version: 92.17.0
 - name: vso-utils
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.2.0
 - name: cluster
   repository: https://cloudnative-pg.github.io/charts
@@ -14,5 +14,5 @@ dependencies:
 - name: alloy
   repository: https://grafana.github.io/helm-charts
   version: 1.15.0
-digest: sha256:c6c3dfb5635cdbe3f6d41e60c7bec2aa08e0564d5016f72073803886f81d1f6a
-generated: "2026-11-01T23:03:13.962094663Z"
+digest: sha256:2d546854d8f422b864e662cd86a5e28085de97a118821ca1e432f06832f83e89
+generated: "2026-11-03T04:37:35.553451+01:00"

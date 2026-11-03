@@ -6,7 +6,7 @@ dependencies:
   repository: https://cloudnative-pg.github.io/charts
   version: 0.9.0
 - name: vso-utils
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.2.0
-digest: sha256:3d775eaa0ca704619fcf95148bdf441381d67636149f76925d56cd012f01720f
-generated: "2026-11-01T15:36:28.571925+01:00"
+digest: sha256:5f99f0dcb4983aba06fcfb17b8a9e4a5e224510b20ff48d561138d1340be0616
+generated: "2026-11-03T04:37:27.222312+01:00"
