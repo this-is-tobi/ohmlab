@@ -1,6 +1,6 @@
 dependencies:
 - name: homepage
   repository: oci://ghcr.io/this-is-tobi/charts
-  version: 0.2.0
-digest: sha256:9e6356b6d7f226e00c34b02b9e9abe5bd89b5726dd5f96653794a9d59ac3d8ec
-generated: "2026-11-03T04:37:20.17859+01:00"
+  version: 0.2.1
+digest: sha256:18543acf4a21bc0f30cc1051cc4bfd0d6222cc055261e611f965b3e0d61e7783
+generated: "2026-11-03T23:00:49.384602272Z"
