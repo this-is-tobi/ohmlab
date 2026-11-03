@@ -193,7 +193,7 @@ cnpg:
       name: postgresql-standard-trixie
     # Masters are excluded from CNPG scheduling (they run etcd), narrowing
     # placement to worker nodes. 2 instances + PDB is sufficient HA for
-    # this workload's criticality at homelab scale.
+    # this workload's criticality on a small cluster.
     instances: 2
     # Protects against voluntary disruption (drain/descheduler): with
     # masters excluded from CNPG scheduling and only 2 instances, losing

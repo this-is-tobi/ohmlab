@@ -121,8 +121,7 @@ sso:
 # Rolling flannel→cilium migration support (official Cilium migration
 # guide, adapted to k3s). Renders templates/migration-nodeconfig.yaml: a
 # CiliumNodeConfig that flips CNI ownership per node, gated on a node
-# label. Enable ONLY for the migration window (the homelab instance
-# overlay does this), remove at the final flip.
+# label. Enable ONLY for the migration window, remove at the final flip.
 migration:
   enabled: false
   # Nodes carrying this label (value "true") get their CNI conf written by
