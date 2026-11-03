@@ -118,7 +118,7 @@ INFRASTRUCTURE (Ansible):
                   (Ansible, with become, on the first master).
                   Kubeconfig saved to: ~/.kube/config.d/<name>, and a
                   cluster, user and context <name> are added to
-                  ~/.kube/config (KUBE_CONTEXT_NAME, default 'homelab').
+                  ~/.kube/config (KUBE_CONTEXT_NAME, default 'ohmlab').
 
   -u              Update ansible galaxy collections before running playbook.
 
@@ -294,7 +294,7 @@ fetch_kubeconfig() {
   # The inventory Ansible itself reads: ANSIBLE_INVENTORY wins over ansible.cfg.
   local inventory="${ANSIBLE_INVENTORY:-$SCRIPT_PATH/ansible/inventory}"
   # The name of the cluster, user and context in the local kubeconfig.
-  local name="${KUBE_CONTEXT_NAME:-homelab}"
+  local name="${KUBE_CONTEXT_NAME:-ohmlab}"
 
   gateway_ip=$(yq '[.gateway.hosts[][]][0]' "$inventory/hosts.yml")
 

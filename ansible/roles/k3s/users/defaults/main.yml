@@ -12,4 +12,4 @@
 adminUsers: []
 
 # Name used for the cluster/context in the generated kubeconfigs.
-users_cluster_name: homelab
+users_cluster_name: ohmlab
