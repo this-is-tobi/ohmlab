@@ -28,9 +28,12 @@ internalCaBundle:
 trust-manager:
   app:
     trust:
-      # The only namespace trust-manager may read Secrets from, and the only
-      # one it writes to (targetNamespaces below).
-      namespace: vault-operator-system
+      # The only namespace trust-manager may read Secrets from: its own, where
+      # the only Secrets are public CA copies (bank-vaults copies Vault's
+      # ca.crt to every namespace), so it never reads another app's keys.
+      # Follows the app's namespace.
+      namespace: trust-manager
+    # The namespaces it may write bundles to.
     targetNamespaces:
     - vault-operator-system
   # Secret targets would grant cluster-wide Secret reads; the ConfigMap
