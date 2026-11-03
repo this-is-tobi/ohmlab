@@ -9,7 +9,7 @@ dependencies:
   repository: oci://ghcr.io/actions/actions-runner-controller-charts
   version: 0.15.1
 - name: vso-utils
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.2.0
-digest: sha256:f30321c61419a6a36d5db56c0634bc0a3792b0cb51db3c721ea8cd13144e3c9e
-generated: "2026-11-01T15:36:12.122485+01:00"
+digest: sha256:e2ffe4b30bdfd7a6f3e32c5cc14dc22d349167b1941c11892f54ce412a8b0310
+generated: "2026-11-03T04:36:55.666106+01:00"

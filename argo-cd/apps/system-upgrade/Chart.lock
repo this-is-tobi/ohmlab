@@ -1,6 +1,6 @@
 dependencies:
 - name: system-upgrade-controller
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 0.1.0
-digest: sha256:4db3633f28ac54fa149ff9d0e21eb0019d8034662dcf4134db99145d3698dbf4
-generated: "2026-09-28T02:01:44.987395+02:00"
+digest: sha256:a03466b8a88a459eca3f8684dcdfee039fb6a588d4030ffbef3b2fe0cf83d9be
+generated: "2026-11-03T04:37:45.266724+01:00"

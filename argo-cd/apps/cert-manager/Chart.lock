@@ -6,7 +6,7 @@ dependencies:
   repository: https://helm.scw.cloud
   version: 0.4.3
 - name: vso-utils
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.2.0
-digest: sha256:37aac6251230a354c487bb775bcd872b734bb18ae3eef92fefbef68314137dff
-generated: "2026-11-01T15:36:20.928666+01:00"
+digest: sha256:2dfc68959a42e496ec6d76f078bed1cba73ccea857bb5d485870d49c33fb3243
+generated: "2026-11-03T04:37:04.743328+01:00"

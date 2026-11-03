@@ -21,7 +21,7 @@ A Helm chart to deploy ohmlab.
 | Name | Repository |
 |------|------------|
 | argo-cd | https://argoproj.github.io/argo-helm |
-| vso-utils (as vso) | https://this-is-tobi.github.io/helm-charts |
+| vso-utils (as vso) | oci://ghcr.io/this-is-tobi/charts |
 
 ## Values
 

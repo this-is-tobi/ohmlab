@@ -16,7 +16,7 @@ dependencies:
   - name: vso-utils
     alias: vso
     version: 2.2.0
-    repository: https://this-is-tobi.github.io/helm-charts
+    repository: oci://ghcr.io/this-is-tobi/charts
     condition: vso.enabled
 sources:
   - https://github.com/this-is-tobi/ohmlab

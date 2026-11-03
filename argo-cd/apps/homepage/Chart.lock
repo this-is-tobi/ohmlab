@@ -1,6 +1,6 @@
 dependencies:
 - name: homepage
-  repository: https://this-is-tobi.github.io/helm-charts
+  repository: oci://ghcr.io/this-is-tobi/charts
   version: 0.2.0
-digest: sha256:b91ed60551e5302af179585515c27e884b9d74e1bf2fd4ac0f8d997132f00154
-generated: "2026-11-01T21:19:11.630879943Z"
+digest: sha256:9e6356b6d7f226e00c34b02b9e9abe5bd89b5726dd5f96653794a9d59ac3d8ec
+generated: "2026-11-03T04:37:20.17859+01:00"

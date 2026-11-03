@@ -227,7 +227,7 @@ jobs:
     with:
       CHART_PATH: charts/ohmlab
       REPOSITORY: this-is-tobi/charts
-      HELM_REPOS: argo=https://argoproj.github.io/argo-helm,this-is-tobi=https://this-is-tobi.github.io/helm-charts
+      HELM_REPOS: argo=https://argoproj.github.io/argo-helm
 
   attest-chart:
     needs: publish-chart
