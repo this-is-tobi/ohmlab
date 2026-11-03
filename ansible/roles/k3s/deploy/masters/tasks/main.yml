@@ -168,7 +168,8 @@
 - name: Fetch kube config
   ansible.builtin.fetch:
     src: "{{ ansible_facts['user_dir'] }}/.kube/config"
-    dest: ~/.kube/config.d/homelab
+    # Named like the context `run.sh -k` adds.
+    dest: "~/.kube/config.d/{{ lookup('ansible.builtin.env', 'KUBE_CONTEXT_NAME') | default('ohmlab', true) }}"
     flat: true
   when: masters_is_primary
 
