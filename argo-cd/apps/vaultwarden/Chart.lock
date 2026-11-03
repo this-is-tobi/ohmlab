@@ -1,12 +1,12 @@
 dependencies:
 - name: vaultwarden
   repository: https://guerzon.github.io/vaultwarden
-  version: 0.46.3
+  version: 0.46.4
 - name: cluster
   repository: https://cloudnative-pg.github.io/charts
   version: 0.9.0
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.2.0
-digest: sha256:4ddb3009eecf59f0d0960c9ca55a0c0bea56d17b989c438688a3750a4b6b932e
-generated: "2026-11-03T04:37:51.63858+01:00"
+digest: sha256:0a5bef7392551e4ad152201b47e53ffca44b6901ae0e1a82ce2bc256d1c80c91
+generated: "2026-11-03T23:00:31.396510596Z"
