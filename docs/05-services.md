@@ -242,7 +242,7 @@ Optional catalog apps (Coder, Harbor, Outline, SonarQube, ...) ship with the sam
 
 ### In-cluster TLS
 
-Traffic between pods is meant to be TLS wherever it carries credentials or data. Today, CNPG PostgreSQL serves TLS and every client connects with `sslmode=require`; gitea⇄valkey uses password auth over TLS; Vault and argocd-server serve TLS that traefik verifies upstream via BackendTLSPolicy (Vault against its own CA, Argo CD against its Let's Encrypt certificate); Teleport terminates TLS itself behind a Gateway API TLSRoute passthrough.
+Traffic between pods is meant to be TLS wherever it carries credentials or data. Today, every app's CNPG PostgreSQL cluster serves TLS and refuses plaintext clients (`hostnossl all all all reject` in its `pg_hba`), and every client connects with `sslmode=require`; gitea⇄valkey uses password auth over TLS; Vault and argocd-server serve TLS that traefik verifies upstream via BackendTLSPolicy (Vault against its own CA, Argo CD against its Let's Encrypt certificate); Teleport terminates TLS itself behind a Gateway API TLSRoute passthrough.
 
 Two opt-in values give the cluster one internal CA for the rest, and the example instance turns both on:
 
