@@ -15,7 +15,7 @@ coder:
         wildcardSecretName: ""
     envUseClusterAccessURL: false
     env:
-    # When enabling: append ?sslmode=require to the DSN — CNPG serves TLS by default.
+    # The instance points it at DB_URL of the coder-db-infos Secret, which requires TLS.
     - name: CODER_PG_CONNECTION_URL
       value: ""
     - name: CODER_ACCESS_URL
@@ -69,6 +69,10 @@ cnpg:
       # a re-clone, not disk pressure on the primary.
       parameters:
         max_slot_wal_keep_size: 1GB
+      # Refuses plaintext clients: CNPG's last rule (host all all all
+      # scram-sha-256) would take them.
+      pg_hba:
+      - hostnossl all all all reject
     resources:
       requests:
         cpu: 250m
@@ -160,7 +164,7 @@ vso:
           - ".*"
           templates:
             DB_URL:
-              text: 'postgresql://{{ get .Secrets "postgres" | dig "app" "username" "" }}:{{ get .Secrets "postgres" | dig "app" "password" "" }}@{{ get .Secrets "postgres" | dig "host" "" }}:{{ get .Secrets "postgres" | dig "port" "" }}/{{ get .Secrets "postgres" | dig "database" "" }}'
+              text: 'postgresql://{{ get .Secrets "postgres" | dig "app" "username" "" }}:{{ get .Secrets "postgres" | dig "app" "password" "" }}@{{ get .Secrets "postgres" | dig "host" "" }}:{{ get .Secrets "postgres" | dig "port" "" }}/{{ get .Secrets "postgres" | dig "database" "" }}?sslmode=require'
             DB_HOST:
               text: '{{ get .Secrets "postgres" | dig "host" "" }}'
             DB_PORT:

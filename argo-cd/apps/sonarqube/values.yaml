@@ -30,8 +30,8 @@ sonarqube:
     enabled: false
   jdbcOverwrite:
     enable: true
-    # Instance values must append ?sslmode=require — CNPG serves TLS by default.
-    jdbcUrl: ""
+    # The CNPG cluster below, over TLS (it refuses plaintext anyway).
+    jdbcUrl: "jdbc:postgresql://sonarqube-pg-cluster-rw:5432/sonarqube?sslmode=require&socketTimeout=1500"
     jdbcUsername: ""
     jdbcSecretName: sonarqube-pg-cluster-app
     jdbcSecretPasswordKey: password
@@ -154,6 +154,10 @@ cnpg:
       # a re-clone, not disk pressure on the primary.
       parameters:
         max_slot_wal_keep_size: 1GB
+      # Refuses plaintext clients: CNPG's last rule (host all all all
+      # scram-sha-256) would take them.
+      pg_hba:
+      - hostnossl all all all reject
     resources:
       requests:
         cpu: 250m
@@ -284,7 +288,7 @@ vso:
           - ".*"
           templates:
             DB_URL:
-              text: 'postgresql://{{ get .Secrets "postgres" | dig "app" "username" "" }}:{{ get .Secrets "postgres" | dig "app" "password" "" }}@{{ get .Secrets "postgres" | dig "host" "" }}:{{ get .Secrets "postgres" | dig "port" "" }}/{{ get .Secrets "postgres" | dig "database" "" }}'
+              text: 'postgresql://{{ get .Secrets "postgres" | dig "app" "username" "" }}:{{ get .Secrets "postgres" | dig "app" "password" "" }}@{{ get .Secrets "postgres" | dig "host" "" }}:{{ get .Secrets "postgres" | dig "port" "" }}/{{ get .Secrets "postgres" | dig "database" "" }}?sslmode=require'
             DB_HOST:
               text: '{{ get .Secrets "postgres" | dig "host" "" }}'
             DB_PORT:

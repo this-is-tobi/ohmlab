@@ -8,7 +8,6 @@ sonarqube:
       - sonarqube.example.com
       secretName: sonarqube.example.com-tls
   jdbcOverwrite:
-    jdbcUrl: "jdbc:postgresql://sonarqube-pg-cluster-rw:5432/sonarqube?socketTimeout=1500"
     jdbcUsername: sonarqube
   sonarProperties:
     sonar.core.serverBaseURL: "https://sonarqube.example.com"
