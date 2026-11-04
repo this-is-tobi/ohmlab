@@ -49,12 +49,24 @@ func TestVaultNeverImportsHarborOrSonarqube(t *testing.T) {
 	imports(t, vaultSide, otherSide)
 }
 
-// The controller-runtime dependency graph must stay out of the CLI binary.
+// The image's binary runs in the Jobs, next to their targets' credentials:
+// no Kubernetes client library in it (its commands use internal/k8s).
+func TestTheJobBinaryLinksNoKubernetesClient(t *testing.T) {
+	notLinked(t, "../cmd/job", "k8s.io/client-go", "sigs.k8s.io/controller-runtime")
+}
+
+// The workstation CLI may use client-go (credential plugins, port-forward),
+// never the controller stack.
 func TestTheCLIDoesNotLinkTheControllerStack(t *testing.T) {
-	for _, dep := range deps(t, "../.") {
-		for _, bad := range []string{"k8s.io/client-go", "sigs.k8s.io/controller-runtime"} {
+	notLinked(t, "../.", "sigs.k8s.io/controller-runtime")
+}
+
+func notLinked(t *testing.T, main string, banned ...string) {
+	t.Helper()
+	for _, dep := range deps(t, main) {
+		for _, bad := range banned {
 			if strings.HasPrefix(dep, bad) {
-				t.Errorf("the ohmlab CLI links %s", dep)
+				t.Errorf("%s links %s", main, dep)
 			}
 		}
 	}

@@ -4,6 +4,7 @@ project_name: ohmlab
 
 builds:
   - id: ohmlab
+    # The workstation CLI; the image builds the Jobs' one (cmd/job).
     main: .
     binary: ohmlab
     env:
