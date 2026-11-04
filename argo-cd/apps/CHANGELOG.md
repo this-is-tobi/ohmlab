@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.13.0...catalog-v0.13.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **deps:** update helm release argo-cd to v10.12.1 ([4ed6117](https://github.com/this-is-tobi/ohmlab/commit/4ed6117a3645325d6b457dc56a260fb5d018c5e3))
+* **deps:** update helm release sops-secrets-operator to v0.29.1 ([c85de85](https://github.com/this-is-tobi/ohmlab/commit/c85de856ebd95b87f53af61b80e50682e64f3a43))
+* **deps:** update kube-prometheus-stack docker tag to v92.18.0 ([a901378](https://github.com/this-is-tobi/ohmlab/commit/a901378f03eb32c544bc47635864e70d678cbdbc))
+
 ## [0.13.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.12.0...catalog-v0.13.0) (2026-11-04)
 
 
