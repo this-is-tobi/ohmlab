@@ -2,8 +2,7 @@
 
 ## ohmlab CLI
 
-The Go CLI in [cli/](../cli/) ships operational commands (built as
-`ghcr.io/this-is-tobi/ohmlab/cli`, or `go run .` from `cli/`):
+The Go CLI in [cli/](../cli/) ships operational commands. Take it from the [release archives](https://github.com/this-is-tobi/ohmlab/releases), run it from the image `ghcr.io/this-is-tobi/ohmlab/cli` (which also carries kubectl, helm and the vault CLI), or `go run .` from `cli/`:
 
 ```sh
 # Read-only platform health sweep: nodes, ArgoCD apps, VSO secret sync,
@@ -28,10 +27,29 @@ ohmlab vault leader
 # chart on standard input
 helm template vault-operator argo-cd/apps/vault-operator -f argo-cd/instances/<instance>/values/core/vault-operator.yaml \
   --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false | ohmlab validate -
+
+# Find the in-cluster ports that do not speak TLS (read-only, through
+# port-forwards). Exits non-zero when one is plaintext with nothing allowing it;
+# --output json for the whole report, --all to list every port.
+ohmlab audit tls --context <context>
 ```
 
 `ohmlab check` uses the in-cluster ServiceAccount when available and falls
 back to `$KUBECONFIG` / `~/.kube/config` (static certs or token).
+
+`ohmlab audit tls` loads the kubeconfig as kubectl does (exec plugins work). Metrics ports (named so, or on a Service named so, but not Loki's API port, which its chart names `http-metrics`) and DNS may stay plaintext, and so may the exceptions of the workspace file, `ohmlab.yaml` in the current directory (`--config` for another), each with its reason:
+
+```yaml
+audit:
+  tls:
+    exceptions:
+    - namespace: homepage
+      service: homepage
+      ports: [3000]   # every port of the Service when left out
+      reason: Homepage serves HTTP only
+```
+
+An exception that allows nothing any more, such as one whose port speaks TLS now, is reported as stale. The command needs to list Services and EndpointSlices, to read `kube-system/cilium-config` (it reports whether Cilium encrypts the traffic between nodes) and to create `pods/portforward`.
 
 ## Network
 

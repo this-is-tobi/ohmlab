@@ -265,6 +265,8 @@ spec:
     name: ohmlab-internal-ca
 ```
 
+`ohmlab audit tls` checks a running cluster against this ([cheat sheet](07-cheat-sheet.md#ohmlab-cli)): it probes every Service port through a port-forward and fails on a plaintext one that neither the rule (metrics, DNS) nor an exception of the instance's `ohmlab.yaml`, each with its reason, allows.
+
 ### Secrets
 
 Secrets are sourced from Vault and synced into Kubernetes by the [Vault Secrets Operator](https://developer.hashicorp.com/vault/docs/platform/k8s/vso) (VSO). Each chart that needs secrets depends on the `vso-utils` subchart, which renders `VaultStaticSecret` custom resources pointing at a Vault path.
