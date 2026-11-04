@@ -2,9 +2,7 @@ package audit
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"time"
 
@@ -52,7 +50,7 @@ func init() {
 	f := tlsCmd.Flags()
 	f.StringVar(&tlsFlags.kubeconfig, "kubeconfig", "", "path to kubeconfig (default: $KUBECONFIG, then ~/.kube/config)")
 	f.StringVar(&tlsFlags.context, "context", "", "kubeconfig context (default: the current one)")
-	f.StringVar(&tlsFlags.config, "config", config.DefaultPath, "workspace file with the exceptions; optional unless set")
+	f.StringVar(&tlsFlags.config, "config", "", "workspace file with the exceptions (default: the nearest "+config.DefaultPath+" up to the repository root)")
 	f.StringVarP(&tlsFlags.output, "output", "o", "text", "text or json")
 	f.IntVar(&tlsFlags.concurrency, "concurrency", 4, "ports probed at a time")
 	f.DurationVar(&tlsFlags.timeout, "timeout", 5*time.Second, "time a port has to answer")
@@ -64,15 +62,15 @@ func runTLS(cmd *cobra.Command, _ []string) error {
 	if tlsFlags.output != "text" && tlsFlags.output != "json" {
 		return fmt.Errorf("--output %q: want text or json", tlsFlags.output)
 	}
-	var exceptions []config.TLSException
-	file, err := config.Load(tlsFlags.config)
-	switch {
-	case err == nil:
-		exceptions = file.Audit.TLS.Exceptions
-	case errors.Is(err, fs.ErrNotExist) && !cmd.Flags().Changed("config"):
-	default:
+	cwd, err := os.Getwd()
+	if err != nil {
 		return err
 	}
+	_, file, err := config.Resolve(cwd, config.Flags{Config: tlsFlags.config}, os.Getenv)
+	if err != nil {
+		return err
+	}
+	exceptions := file.Audit.TLS.Exceptions
 
 	cfg, contextName, err := kubeclient.Load(tlsFlags.kubeconfig, tlsFlags.context)
 	if err != nil {
