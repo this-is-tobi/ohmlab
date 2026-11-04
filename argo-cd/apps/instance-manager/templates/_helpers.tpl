@@ -174,7 +174,9 @@ path: the core tier reads the ohmlab system mount, the tenant tier the
 instance's (names.vaultMount), under platforms/<instance.env>/<scope>, given
 only with instance.env. The literal ohmlab here and the default of the
 vault-operator chart's systemMount are the two places that name the system
-mount. Called with (list . <scope>).
+mount. An instance with vault.hub reads the Vault of that instance, whose
+spokeClusters declare it: both tiers read the instance's own mount, logging in
+with the jwt method at the mount jwt-<instance>. Called with (list . <scope>).
 */}}
 {{- define "instance-manager.vaultParameters" -}}
 {{- $root := index . 0 -}}
@@ -183,14 +185,32 @@ mount. Called with (list . <scope>).
 {{- if and $env (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $env)) -}}
 {{- fail (printf "instance.env %q must match ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$: it is a segment of every secret's path" $env) -}}
 {{- end -}}
+{{- $instance := $root.Values.instance.name | toString -}}
+{{- $hub := dig "hub" "" ($root.Values.vault | default dict) | toString -}}
+{{- if $hub -}}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" $hub) -}}
+{{- fail (printf "vault.hub %q must be a lowercase DNS label: it names the instance whose Vault this one reads" $hub) -}}
+{{- end -}}
+{{- if eq $hub $instance -}}
+{{- fail (printf "vault.hub %q is this instance: an instance that runs its own Vault leaves vault.hub empty" $hub) -}}
+{{- end -}}
+{{- end -}}
 {{- $mount := "ohmlab" -}}
-{{- if eq $scope "tenant" }}{{ $mount = (include "instance-manager.names" $root | fromYaml).vaultMount }}{{ end }}
+{{- if or $hub (eq $scope "tenant") }}{{ $mount = (include "instance-manager.names" $root | fromYaml).vaultMount }}{{ end }}
 - name: "global.ohmlab.vault.mount"
   value: {{ $mount | quote }}
   forceString: true
 {{- with $env }}
 - name: "global.ohmlab.vault.pathPrefix"
   value: {{ printf "platforms/%s/%s" . $scope | quote }}
+  forceString: true
+{{- end }}
+{{- if $hub }}
+- name: "global.ohmlab.vault.auth.method"
+  value: "jwt"
+  forceString: true
+- name: "global.ohmlab.vault.auth.mount"
+  value: {{ printf "jwt-%s" $instance | quote }}
   forceString: true
 {{- end }}
 {{- end -}}

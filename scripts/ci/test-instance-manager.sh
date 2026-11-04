@@ -220,10 +220,13 @@ for scope in core tenant; do
     "$(names_json edge t T t)" "$(render_names "$scope" t --set-json 'names={"gateway":"edge"}')"
 done
 
-# vault_json <mount> [<path prefix>] -> the Vault parameters the manager gives.
+# vault_json <mount> [<path prefix>] [<jwt mount>] -> the Vault parameters the
+# manager gives; with a jwt mount, those of an instance reading a hub's Vault.
 vault_json() {
-  jq -nc --arg m "$1" --arg p "${2:-}" '[{name: "global.ohmlab.vault.mount", value: $m, forceString: true}]
-    + (if $p == "" then [] else [{name: "global.ohmlab.vault.pathPrefix", value: $p, forceString: true}] end)'
+  jq -nc --arg m "$1" --arg p "${2:-}" --arg a "${3:-}" '[{name: "global.ohmlab.vault.mount", value: $m, forceString: true}]
+    + (if $p == "" then [] else [{name: "global.ohmlab.vault.pathPrefix", value: $p, forceString: true}] end)
+    + (if $a == "" then [] else [{name: "global.ohmlab.vault.auth.method", value: "jwt", forceString: true},
+                                 {name: "global.ohmlab.vault.auth.mount", value: $a, forceString: true}] end)'
 }
 
 # Each app reads its secrets from its tier's KV mount: the core apps from the
@@ -242,6 +245,15 @@ check "the Vault parameters come after the names" \
   "global.ohmlab.names.gateway,global.ohmlab.names.keycloakRealm,global.ohmlab.names.keycloakRealmDisplayName,global.ohmlab.names.vaultMount,global.ohmlab.vault.mount,global.ohmlab.vault.pathPrefix" \
   "$(render_params core t --set instance.env=production | jq -r 'map(.name) | join(",")')"
 
+# An instance on another cluster reads the Vault of the instance vault.hub
+# names: both tiers read its own mount there, logging in through its jwt mount.
+for scope in core tenant; do
+  check "$scope: a remote instance's apps read its own mount, through its jwt mount" \
+    "$(vault_json dev "platforms/development/$scope" jwt-dev)" "$(render_vault "$scope" dev --set instance.env=development --set vault.hub=platform)"
+  check "$scope: a remote instance's mount follows names.vaultMount" \
+    "$(vault_json lab "platforms/development/$scope" jwt-dev)" "$(render_vault "$scope" dev --set instance.env=development --set vault.hub=platform --set-json 'names={"vaultMount":"lab"}')"
+done
+
 # A catalog section that cannot work must fail the render of the manager, not
 # produce Applications that quietly come from somewhere else.
 refuse() { # label helm-args...
@@ -254,6 +266,8 @@ refuse() { # label helm-args...
     fi
   done
 }
+refuse "an instance that names itself as its Vault hub is refused" --set vault.hub=t
+refuse "a Vault hub that is not a DNS label is refused" --set vault.hub=A_B
 refuse "a default catalog that is not declared is refused" --set defaultCatalog=nope
 refuse "a catalog named git is refused (reserved)" --set-json "catalogs={\"git\":{\"repoURL\":\"$BUNDLE\"}}"
 refuse "a bundle catalog without repoURL is refused" --set-json 'catalogs={"bundle":{"version":"0.2.0"}}'

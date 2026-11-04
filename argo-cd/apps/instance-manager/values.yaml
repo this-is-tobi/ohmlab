@@ -57,6 +57,14 @@ defaultCatalog: ""
 #     gateway: mylab-gateway             # Gateway of every implementation, the routes' parent (default: <instance>-gateway)
 names: {}
 
+# The instance whose Vault this one reads, for an instance on another cluster
+# than that Vault (empty: the instance's own cluster runs it). Both tiers then
+# read the instance's own KV mount (names.vaultMount), and every app logs in
+# with the jwt method at the mount jwt-<instance>, which that hub's
+# vault-operator values declare under spokeClusters.
+vault:
+  hub: ""
+
 projects:
   core: admin-core
   tenant: admin-tenant

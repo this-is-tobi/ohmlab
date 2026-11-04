@@ -82,6 +82,12 @@ targetRevision: main
 #   keycloakRealmDisplayName: My lab
 #   gateway: mylab-gateway
 
+# An instance on another cluster than its Vault names the instance that runs
+# that Vault: both tiers then read this instance's own KV mount there, through
+# the jwt mount jwt-<instance> the hub declares under spokeClusters.
+# vault:
+#   hub: platform
+
 # AppProject bindings for the two child AppSets. Both projects are created by
 # the `ohmlab` chart at bootstrap time.
 projects:
