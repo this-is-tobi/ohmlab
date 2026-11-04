@@ -11,9 +11,9 @@ fail=0
 
 # render <dir> <app> <lines...>: one app's objects file.
 render() { local d="$work/$1/lab/core"; mkdir -p "$d"; shift; local app="$1"; shift; printf '%s\n' "$@" | sort >"$d/$app.objects"; }
-expect() { # expect <description> <rc> <text>
+expect() { # expect <description> <rc> <text>; ALLOWED is passed as ALLOWED_REMOVALS
   local out rc
-  out=$(GITHUB_STEP_SUMMARY="$work/summary" "$SCRIPT" "$work/base" "$work/head" 2>&1); rc=$?
+  out=$(GITHUB_STEP_SUMMARY="$work/summary" ALLOWED_REMOVALS="${ALLOWED:-}" "$SCRIPT" "$work/base" "$work/head" 2>&1); rc=$?
   if [ "$rc" = "$2" ] && grep -qF -- "$3" <<<"$out"; then echo "ok   $1"; else
     echo "FAIL $1 (rc $rc, want $2, looking for '$3')"; sed 's/^/     /' <<<"$out"; fail=1
   fi
@@ -43,6 +43,26 @@ expect "a changed object passes and is listed" 0 "vault: Vault/vault/vault"
 render base app 'Deployment/a/x aaaa'
 render head app 'Deployment/a/x aaaa' 'Service/a/y bbbb'
 expect "an added object passes and is listed" 0 "Added (1)"
+
+render base app 'Role/a/x aaaa' 'Deployment/a/y bbbb'
+render head app 'Deployment/a/y bbbb'
+ALLOWED='lab/core/app: Role/a/x' expect "a removal the change acknowledges passes and is listed" 0 "acknowledged by the change (1)"
+
+render base app 'Role/a/x aaaa' 'Service/a/z cccc' 'Deployment/a/y bbbb'
+render head app 'Deployment/a/y bbbb'
+ALLOWED='lab/core/app: Role/a/x' expect "a removal it does not acknowledge still fails" 1 "FAIL 1 object(s)"
+
+render base app 'Deployment/a/y bbbb'
+render head app 'Deployment/a/y bbbb'
+ALLOWED='lab/core/app: Role/a/gone' expect "an acknowledgment that matches nothing is listed" 0 "Acknowledged but not removed (1)"
+
+render base app 'Deployment/a/y bbbb'
+render head app 'Deployment/a/y bbbb'
+out=$(ALLOWED_REMOVALS=$'app: Role/a/\e[2Jx' "$SCRIPT" "$work/base" "$work/head" 2>&1)
+if grep -q $'\e' <<<"$out" || ! grep -qF 'app: Role/a/[2Jx' <<<"$out"; then
+  echo "FAIL the control characters of an acknowledgment reach the log"; sed 's/^/     /' <<<"$out"; fail=1
+else echo "ok   the control characters of an acknowledgment are dropped"; fi
+rm -rf "$work/base" "$work/head"
 
 grep -q '### Deleted or renamed' "$work/summary" && echo "ok   the job summary lists them" || { echo "FAIL no job summary"; fail=1; }
 
