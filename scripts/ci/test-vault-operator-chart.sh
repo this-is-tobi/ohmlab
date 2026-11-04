@@ -5,7 +5,8 @@
 # refuses a whole sync over one unknown kind, and the core apps that bring that
 # API need Vault first), and each selects the one rendered Service that carries
 # its endpoint's port, so a subchart that renames a label or a port fails here
-# rather than as a target that is never scraped.
+# rather than as a target that is never scraped. Then the shape of a cluster
+# that reads a remote Vault: VSO alone, its default connection on the hub.
 #
 #   test-vault-operator-chart.sh
 #
@@ -72,5 +73,29 @@ got=$(argo_paths argo-cd)
 got=$(argo_paths argo-cd-core)
 [ "$got" = "ohmlab/data/platforms/+/core/argo-cd" ] || fail "the core Argo CD must read only its tier's path, got '$got'"
 
-[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path"
+# A cluster that reads a remote Vault runs VSO alone: no bank-vaults operator,
+# no Vault and no seeds; its default connection is the hub's route, with a CA
+# Secret only when the values give one.
+remote=(--api-versions monitoring.coreos.com/v1 --set vault.enabled=false --set vault-operator.enabled=false
+  --set vaultOidcCredentials.enabled=false --set vso.defaultVaultConnection.address=https://vault.example.com
+  --set vso.defaultVaultConnection.caCertSecret=)
+render "$work/remote.yaml" "${remote[@]}"
+bankvaults="vault-operator-$(yq '.dependencies[] | select(.name == "vault-operator") | .version' "$CHART/Chart.yaml")"
+[ -z "$(yq "select(.metadata.labels[\"helm.sh/chart\"] == \"$bankvaults\" or (.kind == \"ServiceMonitor\" and .metadata.name == \"vault-operator\")) | .kind" "$work/remote.yaml")" ] \
+  || fail "the bank-vaults operator or its monitor renders with vault-operator.enabled=false"
+[ -z "$(yq 'select(.kind == "Vault" or .kind == "VaultSeed") | .kind' "$work/remote.yaml")" ] \
+  || fail "a Vault or a VaultSeed renders with vault.enabled=false"
+[ -n "$(yq 'select(.kind == "Deployment" and .metadata.name == "vault-operator-vso-controller-manager") | .kind' "$work/remote.yaml")" ] \
+  || fail "VSO does not render alone"
+got=$(yq -o=json -I=0 'select(.kind == "VaultConnection" and .metadata.name == "default") | .spec' "$work/remote.yaml")
+[ "$got" = '{"address":"https://vault.example.com","skipTLSVerify":false}' ] \
+  || fail "the default VaultConnection must be the hub's address with no CA, got '$got'"
+[ -z "$(yq 'select(.kind == "Secret" and .metadata.name == "vault-hub-ca") | .kind' "$work/remote.yaml")" ] \
+  || fail "a vault-hub-ca Secret renders without hubCA"
+pem=$'-----BEGIN CERTIFICATE-----\nMIIBfake\n-----END CERTIFICATE-----'
+render "$work/remote-ca.yaml" "${remote[@]}" --set-string hubCA="$pem"
+got=$(yq 'select(.kind == "Secret" and .metadata.name == "vault-hub-ca") | .data["ca.crt"] | @base64d' "$work/remote-ca.yaml")
+[ "$got" = "$pem" ] || fail "Secret vault-hub-ca must hold hubCA under ca.crt"
+
+[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path; VSO alone for a remote Vault"
 exit "$failures"
