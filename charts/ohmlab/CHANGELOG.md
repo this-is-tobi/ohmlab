@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.5.1...chart-v0.5.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **deps:** update vso-utils docker tag to v2.2.1 ([c25e152](https://github.com/this-is-tobi/ohmlab/commit/c25e152bd42436258315afb828c423fbcd9d38c9))
+
 ## [0.5.1](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.5.0...chart-v0.5.1) (2026-11-03)
 
 
