@@ -97,5 +97,25 @@ render "$work/remote-ca.yaml" "${remote[@]}" --set-string hubCA="$pem"
 got=$(yq 'select(.kind == "Secret" and .metadata.name == "vault-hub-ca") | .data["ca.crt"] | @base64d' "$work/remote-ca.yaml")
 [ "$got" = "$pem" ] || fail "Secret vault-hub-ca must hold hubCA under ca.crt"
 
-[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path; VSO alone for a remote Vault"
+# Vault's routes admit only the given source ranges: a Traefik ipAllowList
+# Middleware, first in every rule's filters, before the rule's own.
+route='gateway.routes=[{"name":"vault","hostnames":["vault.example.com"],"rules":[
+  {"backendService":"vault","backendPort":8200,"filters":[{"type":"RequestHeaderModifier","requestHeaderModifier":{"set":[{"name":"X-A","value":"b"}]}}]},
+  {"path":"/ui","backendService":"vault","backendPort":8200}]}]'
+given='{"type":"RequestHeaderModifier","requestHeaderModifier":{"set":[{"name":"X-A","value":"b"}]}}'
+allow='{"type":"ExtensionRef","extensionRef":{"group":"traefik.io","kind":"Middleware","name":"vault-source-range"}}'
+# filters <render>: each rule's filters, one JSON list per line.
+filters() { yq -o=json -I=0 'select(.kind == "HTTPRoute") | .spec.rules[] | .filters // []' "$1" | jq -cS .; }
+render "$work/allow.yaml" --set gateway.enabled=true --set-json "$route" --set-json 'gateway.sourceRange=["198.51.100.0/24"]'
+got=$(yq -o=json -I=0 'select(.kind == "Middleware" and .metadata.name == "vault-source-range") | .spec.ipAllowList.sourceRange' "$work/allow.yaml")
+[ "$got" = '["198.51.100.0/24"]' ] || fail "the vault-source-range Middleware must hold gateway.sourceRange, got '$got'"
+got=$(filters "$work/allow.yaml" | paste -sd' ' -)
+want="$(jq -cS -n "[$allow, $given]") $(jq -cS -n "[$allow]")"
+[ "$got" = "$want" ] || fail "with sourceRange, every rule's filters must start with the allowlist, got '$got'"
+render "$work/open.yaml" --set gateway.enabled=true --set-json "$route"
+[ -z "$(yq 'select(.kind == "Middleware") | .kind' "$work/open.yaml")" ] || fail "a Middleware renders without gateway.sourceRange"
+got=$(filters "$work/open.yaml" | paste -sd' ' -)
+[ "$got" = "$(jq -cS -n "[$given]") []" ] || fail "without sourceRange, the filters must stay as given, got '$got'"
+
+[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path; VSO alone for a remote Vault; routes admit gateway.sourceRange"
 exit "$failures"

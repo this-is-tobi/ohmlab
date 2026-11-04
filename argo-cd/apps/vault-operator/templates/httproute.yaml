@@ -27,13 +27,17 @@ spec:
     {{- end }}
   rules:
     {{- range .rules }}
+    {{- $filters := .filters | default list }}
+    {{- if $.Values.gateway.sourceRange }}
+    {{- $filters = prepend $filters (dict "type" "ExtensionRef" "extensionRef" (dict "group" "traefik.io" "kind" "Middleware" "name" "vault-source-range")) }}
+    {{- end }}
     - matches:
         - path:
             type: {{ .pathType | default "PathPrefix" }}
             value: {{ .path | default "/" | quote }}
-      {{- if .filters }}
+      {{- with $filters }}
       filters:
-        {{- toYaml .filters | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       backendRefs:
         - name: {{ .backendService }}
