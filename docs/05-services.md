@@ -242,7 +242,9 @@ Optional catalog apps (Coder, Harbor, Outline, SonarQube, ...) ship with the sam
 
 ### In-cluster TLS
 
-Traffic between pods is meant to be TLS wherever it carries credentials or data. Two opt-in values give the cluster one internal CA for it, and the example instance turns both on:
+Traffic between pods is meant to be TLS wherever it carries credentials or data. Today, CNPG PostgreSQL serves TLS and every client connects with `sslmode=require`; gitea⇄valkey uses password auth over TLS; Vault and argocd-server serve TLS that traefik verifies upstream via BackendTLSPolicy (Vault against its own CA, Argo CD against its Let's Encrypt certificate); Teleport terminates TLS itself behind a Gateway API TLSRoute passthrough.
+
+Two opt-in values give the cluster one internal CA for the rest, and the example instance turns both on:
 
 - `internalCA.enabled` in the `cert-manager` app: a self-signed root in cert-manager's namespace (10 years, renewed a year early with the same key) and the ClusterIssuer `ohmlab-internal-ca` on it.
 - `internalCaBundle.enabled` in the `trust-manager` app, which needs the first: the root as the ConfigMap `ohmlab-internal-ca` (key `ca.crt`) in every namespace listed in `trust-manager.app.targetNamespaces`, the only ones trust-manager may write to. It reads the root from an anchor certificate in its own namespace, so it never reads cert-manager's keys.
@@ -342,12 +344,7 @@ the kyverno app values. Exceptions are GitOps-managed: the kyverno
 `PolicyException` feature is enabled but restricted to the `kyverno`
 namespace (a CEL `PolicyException` anywhere else is ignored), so every exception lives in
 [policy-exceptions.yaml](../argo-cd/apps/kyverno/templates/policy-exceptions.yaml)
-and workloads cannot self-exempt. In-cluster traffic is encrypted wherever the
-component supports it: CNPG PostgreSQL serves TLS and every client connects
-with `sslmode=require`; gitea⇄valkey uses password auth over TLS; Vault and
-argocd-server serve TLS that traefik verifies upstream via BackendTLSPolicy
-(Vault against its own CA, ArgoCD against its Let's Encrypt cert); Teleport
-terminates TLS itself behind a Gateway API TLSRoute passthrough.
+and workloads cannot self-exempt. In-cluster encryption is described in [In-cluster TLS](#in-cluster-tls).
 
 ### Monitoring
 
