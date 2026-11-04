@@ -40,7 +40,9 @@ vault:
     raft:
       storageClass: ""
   externalConfig:
-    # Remote clusters that pull their secrets from this Vault, see
+    # Remote clusters whose instances read their secrets from this Vault:
+    # each declares its instances, which get a KV mount, a jwt mount and
+    # read-only roles here. The shape is in the chart's values; see
     # docs/05-services.md ("Multi-cluster (spoke clusters)").
     spokeClusters: []
 

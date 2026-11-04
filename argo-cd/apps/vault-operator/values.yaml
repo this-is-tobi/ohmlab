@@ -100,54 +100,70 @@ vault:
       retention: 10m
       disableHostname: true
   externalConfig:
-    # Remote clusters that pull their secrets from this hub Vault — a
-    # separate Kubernetes cluster (e.g. a `tenant`-tier instance under
-    # argo-cd/instances/), NOT the existing core/tenant tier split within
-    # one instance. Named "spoke" specifically to avoid colliding with that
-    # tier vocabulary: an entry below can itself contain apps in either tier
-    # (see `tier:` on each app), because both tiers of a remote cluster are
-    # equally "not this cluster" from the hub's point of view.
+    # Remote clusters whose instances read their secrets from this Vault, the
+    # hub: other Kubernetes clusters, each running instances whose
+    # instance.yaml sets `vault.hub` to this instance. Named "spoke" to keep
+    # apart from the core/tenant tiers: a spoke instance has both tiers in its
+    # own KV mount.
     #
-    # Each entry renders a dedicated `jwt` auth mount validating that
-    # cluster's projected ServiceAccount tokens against pinned public keys.
-    # This is what makes hub-and-spoke work: the `kubernetes` auth method
+    # Per instance, the chart renders a KV v2 mount, a `jwt` auth mount
+    # jwt-<instance> that validates the cluster's projected ServiceAccount
+    # tokens, and per app a read-only role and policy derived from this
+    # Vault's own kubernetes role of that app: its one namespace with the
+    # instance's prefix and suffix, its one service account, and the rules of
+    # its policies (`policies` or `token_policies`), on the instance's mount
+    # alone. Those rules must be HCL `path "..." { capabilities = [...] }`
+    # stanzas with read, list or deny, comment lines aside: any other text,
+    # a path outside that mount, a namespace another instance of the cluster
+    # binds, or a name or mount this Vault already uses fails the render.
+    # The jwt method is what makes this work: the `kubernetes` method
     # validates a token by calling TokenReview on the cluster that issued it,
-    # so it needs a route from Vault INTO every remote API server — the
-    # opposite of the direction that survives NAT and firewalls. The jwt
-    # method validates the signature locally and needs no route at all.
+    # so it needs a route from Vault INTO every remote API server, the
+    # opposite of the direction that survives NAT and firewalls.
     #
     # Empty by default, so a single-cluster instance renders no jwt mounts.
     spokeClusters: []
-    # - name: spoke-a
-    #   # PEM public keys from that cluster:
+    # - name: nonprod                # the cluster, named in errors
+    #   # `iss` of that cluster's tokens. Default: oidcDiscoveryUrl, else
+    #   # https://kubernetes.default.svc.cluster.local, the value k3s gives
+    #   # every cluster, which pins nothing on its own: isolation then comes
+    #   # from publicKeys.
+    #   issuer: https://oidc.example.com/id/nonprod
+    #   # Exactly one of oidcDiscoveryUrl and publicKeys. A managed cluster
+    #   # publishes its keys at its issuer: Vault fetches them from there over
+    #   # HTTPS (required), never from the cluster's API server, and follows
+    #   # the provider's rotations. Vault reads the discovery document when the
+    #   # mount is configured, so this Vault needs egress to every issuer: an
+    #   # unreachable one stops the configuration of every instance.
+    #   oidcDiscoveryUrl: https://oidc.example.com/id/nonprod
+    #   # Else the cluster's PEM public keys, pinned:
     #   #   kubectl --context <ctx> get --raw /openid/v1/jwks
-    #   # then convert each JWK to a PEM SubjectPublicKeyInfo. Public key
-    #   # material — safe to commit. Re-pin if the cluster's ServiceAccount
-    #   # signing keys are ever rotated, or every login there starts failing
-    #   # with "no known key successfully validated the token signature".
-    #   publicKeys:
-    #   - |
-    #     -----BEGIN PUBLIC KEY-----
-    #     ...
-    #     -----END PUBLIC KEY-----
-    #   # `iss` of that cluster's tokens. k3s gives EVERY cluster the same
-    #   # default value, so this pins nothing on its own — isolation comes
-    #   # from publicKeys. Set a distinct per-cluster issuer
-    #   # (--kube-apiserver-arg=service-account-issuer=...) to make it
-    #   # meaningful; k3s accepts the flag repeatedly, first signs and the
-    #   # rest still validate, so it can be rolled out without a flag day.
-    #   issuer: https://kubernetes.default.svc.cluster.local
-    #   # Audience VSO requests in its VaultAuth (`jwt.audiences`).
-    #   audience: vault
-    #   # Apps allowed to authenticate from that cluster. Each renders one
-    #   # role plus one policy scoped to platforms/<cluster>/<tier>/<app>.
-    #   apps:
-    #   - name: sonarqube
-    #     namespace: sonarqube
-    #     # serviceAccount: vso   # default
-    #     # tier is the EXISTING core/tenant split, scoped to this one app's
-    #     # KV path — unrelated to this being a spoke cluster entry.
-    #     # tier: tenant           # default "+" (any tier)
+    #   # then each JWK converted to a PEM SubjectPublicKeyInfo. Public key
+    #   # material, safe to commit. Re-pin when the cluster rotates its
+    #   # ServiceAccount signing keys, or every login there fails with "no
+    #   # known key successfully validated the token signature".
+    #   # publicKeys:
+    #   # - |
+    #   #   -----BEGIN PUBLIC KEY-----
+    #   #   ...
+    #   #   -----END PUBLIC KEY-----
+    #   audience: vault              # the audience VSO requests (default)
+    #   tokenTtl: 1h                 # default; tokenMaxTtl: 4h by default
+    #   instances:
+    #   - name: dev                  # the instance; its jwt mount is jwt-dev
+    #     mount: dev                 # its KV mount (default: the name)
+    #     # An app's namespace is this prefix, the one namespace this Vault's
+    #     # kubernetes role of the app binds, then this suffix.
+    #     namespacePrefix: dev-
+    #     namespaceSuffix: ""
+    #     # The apps that read secrets there, each with a kubernetes role of
+    #     # the same name in `auth` below. An entry may set its namespace and
+    #     # service account instead of deriving them.
+    #     apps:
+    #     - gitea
+    #     - name: keycloak
+    #       namespace: dev-sso
+    #       serviceAccount: vso
     # Each policy's rules go through tpl with two KV mounts: .systemMount, the
     # core tier's (systemMount), and .kvMount, the tenant tier's, the
     # instance's own (global.ohmlab.names.vaultMount, else ohmlab). An app reads
@@ -505,27 +521,9 @@ vault:
         audience: vault
         policies: [vault]
         ttl: 1h
-    # Multi-cluster JWT auth — enable per remote cluster.
-    # Each cluster gets its own mount (e.g., jwt-staging, jwt-prod-eu).
-    # Uses K8s SA tokens validated via JWKS — no cross-cluster API dependency.
-    # To enable: uncomment, set jwks_url to the remote cluster's OIDC discovery endpoint,
-    # and set initSecrets.authMethod=jwt + authMount=jwt-<cluster> in the remote instance.
-    # - type: jwt
-    #   path: jwt-remote
-    #   config:
-    #     oidc_discovery_url: ""  # https://<k8s-api>/.well-known/openid-configuration
-    #     # OR use jwks_url directly:
-    #     # jwks_url: "https://<k8s-api>/openid/v1/jwks"
-    #     bound_issuer: ""  # https://<k8s-api>
-    #     default_role: ""
-    #   roles:
-    #   - name: vault-init-secrets
-    #     bound_audiences: [vault]
-    #     bound_subject: ""
-    #     user_claim: sub
-    #     role_type: jwt
-    #     policies: [vault-init-secrets]
-    #     ttl: 10m
+    # Remote clusters get their jwt mounts from spokeClusters above, not from
+    # an entry here: one at a spoke instance's jwt-<instance> path fails the
+    # render, since its roles would accept that cluster's tokens.
     #
     # Vault UI OIDC auth via Keycloak.
     # Enabled per-instance via externalConfig.oidcEnabled: true.

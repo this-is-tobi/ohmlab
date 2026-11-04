@@ -150,6 +150,7 @@ spec:
     {{- $policies = append $policies $p }}
     {{- end }}
     {{- $auth := deepCopy (.Values.vault.externalConfig.auth | default list) }}
+    {{- $spokes := include "vault-operator.spokes" (dict "Values" .Values "kv" $kv "auth" $auth) | fromYamlArray }}
     {{- if .Values.ohmlab.controller.enabled }}
     {{- $policies = append $policies (dict "name" "ohmlab-controller-vault" "rules" (include "vault-operator.controllerPolicy" .)) }}
     {{- $role := dict "name" "ohmlab-controller-vault" "bound_service_account_names" (list .Values.ohmlab.controller.serviceAccount) "bound_service_account_namespaces" (list .Values.ohmlab.controller.namespace) "policies" (list "ohmlab-controller-vault") "ttl" "15m" }}
@@ -163,78 +164,76 @@ spec:
     {{- end }}
     {{- if not $placed }}{{ fail "ohmlab.controller.enabled needs a kubernetes entry in vault.externalConfig.auth to hold the controller's role" }}{{ end }}
     {{- end }}
-    {{- if or $policies .Values.vault.externalConfig.spokeClusters }}
+    {{- if or $policies $spokes }}
     policies:
       {{- with $policies }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
       {{- /*
-        One policy per spoke app, pinned to that cluster's own path segment.
-        The shared app policies above use "platforms/+/+/<app>", which reads
-        across EVERY environment — fine for a single cluster, a cross-spoke
-        read once a second cluster exists. Never hand a spoke role one of
-        those; it gets this scoped policy instead.
+        One policy per app of a spoke instance: the rules of the policies its
+        kubernetes role here lists, on the instance's own mount alone, and
+        read-only (vault-operator.spokes). The shared policies above read
+        their app's path in every environment of this Vault's own mounts:
+        never hand a remote cluster one of those.
       */}}
-      {{- range $cluster := .Values.vault.externalConfig.spokeClusters }}
-      {{- range $app := $cluster.apps }}
-      - name: {{ printf "%s-%s" $cluster.name $app.name | quote }}
+      {{- range $i := $spokes }}
+      {{- range $app := $i.apps }}
+      - name: {{ $app.policy | quote }}
         rules: |
-          path "{{ $kv.kvMount }}/data/platforms/{{ $cluster.name }}/{{ $app.tier | default "+" }}/{{ $app.name }}" {
-            capabilities = ["read"]
-          }
+          {{- $app.rules | nindent 10 }}
       {{- end }}
       {{- end }}
     {{- end }}
-    {{- if or $auth .Values.vault.externalConfig.oidcEnabled .Values.vault.externalConfig.spokeClusters }}
+    {{- if or $auth .Values.vault.externalConfig.oidcEnabled $spokes }}
     auth:
       {{- if $auth }}
       {{- toYaml $auth | nindent 6 }}
       {{- end }}
       {{- /*
-        One jwt mount per spoke cluster. Signature validation is pinned to
-        that cluster's public keys, so Vault never calls back into its API
-        server — unlike the kubernetes method, whose TokenReview call needs a
-        route from Vault to every spoke cluster.
+        One jwt mount per spoke instance, validating its cluster's
+        ServiceAccount tokens with that cluster's keys, so Vault never calls
+        into the cluster's API server, unlike the kubernetes method, whose
+        TokenReview call needs a route from Vault to every remote cluster.
+        Every instance has apps (vault-operator.spokes): the configurer casts
+        the roles unconditionally, and a mount with none fails the whole
+        external config.
       */}}
-      {{- range $cluster := .Values.vault.externalConfig.spokeClusters }}
-      {{- $name := $cluster.name | required "name is required for every entry in vault.externalConfig.spokeClusters" }}
-      {{- $audience := $cluster.audience | default "vault" }}
-      {{- /*
-        apps is required rather than optional: the configurer casts this list
-        unconditionally, so a cluster with no roles fails the whole external
-        config rather than just its own mount.
-      */}}
-      {{- $apps := $cluster.apps | required (printf "apps is required for spoke cluster %s — a mount with no roles breaks the configurer" $name) }}
+      {{- range $i := $spokes }}
       - type: jwt
-        path: {{ printf "jwt-%s" $name | quote }}
+        path: {{ printf "jwt-%s" $i.name | quote }}
         config:
-          # Local keys only. Setting jwks_url or oidc_discovery_url here would
-          # reintroduce the outbound dependency this mount exists to avoid.
-          jwt_validation_pubkeys: {{ $cluster.publicKeys | required (printf "publicKeys is required for spoke cluster %s" $name) | toJson }}
-          bound_issuer: {{ $cluster.issuer | default "https://kubernetes.default.svc.cluster.local" | quote }}
+          {{- with $i.oidcDiscoveryUrl }}
+          # The keys the cluster's issuer publishes, fetched over HTTPS: Vault
+          # calls the issuer, never the cluster's API server, and follows the
+          # provider's key rotations.
+          oidc_discovery_url: {{ . | quote }}
+          {{- else }}
+          # Pinned keys: Vault calls nothing to validate a token.
+          jwt_validation_pubkeys: {{ $i.publicKeys | toJson }}
+          {{- end }}
+          bound_issuer: {{ $i.issuer | quote }}
         roles:
-        {{- range $app := $apps }}
-        {{- $ns := $app.namespace | required (printf "namespace is required for app %s in spoke cluster %s — without it bound_subject renders malformed and the role can never match" $app.name $name) }}
-        - name: {{ $app.name | required (printf "name is required for every app in spoke cluster %s" $name) | quote }}
+        {{- range $app := $i.apps }}
+        - name: {{ $app.name | quote }}
           # role_type must be explicit: a mount that has ever seen an oidc
           # role otherwise defaults new roles to oidc, which rejects a direct
           # JWT login.
           role_type: jwt
           user_claim: sub
-          bound_audiences: [{{ $audience | quote }}]
-          bound_subject: {{ printf "system:serviceaccount:%s:%s" $ns ($app.serviceAccount | default "vso") | quote }}
+          bound_audiences: [{{ $i.audience | quote }}]
+          bound_subject: {{ printf "system:serviceaccount:%s:%s" $app.namespace $app.serviceAccount | quote }}
           bound_claims:
             # JSON-pointer syntax is required for nested claims: the token
             # carries kubernetes.io as an object, so a flat
             # "kubernetes.io/namespace" key fails login with `claim ... is
             # missing` — which reads like a policy fault, not a syntax one.
-            "/kubernetes.io/namespace": {{ $ns | quote }}
-          token_policies: [{{ printf "%s-%s" $name $app.name | quote }}]
+            "/kubernetes.io/namespace": {{ $app.namespace | quote }}
+          token_policies: [{{ $app.policy | quote }}]
           # `default` is intentionally left in place (Vault appends it): VSO
           # renews its own token via auth/token/renew-self, which that policy
           # grants and nothing else here does.
-          token_ttl: {{ $app.tokenTtl | default $cluster.tokenTtl | default "1h" | quote }}
-          token_max_ttl: {{ $app.tokenMaxTtl | default $cluster.tokenMaxTtl | default "4h" | quote }}
+          token_ttl: {{ $i.tokenTtl | quote }}
+          token_max_ttl: {{ $i.tokenMaxTtl | quote }}
         {{- end }}
       {{- end }}
       {{- if .Values.vault.externalConfig.oidcEnabled }}
@@ -295,20 +294,24 @@ spec:
       group: {{ $a.group | quote }}
     {{- end }}
     {{- end }}
-    {{- if .Values.vault.externalConfig.secrets }}
+    {{- if or .Values.vault.externalConfig.secrets $spokes }}
     {{- /*
       The system mount and the instance's are one mount when an instance keeps
       its core secrets in its own: the first entry of a path is kept (a path
-      left out is the engine type, as bank-vaults mounts it).
+      left out is the engine type, as bank-vaults mounts it). Each spoke
+      instance adds its own KV mount, which no other engine has.
     */}}
     {{- $secrets := list }}
     {{- $seen := dict }}
-    {{- range $s := tpl (toYaml .Values.vault.externalConfig.secrets) $kv | fromYamlArray }}
+    {{- range $s := tpl (toYaml (.Values.vault.externalConfig.secrets | default list)) $kv | fromYamlArray }}
     {{- $path := toString ($s.path | default $s.type) }}
     {{- if not (hasKey $seen $path) }}
     {{- $_ := set $seen $path true }}
     {{- $secrets = append $secrets $s }}
     {{- end }}
+    {{- end }}
+    {{- range $i := $spokes }}
+    {{- $secrets = append $secrets (dict "path" $i.mount "type" "kv" "description" (printf "%s secrets KV store" (title $i.mount)) "options" (dict "version" 2)) }}
     {{- end }}
     secrets:
       {{- toYaml $secrets | nindent 6 }}
