@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.5.2...chart-v0.5.3) (2026-11-04)
+
+
+### Bug Fixes
+
+* **deps:** update helm release argo-cd to v10.12.0 ([5ff210b](https://github.com/this-is-tobi/ohmlab/commit/5ff210b4137d7a8bdf082cf82a4e910e82238917))
+
 ## [0.5.2](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.5.1...chart-v0.5.2) (2026-11-04)
 
 
