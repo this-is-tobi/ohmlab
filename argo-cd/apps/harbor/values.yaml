@@ -147,6 +147,10 @@ cnpg:
       # a re-clone, not disk pressure on the primary.
       parameters:
         max_slot_wal_keep_size: 1GB
+      # Refuses plaintext clients: CNPG's last rule (host all all all
+      # scram-sha-256) would take them.
+      pg_hba:
+      - hostnossl all all all reject
     resources:
       requests:
         cpu: 250m
