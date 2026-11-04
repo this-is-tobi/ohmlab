@@ -4,9 +4,9 @@ dependencies:
   version: 1.13.0
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
-  version: 2.2.0
+  version: 2.2.1
 - name: oauth2-proxy
   repository: https://oauth2-proxy.github.io/manifests
   version: 10.7.1
-digest: sha256:576bf30c365f6a288c7b15505b899ca7a6f1f70f2e8971f0251b6adad2f4bede
-generated: "2026-11-03T04:37:24.795133+01:00"
+digest: sha256:72ac128cd4e7290408ab0de9c88f1d11fcbb96d98fbacefaa90fa37a2562a447
+generated: "2026-11-04T00:29:44.31731725Z"

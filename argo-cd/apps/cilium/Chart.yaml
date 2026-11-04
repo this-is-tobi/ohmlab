@@ -12,7 +12,7 @@ dependencies:
   # oauth2-proxy) can't schedule until a CNI is running.
   - name: vso-utils
     alias: vso
-    version: 2.2.0
+    version: 2.2.1
     repository: oci://ghcr.io/this-is-tobi/charts
     condition: vso.enabled
   - name: oauth2-proxy

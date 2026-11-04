@@ -19,5 +19,5 @@ dependencies:
 # `apisix-admin` secret (keys: admin, viewer).
 - name: vso-utils
   alias: vso
-  version: 2.2.0
+  version: 2.2.1
   repository: oci://ghcr.io/this-is-tobi/charts
