@@ -5,5 +5,5 @@ version: 0.1.0
 dependencies:
 - name: system-upgrade-controller
   alias: system-upgrade
-  version: 0.1.0
+  version: 0.1.1
   repository: oci://ghcr.io/this-is-tobi/charts
