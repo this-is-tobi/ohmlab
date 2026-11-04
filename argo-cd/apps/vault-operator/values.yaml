@@ -21,8 +21,11 @@ networkPolicy:
   extraIngress: []
   extraEgress: []
 
-# Bank Vaults Operator Configuration
+# Bank Vaults Operator Configuration. A cluster that reads a remote Vault keeps
+# VSO alone: `enabled: false` here, with `vault.enabled` and
+# `vaultOidcCredentials.enabled` false too.
 vault-operator:
+  enabled: true
   replicaCount: 1
   resources:
     limits:
@@ -630,6 +633,15 @@ vaultOidcCredentials:
   # Empty: <global.ohmlab.vault.pathPrefix>/keycloak when the manager gives a
   # prefix, else platforms/production/core/keycloak.
   path: ""
+
+# PEM of the CA that signs a remote Vault's certificate, for VSO on a cluster
+# that reaches the hub's Vault on a private path: rendered as the Secret
+# vault-hub-ca (key ca.crt), which vso.defaultVaultConnection.caCertSecret then
+# names. Public material. A hub behind a public certificate needs none. Such a
+# cluster also sets vso.defaultVaultConnection.address to the hub's route, and
+# caCertSecret to vault-hub-ca or empty: vault-tls exists only where
+# Bank-Vaults writes it.
+hubCA: ""
 
 vso:
   enabled: true

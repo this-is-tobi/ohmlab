@@ -1,0 +1,13 @@
+{{- with .Values.hubCA }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-hub-ca
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: vault-hub-ca
+type: Opaque
+data:
+  ca.crt: {{ b64enc . }}
+{{- end }}
