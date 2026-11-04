@@ -6,6 +6,13 @@ gateway:
   # migration): [{name, namespace?}] — sectionName is reused from the route.
   extraParentRefs: []
   routes: []
+  # Source ranges Vault's routes admit, through the Traefik Middleware
+  # vault-source-range, first in every rule's filters: for a hub, the remote
+  # clusters' outbound addresses and the admins' networks. Empty: no
+  # allowlist. It holds only where Traefik sees the client's own address
+  # (PROXY protocol from the load balancer in front of it, or
+  # externalTrafficPolicy: Local).
+  sourceRange: []
   # BackendTLSPolicy so Gateway-API controllers connect to vault over TLS
   # (see templates/backendtlspolicy.yaml). Requires Gateway API ≥v1.6 CRDs.
   backendTLS: false

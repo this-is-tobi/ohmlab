@@ -1,0 +1,26 @@
+{{- if and .Values.gateway.enabled .Values.gateway.sourceRange }}
+---
+# The source ranges Vault's routes admit (gateway.sourceRange). A second
+# layer: Vault still requires a token signed by a cluster's keys, for a role
+# bound to its namespace.
+#
+# Default remoteAddr strategy deliberately, NOT X-Forwarded-For: trusting that
+# header would let anyone on the internet set their own and walk straight
+# through. Traefik has to see the client's own address instead: PROXY protocol
+# from the load balancer in front of it, as the gateway's HAProxy speaks, or
+# externalTrafficPolicy: Local.
+#
+# Gateway API ExtensionRef Middleware refs are same-namespace only
+# (LocalObjectReference — no namespace field in the Gateway API type), so
+# Vault's routes cannot use another app's allowlist: this namespace gets its
+# own.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: vault-source-range
+  namespace: {{ .Release.Namespace }}
+spec:
+  ipAllowList:
+    sourceRange:
+    {{- toYaml .Values.gateway.sourceRange | nindent 4 }}
+{{- end }}
