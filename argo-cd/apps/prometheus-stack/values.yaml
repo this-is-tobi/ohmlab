@@ -370,6 +370,10 @@ cnpg:
       # a re-clone, not disk pressure on the primary.
       parameters:
         max_slot_wal_keep_size: 512MB
+      # Refuses plaintext clients: CNPG's last rule (host all all all
+      # scram-sha-256) would take them.
+      pg_hba:
+      - hostnossl all all all reject
     # Grafana's health check queries this database on every probe; at a
     # 250m quota Postgres was throttled in a third of its CFS periods,
     # which surfaced as Grafana liveness timeouts.
