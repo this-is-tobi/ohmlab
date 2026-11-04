@@ -1,0 +1,20 @@
+# What k3s writes to /etc/rancher/k3s/k3s.yaml, with fake key material.
+apiVersion: v1
+kind: Config
+clusters:
+- name: default
+  cluster:
+    certificate-authority-data: ZmFrZSBjbHVzdGVyIENB
+    server: https://127.0.0.1:6443
+users:
+- name: default
+  user:
+    client-certificate-data: ZmFrZSBjbGllbnQgY2VydGlmaWNhdGU=
+    client-key-data: ZmFrZSBjbGllbnQga2V5 # gitleaks:allow (base64 of "fake client key")
+contexts:
+- name: default
+  context:
+    cluster: default
+    user: default
+current-context: default
+preferences: {}
