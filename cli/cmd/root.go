@@ -6,9 +6,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/this-is-tobi/ohmlab/cli/internal/ui"
 )
 
-var logLevel string
+var (
+	logLevel string
+	noColor  bool
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "ohmlab",
@@ -34,6 +39,7 @@ func Execute() error {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "no colors on a terminal (also NO_COLOR)")
 }
 
 func initLogger() {
@@ -48,6 +54,7 @@ func initLogger() {
 	default:
 		level = slog.LevelInfo
 	}
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})
-	slog.SetDefault(slog.New(handler))
+	// Off a terminal (a Job, the controller, a pipe) the logs stay slog JSON.
+	mode, color := ui.Detect(os.Stdout, noColor)
+	slog.SetDefault(slog.New(ui.NewLogHandler(os.Stdout, mode, color, level)))
 }
