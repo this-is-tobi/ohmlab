@@ -49,13 +49,13 @@ func TestVaultNeverImportsHarborOrSonarqube(t *testing.T) {
 	imports(t, vaultSide, otherSide)
 }
 
-// The controller-runtime dependency graph must stay out of the CLI binary.
+// The CLI, in the release archives and the image alike, may use client-go
+// (credential plugins, port-forward); the controller-runtime graph stays in
+// the controller's binary.
 func TestTheCLIDoesNotLinkTheControllerStack(t *testing.T) {
 	for _, dep := range deps(t, "../.") {
-		for _, bad := range []string{"k8s.io/client-go", "sigs.k8s.io/controller-runtime"} {
-			if strings.HasPrefix(dep, bad) {
-				t.Errorf("the ohmlab CLI links %s", dep)
-			}
+		if strings.HasPrefix(dep, "sigs.k8s.io/controller-runtime") {
+			t.Errorf("the ohmlab CLI links %s", dep)
 		}
 	}
 }
