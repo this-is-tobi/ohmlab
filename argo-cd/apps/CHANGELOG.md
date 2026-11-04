@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.13.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.12.0...catalog-v0.13.0) (2026-11-04)
+
+
+### Features
+
+* **cert-manager:** opt-in internal CA for in-cluster TLS ([6d16f85](https://github.com/this-is-tobi/ohmlab/commit/6d16f854ed1da9b70c36ecc8db24999302aca4b6))
+* **trust-manager:** opt-in bundle for the internal CA ([5e4d9a4](https://github.com/this-is-tobi/ohmlab/commit/5e4d9a42be751d059aaaf1e34104c6888e0a4b1d))
+
+
+### Bug Fixes
+
+* **catalog:** refuse plaintext Postgres clients in the apps without a live cluster ([2851d14](https://github.com/this-is-tobi/ohmlab/commit/2851d14b1ff6c4e61212ea9bf4be55bbb54ea1b6))
+* **crowdsec:** refuse plaintext Postgres clients ([cb56ad5](https://github.com/this-is-tobi/ohmlab/commit/cb56ad51c614f09f872c0ab51c8ff48a281ea56a))
+* **deps:** update backup-utils docker tag to v2.5.8 ([e18f790](https://github.com/this-is-tobi/ohmlab/commit/e18f790a32d7dbc5ee7d1b2c7f160ad88b2ddbd2))
+* **deps:** update ghcr.io/cloudnative-pg/postgresql docker tag to v18.6-202611030838-standard-trixie ([68f4dc4](https://github.com/this-is-tobi/ohmlab/commit/68f4dc4099d095014c49081937461bd50bc0d3f3))
+* **deps:** update helm release argo-cd to v10.11.7 ([c9a2825](https://github.com/this-is-tobi/ohmlab/commit/c9a28259df1ea6be0812ae8a607cd119c76e5bd2))
+* **deps:** update helm release argo-cd to v10.12.0 ([5ff210b](https://github.com/this-is-tobi/ohmlab/commit/5ff210b4137d7a8bdf082cf82a4e910e82238917))
+* **deps:** update helm release argo-workflows to v2.0.16 ([b92ca71](https://github.com/this-is-tobi/ohmlab/commit/b92ca710292e2f36befa195b2ab36a72fb93e1ec))
+* **deps:** update helm release coder to v2.39.0 ([d203821](https://github.com/this-is-tobi/ohmlab/commit/d2038215071d30e309261b7243dd2828927a5e9a))
+* **deps:** update helm release loki to v20.4.1 ([6a55740](https://github.com/this-is-tobi/ohmlab/commit/6a55740d292b1f7f8b80ade91fd096f497f73126))
+* **deps:** update helm release sops-secrets-operator to v0.29.0 ([698559c](https://github.com/this-is-tobi/ohmlab/commit/698559c6c6340c7fc304f3d841c676a81dbf2d2b))
+* **deps:** update helm release traefik to v42.3.0 ([0a5ce1c](https://github.com/this-is-tobi/ohmlab/commit/0a5ce1cecfee0c7efcff85be598ec74b8f3807af))
+* **deps:** update helm release vaultwarden to v0.46.4 ([01bef37](https://github.com/this-is-tobi/ohmlab/commit/01bef37c84adf4416f7307b6ec9f60c3aecd460d))
+* **deps:** update homepage docker tag to v0.2.1 ([0e44f60](https://github.com/this-is-tobi/ohmlab/commit/0e44f608878cf140f40e41bc222d902b60b5c6ac))
+* **deps:** update kube-prometheus-stack docker tag to v92.17.1 ([9d74b8e](https://github.com/this-is-tobi/ohmlab/commit/9d74b8e3174c899131c20c9f1e9a5d151d000ac0))
+* **deps:** update system-upgrade-controller docker tag to v0.1.1 ([09124d9](https://github.com/this-is-tobi/ohmlab/commit/09124d932a97240281e93d2c86492ca011291cd0))
+* **deps:** update vso-utils docker tag to v2.2.1 ([c25e152](https://github.com/this-is-tobi/ohmlab/commit/c25e152bd42436258315afb828c423fbcd9d38c9))
+* **mattermost:** refuse plaintext Postgres clients ([80c66fb](https://github.com/this-is-tobi/ohmlab/commit/80c66fb38843ed0d9f6c8a5c227985471563034d))
+* **prometheus-stack:** refuse plaintext Postgres clients ([3951873](https://github.com/this-is-tobi/ohmlab/commit/39518732a34e61317f75914d23c28138681338b6))
+* **trust-manager:** read Secrets only from its own namespace ([4319f2f](https://github.com/this-is-tobi/ohmlab/commit/4319f2f980212acd4c07dedcd7bb5e379f145be4))
+
 ## [0.12.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.11.0...catalog-v0.12.0) (2026-11-02)
 
 
