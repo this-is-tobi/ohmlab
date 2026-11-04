@@ -32,12 +32,17 @@ helm template vault-operator argo-cd/apps/vault-operator -f argo-cd/instances/<i
 # port-forwards). Exits non-zero when one is plaintext with nothing allowing it;
 # --output json for the whole report, --all to list every port.
 ohmlab audit tls --context <context>
+
+# Fetch the cluster's kubeconfig from the first master (through Ansible and the
+# inventory) and merge it into yours as a named context. --dry-run prints the
+# Ansible command and the change, and runs nothing.
+ohmlab kubeconfig --product <checkout of ohmlab> --name <context>
 ```
 
 `ohmlab check` uses the in-cluster ServiceAccount when available and falls
 back to `$KUBECONFIG` / `~/.kube/config` (static certs or token).
 
-`ohmlab audit tls` loads the kubeconfig as kubectl does (exec plugins work). Metrics ports (named so, or on a Service named so, but not Loki's API port, which its chart names `http-metrics`) and DNS may stay plaintext, and so may the exceptions of the workspace file, `ohmlab.yaml` in the current directory (`--config` for another), each with its reason:
+`ohmlab audit tls` loads the kubeconfig as kubectl does (exec plugins work). Metrics ports (named so, or on a Service named so, but not Loki's API port, which its chart names `http-metrics`) and DNS may stay plaintext, and so may the exceptions of the workspace file (below; `--config` for another), each with its reason:
 
 ```yaml
 audit:
@@ -50,6 +55,28 @@ audit:
 ```
 
 An exception that allows nothing any more, such as one whose port speaks TLS now, is reported as stale. The command needs to list Services and EndpointSlices, to read `kube-system/cilium-config` (it reports whether Cilium encrypts the traffic between nodes) and to create `pods/portforward`.
+
+`ohmlab kubeconfig` fetches `/etc/rancher/k3s/k3s.yaml` from the first master with `ansible --become` (adding the inventory's `group_vars/vault.yml` when it exists), into a temporary directory it removes afterwards. It merges the cluster, the user and a context, all called `--name`, into the file kubectl writes (`--kubeconfig`, else the one kubectl picks from `$KUBECONFIG`, else `~/.kube/config`), with the server set to the inventory's first `gateway` host on 6443, else its first master. An existing file is copied to `<file>.bak` first and keeps its current context. A context of that name that leads to another server is replaced only after a yes (`--yes` gives it). Ansible reads the product's `ansible/ansible.cfg`. The vault password file is the `vaultPasswordFile` setting (below), else the workspace's `ansible/.vault_password` when it exists, else the `vault_password_file` that `ansible.cfg` names, which Ansible looks for in the product checkout.
+
+### The workspace file
+
+Run from an instance repository, the workstation commands take their settings from its `ohmlab.yaml`, the nearest one from the current directory up to the repository root. A flag wins over the environment variable `run.sh` read, which wins over the file, which wins over the default. Paths in the file are relative to it; the defaults are relative to the workspace (the file's directory, else the repository root).
+
+| Key | Flag | Environment | Default |
+| --- | --- | --- | --- |
+| `product` | `--product` | | the workspace |
+| `instances` | `--instances` | | `argo-cd/instances` |
+| `instance` | `--instance` | | the only folder there with an `instance.yaml` and no leading `_` |
+| `inventory` | `--inventory` | `ANSIBLE_INVENTORY` | `ansible/inventory` |
+| `vaultPasswordFile` | `--vault-password-file` | `ANSIBLE_VAULT_PASSWORD_FILE` | `ansible/.vault_password` when it exists, else Ansible's own, from the product's `ansible/ansible.cfg` |
+| `contextName` | `--name` (`ohmlab kubeconfig`) | `KUBE_CONTEXT_NAME` | `ohmlab` |
+
+```yaml
+# ohmlab.yaml at the root of an instance repository
+product: ../ohmlab
+inventory: ansible/inventory
+contextName: mylab
+```
 
 ## Network
 
