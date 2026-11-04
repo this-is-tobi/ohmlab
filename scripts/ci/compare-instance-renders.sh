@@ -7,6 +7,11 @@
 # (in the job summary on GitHub Actions); a name kept inside an object, such
 # as a Vault mount, shows up there.
 #
+# A removal the change means is acknowledged in ALLOWED_REMOVALS, one
+# "<app>: <object>" per line as reported below (validate-instance.yml reads
+# them from the `Removes:` trailers of the change's commits): it is listed,
+# and only the others fail.
+#
 #   compare-instance-renders.sh <base render dir> <head render dir>
 set -uo pipefail
 
@@ -38,12 +43,29 @@ report() { # report <title> <items...>
     { echo "### $title ($#)"; printf -- '- `%s`\n' "$@"; echo; } >>"$GITHUB_STEP_SUMMARY"
   fi
 }
-report "Deleted or renamed" "${removed[@]+"${removed[@]}"}"
+# Commit messages are anyone's text: printable characters only reach the log.
+allowed=$(printf '%s\n' "${ALLOWED_REMOVALS:-}" | LC_ALL=C tr -cd '[:print:]\n')
+acknowledged=() unacknowledged=() stale=()
+for item in "${removed[@]+"${removed[@]}"}"; do
+  if grep -qxF -- "$item" <<<"$allowed"; then acknowledged+=("$item"); else unacknowledged+=("$item"); fi
+done
+while IFS= read -r item; do
+  [ -n "$item" ] || continue
+  printf '%s\n' "${removed[@]+"${removed[@]}"}" | grep -qxF -- "$item" || stale+=("$item")
+done <<<"$allowed"
+
+report "Deleted or renamed" "${unacknowledged[@]+"${unacknowledged[@]}"}"
+report "Deleted or renamed, acknowledged by the change" "${acknowledged[@]+"${acknowledged[@]}"}"
 report "Changed" "${changed[@]+"${changed[@]}"}"
 report "Added" "${added[@]+"${added[@]}"}"
+report "Acknowledged but not removed" "${stale[@]+"${stale[@]}"}"
 
-if [ "${#removed[@]}" -gt 0 ]; then
-  echo "FAIL ${#removed[@]} object(s) of the base would be deleted or renamed on the instance's cluster"
+if [ "${#unacknowledged[@]}" -gt 0 ]; then
+  echo "FAIL ${#unacknowledged[@]} object(s) of the base would be deleted or renamed on the instance's cluster"
   exit 1
 fi
-echo "ok   nothing deleted or renamed (${#changed[@]} changed, ${#added[@]} added)"
+if [ "${#acknowledged[@]}" -gt 0 ]; then
+  echo "ok   ${#acknowledged[@]} acknowledged removal(s), nothing else deleted or renamed (${#changed[@]} changed, ${#added[@]} added)"
+else
+  echo "ok   nothing deleted or renamed (${#changed[@]} changed, ${#added[@]} added)"
+fi

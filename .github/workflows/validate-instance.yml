@@ -31,7 +31,7 @@ on:
         type: string
         default: ""
       base-ref:
-        description: A revision of the product to compare with (a pull request's base); the instance is rendered from both, and an object the base renders but `ref` does not fails
+        description: A revision of the product to compare with (a pull request's base); the instance is rendered from both, and an object the base renders but `ref` does not fails, unless a commit between them acknowledges it with a `Removes:` trailer
         type: string
         default: ""
 
@@ -124,4 +124,17 @@ jobs:
         run: scripts/ci/render-instance.sh || true
       - name: Check that the change deletes or renames nothing on the instance
         if: inputs.base-ref != ''
-        run: scripts/ci/compare-instance-renders.sh "$RUNNER_TEMP/render-base" "$RUNNER_TEMP/render-head"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCT_REPOSITORY: ${{ inputs.product-repository }}
+          BASE_REF: ${{ inputs.base-ref }}
+          HEAD_REF: ${{ inputs.ref }}
+        # A removal the change means is acknowledged by a trailer of one of its
+        # commits, `Removes: <app>: <object>` as this step reports it. Commit
+        # messages need no more than the contents permission, and a re-run
+        # reads them as they are.
+        run: |
+          ALLOWED_REMOVALS=$(gh api "repos/$PRODUCT_REPOSITORY/compare/$BASE_REF...$HEAD_REF" \
+            --jq '.commits[].commit.message' | tr -d '\r' | sed -n 's/^Removes: //p')
+          export ALLOWED_REMOVALS
+          scripts/ci/compare-instance-renders.sh "$RUNNER_TEMP/render-base" "$RUNNER_TEMP/render-head"
