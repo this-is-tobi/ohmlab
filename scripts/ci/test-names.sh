@@ -134,5 +134,15 @@ check "that realm holds both tiers' clients" "$all" "$(realms ".[\"ohmlab.json\"
 check "its admin group carries both tiers' client roles" grafana-core,rustfs "$(realms '.["ohmlab.json"] | [.groups[] | select(.path == "/admin") | .clientRoles | keys[]] | sort | join(",")')"
 check "its client roles are both tiers'" grafana-core,rustfs "$(realms '.["ohmlab.json"] | .roles.client | keys | sort | join(",")')"
 check "it has one admin group and one user" "/admin 1" "$(realms ".[\"ohmlab.json\"] | $shape")"
+# A remote instance's own Keycloak leaves the system realm out (system: null)
+# and imports its own realm alone.
+render keycloak -f "$EXAMPLE/core/keycloak.yaml" "${manager_vault[@]}" --set-string global.ohmlab.names.keycloakRealm=lab --set-string global.ohmlab.names.keycloakRealmDisplayName=Lab --set realms.system=null
+check "without the system realm, only the instance's realm file" lab.json "$(realms 'keys | join(",")')"
+check "that realm holds the tenant clients" "$tenant" "$(realms ".[\"lab.json\"] | $ids")"
+if helm template t "$ROOT/argo-cd/apps/keycloak" -f "$EXAMPLE/core/keycloak.yaml" "${manager_vault[@]}" --set realms.system=null --set realms.instance=null >/dev/null 2>"$work/err"; then
+  echo "FAIL a Keycloak with neither realm rendered"; fail=1
+elif grep -q 'neither' "$work/err"; then echo "ok   a Keycloak with neither realm fails"
+else echo "FAIL a Keycloak with neither realm fails for another reason: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1
+fi
 
 exit "$fail"
