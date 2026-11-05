@@ -1,0 +1,34 @@
+keycloak:
+  keycloak:
+    hostnameAdmin: "https://keycloak.customer-b.example.net"
+    hostname: "https://keycloak.customer-b.example.net"
+  database:
+    host: keycloak-pg-cluster-rw
+    port: "5432"
+    name: keycloak
+    existingSecret: keycloak-pg-cluster-app
+    secretKeys:
+      usernameKey: username
+      passwordKey: password
+cnpg:
+  cluster:
+    # Any node of the managed cluster.
+    affinity:
+      nodeSelector: null
+    superuserSecret: keycloak-pg-cluster-admin
+    initdb:
+      secret:
+        name: keycloak-pg-cluster-app
+  backups:
+    enabled: false
+gateway:
+  enabled: true
+  gatewayName: customer-b-gateway
+  gatewayNamespace: traefik
+  routes:
+    - name: keycloak
+      hostnames:
+        - keycloak.customer-b.example.net
+      rules:
+        - backendService: keycloak
+          backendPort: 8080

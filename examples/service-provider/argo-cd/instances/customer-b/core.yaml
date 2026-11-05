@@ -1,0 +1,22 @@
+# The cluster layer; the cluster's host runs its CNI and storage.
+apps:
+- app: vault-operator
+  enabled: "true"
+  namespace: vault-operator-system
+  syncWave: 10
+- app: cert-manager
+  enabled: "true"
+  syncWave: 10
+- app: traefik
+  enabled: "true"
+  namespace: traefik
+  syncWave: 11
+- app: kyverno
+  enabled: "true"
+  syncWave: 15
+- app: cloudnative-pg
+  enabled: "true"
+  syncWave: 20
+- app: prometheus-stack
+  enabled: "true"
+  syncWave: 50

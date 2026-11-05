@@ -1,0 +1,18 @@
+# The provider's management instance, on its own cluster: the core Argo CD
+# (ohmlab chart, root manager) deploys every customer's instance, and its Vault
+# is the hub they read.
+instance:
+  name: provider
+  env: production
+destination:
+  server: https://kubernetes.default.svc
+repoURL: https://git.example.org/provider/instances.git
+targetRevision: main
+catalogs:
+  release:
+    repoURL: oci://ghcr.io/this-is-tobi/ohmlab/catalog
+    version: 0.16.0
+defaultCatalog: release
+projects:
+  core: admin-core
+  tenant: admin-tenant

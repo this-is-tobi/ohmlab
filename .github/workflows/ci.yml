@@ -458,7 +458,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [platform-team]
+        example: [platform-team, service-provider]
     uses: ./.github/workflows/validate-instance.yml
     permissions:
       contents: read
@@ -475,7 +475,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [platform-team]
+        example: [platform-team, service-provider]
     runs-on: ubuntu-latest
     env:
       INSTANCES: examples/${{ matrix.example }}/argo-cd/instances
