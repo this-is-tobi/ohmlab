@@ -108,5 +108,28 @@ check "it is still refused with only the data ignored, as VSO's labels drift" 1 
 check "two VaultStaticSecrets writing one Secret are refused" 1 "$(VSS_NAME=one vss s k; VSS_NAME=two vss s j)"
 check "a Secret its app creates at runtime is known by name" 0 "$(reads prometheus-stack-kube-prom-admission cert)" "[]" core/prometheus-stack
 check "that name is known to its own app only" 1 "$(reads prometheus-stack-kube-prom-admission cert)" "[]" tenant/other
+check "it is known under an instance's label too" 0 "$(reads prometheus-stack-kube-prom-admission cert)" "[]" lab/core/prometheus-stack
+
+# --instances: each enabled entry of every instance of a directory, labelled
+# with its instance, its chart from APPS_DIR.
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+mkdir -p "$work/apps/reader/templates" "$work/apps/writer/templates"
+printf 'apiVersion: v2\nname: reader\nversion: 0.1.0\n' >"$work/apps/reader/Chart.yaml"
+reads missing k >"$work/apps/reader/templates/reader.yaml"
+printf 'apiVersion: v2\nname: writer\nversion: 0.1.0\n' >"$work/apps/writer/Chart.yaml"
+{ reads s k; secret s k; } >"$work/apps/writer/templates/writer.yaml"
+d="$work/repo/argo-cd/instances/lab"
+mkdir -p "$d/values/tenant"
+printf 'instance: {name: lab}\nrepoURL: https://git.example/x.git\n' >"$d/instance.yaml"
+printf 'apps: []\n' >"$d/core.yaml"
+printf 'apps:\n- {app: reader, enabled: "true"}\n- {app: writer, enabled: "true"}\n- {app: idle, chart: reader, enabled: "false"}\n' >"$d/tenant.yaml"
+for a in reader writer idle; do printf '{}\n' >"$d/values/tenant/$a.yaml"; done
+out=$(APPS_DIR="$work/apps" "$SCRIPT" --instances "$work/repo/argo-cd/instances" 2>&1); rc=$?
+if [ "$rc" = 1 ] && grep -qF 'FAIL lab/tenant/reader' <<<"$out" && grep -qF 'ok   lab/tenant/writer' <<<"$out" && ! grep -qF 'lab/tenant/idle' <<<"$out"; then
+  echo "ok   --instances checks each enabled app of every instance, labelled with its instance"
+else
+  echo "FAIL --instances: exit $rc"; printf '%s\n' "$out" | sed 's/^/     /'; fail=1
+fi
 
 exit "$fail"

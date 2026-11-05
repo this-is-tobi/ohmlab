@@ -15,10 +15,12 @@
 # test-kyverno-policies.sh does.
 #
 # With --stdin <tier>/<app> [<namespace>] the manifests are read from standard
-# input; without arguments every app the example lists, enabled or not, is
-# rendered as Argo CD would (its release name, namespace and the manager's
-# parameters) and checked. Prints names only, never a render. Needs helm, yq,
-# jq and the kyverno CLI.
+# input; with --instances <dir> each enabled app of every instance of <dir> is
+# checked, as <instance>/<tier>/<app>; without arguments every app the example
+# lists, enabled or not. Each app is rendered as Argo CD would (its release
+# name, namespace and the manager's parameters), its chart from APPS_DIR
+# (default argo-cd/apps) or its chartPath. Prints names only, never a render.
+# Needs helm, yq, jq and the kyverno CLI.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -26,9 +28,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$ROOT/scripts/lib/instances.sh"
 EXAMPLE="$ROOT/argo-cd/instances/_example"
 
-# Failures still to fix, "<tier>/<app> <Kind>/<name> <policy>" one per line: a
+# Failures still to fix, "<app label> <Kind>/<name> <policy>" one per line: a
 # failure not listed fails the run, and so does a listed one that passes, until
-# its line is removed. POD_SECURITY_KNOWN replaces the list.
+# its line is removed. POD_SECURITY_KNOWN replaces the list, which is the
+# example's: other instances start from none.
 KNOWN_DEFAULT='
 # Containers without CPU and memory limits (Audit).
 # The mlflow chart has no resources key for its dbchecker init container.
@@ -36,6 +39,7 @@ tenant/mlflow Deployment/mlflow require-resource-limits
 # An image from a registry off the allowlist (Audit).
 core/apisix StatefulSet/apisix-etcd restrict-image-registries
 '
+[ "${1:-}" = "--instances" ] && KNOWN_DEFAULT=''
 KNOWN=$(grep -v -E '^[[:space:]]*(#|$)' <<<"${POD_SECURITY_KNOWN-$KNOWN_DEFAULT}" | sort -u)
 
 work=$(mktemp -d)
@@ -62,12 +66,13 @@ render_policies() {
   [ -s "$work/policies-true.yaml" ] || { echo "FAIL kyverno: the chart renders no ValidatingPolicy"; return 1; }
 }
 
-# check_stream <tier>/<app> <namespace>: reads the app's manifests on stdin,
-# prints one FAIL line per failure the list does not know and per listed one
-# that passes, and returns 1 when there is any.
+# check_stream [<instance>/]<tier>/<app> <namespace>: reads the app's manifests
+# on stdin, prints one FAIL line per failure the list does not know and per
+# listed one that passes, and returns 1 when there is any.
 check_stream() {
-  local app="$1" scope=false out known pods report
-  [ "${app%%/*}" = core ] && scope=true
+  local app="$1" scope=false out known pods report tier
+  tier="${app%/*}"
+  [ "${tier##*/}" = core ] && scope=true
   # One file per app: a CLI in a container can read a reused path stale.
   pods="$work/pods-${app//\//-}.yaml" report="$work/report-${app//\//-}.json"
   NS="$2" yq e '
@@ -122,40 +127,59 @@ fi
 
 failures=0
 checked=""
-prefix=$(yq '.namespacePrefix // ""' "$EXAMPLE/instance.yaml")
-suffix=$(yq '.namespaceSuffix // ""' "$EXAMPLE/instance.yaml")
-for tier in core tenant; do
-  [ -f "$EXAMPLE/$tier.yaml" ] || continue
-  while IFS= read -r entry; do
-    app=$(jq -r .app <<<"$entry")
-    values="$EXAMPLE/values/$tier/$app.yaml"
-    # Argo CD refuses an entry without its values file: nothing to deploy.
-    [ -f "$values" ] || continue
-    chart=$(jq -r '.chart // .app' <<<"$entry")
-    release=$(jq -r '.releaseName // .app' <<<"$entry")
-    namespace=$(jq -r --arg default "$prefix$app$suffix" '.namespace // $default' <<<"$entry")
-    dir="$ROOT/argo-cd/apps/$chart"
-    [ "$chart" = ohmlab ] && dir="$ROOT/charts/ohmlab"
-    checked="$checked $tier/$app"
-    if [ -f "$dir/Chart.lock" ] && [ ! -d "$dir/charts" ]; then
-      helm dependency build "$dir" >/dev/null 2>&1 || { echo "FAIL $tier/$app: helm dependency build"; failures=$((failures + 1)); continue; }
-    fi
-    args=()
-    app_args "$values" 2>"$work/err" \
-      || { echo "FAIL $tier/$app: the example's manager does not render: $(head -c 240 "$work/err")"; failures=$((failures + 1)); continue; }
-    if ! helm template "$release" "$dir" --namespace "$namespace" "${args[@]}" >"$work/manifest" 2>"$work/err"; then
-      echo "FAIL $tier/$app: $(grep -m1 Error "$work/err" | cut -c1-240)"
-      failures=$((failures + 1))
-      continue
-    fi
-    if check_stream "$tier/$app" "$namespace" <"$work/manifest"; then
-      n=$(awk -v app="$tier/$app" '$1 == app' <<<"$KNOWN" | grep -c .)
-      echo "ok   $tier/$app$([ "$n" -gt 0 ] && echo " ($n known)")"
-    else
-      failures=$((failures + 1))
-    fi
-  done < <(yq -o=json -I=0 '.apps[]' "$EXAMPLE/$tier.yaml")
-done
+: "${APPS_DIR:=$ROOT/argo-cd/apps}"
+
+# check_instance <instance dir> <label prefix> <enabled apps only: true|false>
+check_instance() {
+  local dir="$1" label="$2" enabled_only="$3" prefix suffix tier entry app id values chart chart_path release namespace chart_dir n
+  prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
+  suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
+  for tier in core tenant; do
+    [ -f "$dir/$tier.yaml" ] || continue
+    while IFS= read -r entry; do
+      app=$(jq -r .app <<<"$entry")
+      id="$label$tier/$app"
+      values="$dir/values/$tier/$app.yaml"
+      # Argo CD refuses an entry without its values file: nothing to deploy.
+      [ -f "$values" ] || continue
+      chart=$(jq -r '.chart // .app' <<<"$entry")
+      chart_path=$(jq -r '.chartPath // ""' <<<"$entry")
+      release=$(jq -r '.releaseName // .app' <<<"$entry")
+      namespace=$(jq -r --arg default "$prefix$app$suffix" '.namespace // $default' <<<"$entry")
+      chart_dir="$APPS_DIR/$chart"
+      [ "$chart" = ohmlab ] && chart_dir="$ROOT/charts/ohmlab"
+      [ -n "$chart_path" ] && chart_dir="$APPS_DIR/../../$chart_path"
+      checked="$checked $id"
+      if [ -f "$chart_dir/Chart.lock" ] && [ ! -d "$chart_dir/charts" ]; then
+        helm dependency build "$chart_dir" >/dev/null 2>&1 || { echo "FAIL $id: helm dependency build"; failures=$((failures + 1)); continue; }
+      fi
+      args=()
+      app_args "$values" 2>"$work/err" \
+        || { echo "FAIL $id: the instance's manager does not render: $(head -c 240 "$work/err")"; failures=$((failures + 1)); continue; }
+      if ! helm template "$release" "$chart_dir" --namespace "$namespace" "${args[@]}" >"$work/manifest" 2>"$work/err"; then
+        echo "FAIL $id: $(grep -m1 Error "$work/err" | cut -c1-240)"
+        failures=$((failures + 1))
+        continue
+      fi
+      if check_stream "$id" "$namespace" <"$work/manifest"; then
+        n=$(awk -v app="$id" '$1 == app' <<<"$KNOWN" | grep -c .)
+        echo "ok   $id$([ "$n" -gt 0 ] && echo " ($n known)")"
+      else
+        failures=$((failures + 1))
+      fi
+    done < <(E="$enabled_only" yq -o=json -I=0 '.apps[] | select(strenv(E) == "false" or .enabled == "true" or .enabled == true)' "$dir/$tier.yaml")
+  done
+}
+
+if [ "${1:-}" = "--instances" ]; then
+  INSTANCES_DIR="${2:?--instances needs a directory}"
+  INSTANCES_DIR="${INSTANCES_DIR%/}"
+  while IFS= read -r d; do
+    check_instance "$d" "${d##*/}/" true
+  done < <(instance_dirs)
+else
+  check_instance "$EXAMPLE" "" false
+fi
 # A listed failure of an app the example no longer renders.
 while read -r line; do
   [ -n "$line" ] || continue

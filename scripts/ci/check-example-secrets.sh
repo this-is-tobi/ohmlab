@@ -12,10 +12,12 @@
 # Optional references are not checked.
 #
 # With --stdin <tier>/<app> [<ignoreDifferences JSON>] the manifests are read
-# from standard input; without arguments every app the example lists, enabled
-# or not, is rendered as Argo CD would (its release name, namespace and the
-# manager's parameters) and checked. Prints names only, never a render. Needs
-# helm, yq and jq.
+# from standard input; with --instances <dir> each enabled app of every
+# instance of <dir> is checked, as <instance>/<tier>/<app>; without arguments
+# every app the example lists, enabled or not. Each app is rendered as Argo CD
+# would (its release name, namespace and the manager's parameters), its chart
+# from APPS_DIR (default argo-cd/apps) or its chartPath. Prints names only,
+# never a render. Needs helm, yq and jq.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -29,11 +31,11 @@ RUNTIME='core/ohmlab argocd-redis
 tenant/argo-cd argocd-redis
 core/prometheus-stack prometheus-stack-kube-prom-admission'
 
-# check_stream <tier>/<app> <ignoreDifferences JSON>: reads the app's
-# manifests on stdin, prints one line per violation.
+# check_stream [<instance>/]<tier>/<app> <ignoreDifferences JSON>: reads the
+# app's manifests on stdin, prints one line per violation.
 check_stream() {
   local runtime
-  runtime=$(awk -v app="$1" '$1 == app {print $2}' <<<"$RUNTIME" | jq -R . | jq -s -c .)
+  runtime=$(awk -v app="$1" 'BEGIN {n = split(app, p, "/"); key = p[n - 1] "/" p[n]} $1 == key {print $2}' <<<"$RUNTIME" | jq -R . | jq -s -c .)
   yq ea -o=json -I=0 '[select(. != null and .kind != null)]' - 2>/dev/null \
     | jq -r --arg app "$1" --argjson ignore "$2" --argjson runtime "$runtime" '
         def cnpg: .kind == "Cluster" and ((.apiVersion // "") | startswith("postgresql.cnpg.io/"));
@@ -92,40 +94,59 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 failures=0
-prefix=$(yq '.namespacePrefix // ""' "$EXAMPLE/instance.yaml")
-suffix=$(yq '.namespaceSuffix // ""' "$EXAMPLE/instance.yaml")
-for tier in core tenant; do
-  [ -f "$EXAMPLE/$tier.yaml" ] || continue
-  while IFS= read -r entry; do
-    app=$(jq -r .app <<<"$entry")
-    values="$EXAMPLE/values/$tier/$app.yaml"
-    # Argo CD refuses an entry without its values file: nothing to deploy.
-    [ -f "$values" ] || continue
-    chart=$(jq -r '.chart // .app' <<<"$entry")
-    release=$(jq -r '.releaseName // .app' <<<"$entry")
-    namespace=$(jq -r --arg default "$prefix$app$suffix" '.namespace // $default' <<<"$entry")
-    ignore=$(jq -c '.ignoreDifferences // []' <<<"$entry")
-    dir="$ROOT/argo-cd/apps/$chart"
-    [ "$chart" = ohmlab ] && dir="$ROOT/charts/ohmlab"
-    if [ -f "$dir/Chart.lock" ] && [ ! -d "$dir/charts" ]; then
-      helm dependency build "$dir" >/dev/null 2>&1 || { echo "FAIL $tier/$app: helm dependency build"; failures=$((failures + 1)); continue; }
-    fi
-    args=()
-    app_args "$values" 2>"$work/err" \
-      || { echo "FAIL $tier/$app: the example's manager does not render: $(head -c 240 "$work/err")"; failures=$((failures + 1)); continue; }
-    if ! helm template "$release" "$dir" --namespace "$namespace" "${args[@]}" >"$work/manifest" 2>"$work/err"; then
-      echo "FAIL $tier/$app: $(grep -m1 Error "$work/err" | cut -c1-240)"
-      failures=$((failures + 1))
-      continue
-    fi
-    violations=$(check_stream "$tier/$app" "$ignore" <"$work/manifest")
-    if [ -n "$violations" ]; then
-      while IFS= read -r v; do echo "FAIL $v"; done <<<"$violations"
-      failures=$((failures + 1))
-    else
-      echo "ok   $tier/$app"
-    fi
-  done < <(yq -o=json -I=0 '.apps[]' "$EXAMPLE/$tier.yaml")
-done
+: "${APPS_DIR:=$ROOT/argo-cd/apps}"
+
+# check_instance <instance dir> <label prefix> <enabled apps only: true|false>
+check_instance() {
+  local dir="$1" label="$2" enabled_only="$3" prefix suffix tier entry app id values chart chart_path release namespace ignore chart_dir violations v
+  prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
+  suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
+  for tier in core tenant; do
+    [ -f "$dir/$tier.yaml" ] || continue
+    while IFS= read -r entry; do
+      app=$(jq -r .app <<<"$entry")
+      id="$label$tier/$app"
+      values="$dir/values/$tier/$app.yaml"
+      # Argo CD refuses an entry without its values file: nothing to deploy.
+      [ -f "$values" ] || continue
+      chart=$(jq -r '.chart // .app' <<<"$entry")
+      chart_path=$(jq -r '.chartPath // ""' <<<"$entry")
+      release=$(jq -r '.releaseName // .app' <<<"$entry")
+      namespace=$(jq -r --arg default "$prefix$app$suffix" '.namespace // $default' <<<"$entry")
+      ignore=$(jq -c '.ignoreDifferences // []' <<<"$entry")
+      chart_dir="$APPS_DIR/$chart"
+      [ "$chart" = ohmlab ] && chart_dir="$ROOT/charts/ohmlab"
+      [ -n "$chart_path" ] && chart_dir="$APPS_DIR/../../$chart_path"
+      if [ -f "$chart_dir/Chart.lock" ] && [ ! -d "$chart_dir/charts" ]; then
+        helm dependency build "$chart_dir" >/dev/null 2>&1 || { echo "FAIL $id: helm dependency build"; failures=$((failures + 1)); continue; }
+      fi
+      args=()
+      app_args "$values" 2>"$work/err" \
+        || { echo "FAIL $id: the instance's manager does not render: $(head -c 240 "$work/err")"; failures=$((failures + 1)); continue; }
+      if ! helm template "$release" "$chart_dir" --namespace "$namespace" "${args[@]}" >"$work/manifest" 2>"$work/err"; then
+        echo "FAIL $id: $(grep -m1 Error "$work/err" | cut -c1-240)"
+        failures=$((failures + 1))
+        continue
+      fi
+      violations=$(check_stream "$id" "$ignore" <"$work/manifest")
+      if [ -n "$violations" ]; then
+        while IFS= read -r v; do echo "FAIL $v"; done <<<"$violations"
+        failures=$((failures + 1))
+      else
+        echo "ok   $id"
+      fi
+    done < <(E="$enabled_only" yq -o=json -I=0 '.apps[] | select(strenv(E) == "false" or .enabled == "true" or .enabled == true)' "$dir/$tier.yaml")
+  done
+}
+
+if [ "${1:-}" = "--instances" ]; then
+  INSTANCES_DIR="${2:?--instances needs a directory}"
+  INSTANCES_DIR="${INSTANCES_DIR%/}"
+  while IFS= read -r d; do
+    check_instance "$d" "${d##*/}/" true
+  done < <(instance_dirs)
+else
+  check_instance "$EXAMPLE" "" false
+fi
 
 exit $((failures > 0))
