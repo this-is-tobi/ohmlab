@@ -4,34 +4,113 @@
 # `ohmlab validate` is what the controller applies, run here without a cluster
 # on what each instance would deploy.
 #
-#   check-vault-seeds.sh
+# A remote instance (vault.hub) reads its secrets from its hub's Vault, where
+# the hub's VaultSeeds create them: every key its apps' VaultStaticSecrets read
+# must be in the hub's seed of that path.
 #
-# Needs helm and Go (it runs the CLI from cli/).
+#   check-vault-seeds.sh
+#   check-vault-seeds.sh --reads <reads.json> <seeds.json> <hub>
+#
+# reads.json: [{label, secret, path, texts}], the <mount>/<path> each
+# VaultStaticSecret reads and its template texts; seeds.json: [{path, data}],
+# the hub's VaultSeeds. Needs helm, yq, jq and Go (it runs the CLI from cli/).
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=scripts/lib/instances.sh
 source "$ROOT/scripts/lib/instances.sh"
+
+# seed_reads <reads.json> <seeds.json> <hub> [<ok prefix>]: one FAIL line per
+# key read that the hub's seed of its path does not have, and per entry of
+# reads.json that is a failure ({label, fail}), else one ok line. Each template
+# action that uses .Secrets must be one of
+#   get .Secrets "<k>" [| dig "<k2>"... "<default>"] [| default "<s>" | b64dec]...
+#   .Secrets.<k>[.<k2>...] [| default "<s>" | b64dec]...
+#   printf "<format>" with such gets in parentheses, and strings, as arguments
+# and any other fails, naming the secret: it could read keys this check does
+# not see. A secret without templates needs its path seeded. Returns 1 when
+# the files cannot be read.
+seed_reads() {
+  jq -r --slurpfile seeds "$2" --arg hub "$3" --arg prefix "${4:-}" '
+    def lit: "\"(?:[^\"\\\\]|\\\\.)*\"";
+    def filters: "(?:\\s*\\|\\s*(?:default\\s+" + lit + "|b64dec))*";
+    def get_re: "get\\s+\\.Secrets\\s+(" + lit + ")((?:\\s*\\|\\s*dig(?:\\s+" + lit + ")+)?)" + filters;
+    def field_re: "\\.Secrets((?:\\.[A-Za-z_][A-Za-z0-9_]*)+)" + filters;
+    # The key path of a get_re match (the last argument of dig is its
+    # default), or null for a dig without one.
+    def get_path: [.captures[1].string | match(lit; "g") | .string | fromjson] as $dig
+      | if $dig != [] and ($dig | length) < 2 then null else [.captures[0].string | fromjson] + $dig[:-1] end;
+    # The key paths an action (the text between {{ and }}) reads, or null.
+    def action_reads:
+      if test("\\.Secrets") | not then []
+      elif test("^\\s*" + get_re + "\\s*$") then [match(get_re) | get_path]
+      elif test("^\\s*" + field_re + "\\s*$") then [match(field_re) | .captures[0].string | ltrimstr(".") | split(".")]
+      elif test("^\\s*printf\\s+" + lit + "(?:\\s+(?:\\(\\s*" + get_re + "\\s*\\)|" + lit + "))+\\s*$") then [match(get_re; "g") | get_path]
+      else null end;
+    # The key paths a template text reads, or null when one of its actions is
+    # none of the forms, or one is left open.
+    def keys_read:
+      if gsub("\\{\\{.*?\\}\\}"; ""; "s") | test("\\{\\{") then null
+      else [match("\\{\\{-?(.*?)-?\\}\\}"; "gs") | .captures[0].string | action_reads] as $acts
+        | if any($acts[]; . == null or any(.[]; . == null)) then null else [$acts[][]] end end;
+    # Whether the seed data has the key path, whatever its value: an empty
+    # one is a placeholder that an operator fills.
+    def seeded($data; $p): (try ($data | getpath($p[:-1])) catch null) | type == "object" and has($p[-1]);
+    [ .[] as $r
+      | ($seeds[0] | map(select(.path == $r.path)) | first) as $seed
+      | if $r.fail then {fail: "\($r.label): \($r.fail)"}
+        elif ($r.texts | length) == 0 then
+          if $seed == null then {fail: "\($r.label): \($r.path) is not seeded by hub \($hub)"} else empty end
+        else
+          $r.texts[] | keys_read as $paths
+          | if $paths == null then {fail: "\($r.label): VaultStaticSecret \($r.secret) reads .Secrets in a form this check cannot follow: \(.[0:160])"}
+            else $paths[] as $p
+              | if seeded($seed.data; $p) then {read: "\($r.path) \($p | join("."))"}
+                else {fail: "\($r.label): \($r.path) key \($p | join(".")) is not seeded by hub \($hub)"} end
+            end
+        end ]
+    | (map(.fail // empty) | unique) as $fails
+    | if $fails == [] then "ok   \($prefix)\(map(.read // empty) | unique | length) key(s) read, all seeded by \($hub)"
+      else $fails[] | "FAIL " + . end' "$1" 2>/dev/null
+}
+
+if [ "${1:-}" = "--reads" ]; then
+  out=$(seed_reads "${2:?reads.json}" "${3:?seeds.json}" "${4:?hub}") || { echo "FAIL cannot read $2 or $3"; exit 2; }
+  printf '%s\n' "$out"
+  if grep -q '^FAIL' <<<"$out"; then exit 1; fi
+  exit 0
+fi
+
 failures=0
-(cd "$ROOT/cli" && go build -o "${TMPDIR:-/tmp}/ohmlab-validate" .) || { echo "FAIL: cannot build the CLI" >&2; exit 1; }
-trap 'rm -f "${TMPDIR:-/tmp}/ohmlab-validate" "${TMPDIR:-/tmp}/check-vault-seeds.$$.err"' EXIT
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+(cd "$ROOT/cli" && go build -o "$work/ohmlab-validate" .) || { echo "FAIL: cannot build the CLI" >&2; exit 1; }
+
+# render_seeds <instance dir>: sets `rendered` to the vault-operator chart
+# rendered with the instance's values and the parameters its manager gives the
+# core tier, its seeds on as if the cluster had the VaultSeed kind. When it
+# does not render, sets it to the reason and returns 1.
+render_seeds() {
+  local values="$1/values/core/vault-operator.yaml" lines p args=()
+  if ! lines=$(manager_parameters "$1" core 2>"$work/err"); then
+    rendered="the instance-manager does not render: $(cat "$work/err")"
+    return 1
+  fi
+  [ -f "$values" ] && args=(-f "$values")
+  while IFS= read -r p; do [ -n "$p" ] && args+=(--set-string "$p"); done <<<"$lines"
+  # Helm's warnings stay out of the manifests the seeds are read from.
+  if ! rendered=$(helm template check "$ROOT/argo-cd/apps/vault-operator" "${args[@]+"${args[@]}"}" --namespace vault-operator-system \
+        --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false 2>"$work/err"); then
+    rendered=$(grep -m1 '^Error' "$work/err" | cut -c1-240)
+    return 1
+  fi
+}
 
 for values in "$INSTANCES_DIR"/*/values/core/vault-operator.yaml; do
   dir="$(dirname "$(dirname "$(dirname "$values")")")"
   instance="$(basename "$dir")"
-  # With the parameters the instance's manager gives the core tier.
-  if ! lines=$(manager_parameters "$dir" core 2>"${TMPDIR:-/tmp}/check-vault-seeds.$$.err"); then
-    echo "FAIL $instance: the instance-manager does not render: $(cat "${TMPDIR:-/tmp}/check-vault-seeds.$$.err")"
-    failures=$((failures + 1))
-    continue
-  fi
-  params=()
-  while IFS= read -r p; do
-    [ -n "$p" ] && params+=(--set-string "$p")
-  done <<<"$lines"
-  if ! rendered=$(helm template check "$ROOT/argo-cd/apps/vault-operator" -f "$values" --namespace vault-operator-system \
-        --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false "${params[@]+"${params[@]}"}" 2>&1); then
-    echo "FAIL $instance: $(grep -m1 '^Error' <<<"$rendered" | cut -c1-240)"
+  if ! render_seeds "$dir"; then
+    echo "FAIL $instance: $rendered"
     failures=$((failures + 1))
     continue
   fi
@@ -43,11 +122,65 @@ for values in "$INSTANCES_DIR"/*/values/core/vault-operator.yaml; do
     failures=$((failures + 1))
     continue
   fi
-  if out=$("${TMPDIR:-/tmp}/ohmlab-validate" validate - <<<"$rendered" 2>&1); then
+  if out=$("$work/ohmlab-validate" validate - <<<"$rendered" 2>&1); then
     echo "ok   $instance: $out"
   else
     echo "FAIL $instance:"; printf '%s\n' "$out" | sed 's/^/     /'
     failures=$((failures + 1))
   fi
 done
-exit "$failures"
+
+# reads_of <instance dir>: one reads.json entry per VaultStaticSecret of the
+# instance's enabled apps, rendered as their Applications render them, and a
+# failure entry ({label, fail}) for an app that does not render.
+reads_of() {
+  local dir="$1" instance="${1##*/}" scope prefix suffix entry label ns lines
+  prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
+  suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
+  for scope in core tenant; do
+    [ -f "$dir/$scope.yaml" ] || continue
+    if ! lines=$(manager_parameters "$dir" "$scope" 2>"$work/err"); then
+      jq -cn --arg label "$instance" --arg why "$(cat "$work/err")" '{$label, fail: "the instance-manager does not render: \($why)"}'
+      return
+    fi
+    while IFS= read -r entry; do
+      [ -n "$entry" ] || continue
+      label="$instance/$scope/$(jq -r '.app' <<<"$entry")"
+      ns=$(jq -r --arg p "$prefix" --arg s "$suffix" '.namespace // "\($p)\(.app)\($s)"' <<<"$entry")
+      vso_render "$dir" "$scope" "$entry" "$lines" "$ns" "$work/app" >"$work/why"
+      case $? in
+        0) yq ea -o=json -I=0 '[select(.kind == "VaultStaticSecret")]' "$work/app" \
+             | jq -c --arg label "$label" '.[] | {$label, secret: .metadata.name, path: "\(.spec.mount)/\(.spec.path)",
+                 texts: [(.spec.destination.transformation.templates // {})[] | .text // empty]}' ;;
+        2) ;;
+        *) jq -cn --arg label "$label" --arg why "$(cat "$work/why")" '{$label, fail: "does not render: \($why)"}' ;;
+      esac
+    done < <(yq -o=json -I=0 '.apps[] | select(.enabled == "true" or .enabled == true)' "$dir/$scope.yaml")
+  done
+}
+
+for dir in "$INSTANCES_DIR"/*/; do
+  dir="${dir%/}"
+  instance="${dir##*/}"
+  hub=$(yq '.vault.hub // ""' "$dir/instance.yaml" 2>/dev/null)
+  [ -n "$hub" ] || continue
+  if [ ! -f "$INSTANCES_DIR/$hub/instance.yaml" ]; then
+    echo "FAIL $instance: hub $hub is not an instance of $INSTANCES_DIR"
+    failures=$((failures + 1))
+    continue
+  fi
+  if ! render_seeds "$INSTANCES_DIR/$hub"; then
+    echo "FAIL $instance: the seeds of hub $hub do not render: $rendered"
+    failures=$((failures + 1))
+    continue
+  fi
+  yq ea -o=json -I=0 '[select(.kind == "VaultSeed") | .spec | {"path": .path, "data": (.data // {})}]' - <<<"$rendered" >"$work/seeds.json"
+  reads_of "$dir" | jq -s . >"$work/reads.json"
+  if ! out=$(seed_reads "$work/reads.json" "$work/seeds.json" "$hub" "$instance: "); then
+    out="FAIL $instance: cannot read the seeds of hub $hub or the VaultStaticSecrets of its apps"
+  fi
+  printf '%s\n' "$out"
+  failures=$((failures + $(grep -c '^FAIL' <<<"$out")))
+done
+# An exit status is taken modulo 256.
+exit $((failures > 255 ? 255 : failures))

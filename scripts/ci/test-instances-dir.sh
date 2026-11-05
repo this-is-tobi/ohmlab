@@ -181,6 +181,53 @@ printf 'instance: {name: badseed}\nrepoURL: https://git.example/x.git\n' >"$brok
 printf 'ohmlab:\n  vault:\n    secrets:\n    - data:\n        key: "<random:8>"\n' >"$broken/badseed/values/core/vault-operator.yaml"
 check "check-vault-seeds.sh reads the instances of INSTANCES_DIR" 1 "$(runs "$broken" check-vault-seeds.sh)"
 
+# The hub seeds what the remote instance's apps read, on the remote's mount.
+rc=$(runs "$hubs" check-vault-seeds.sh)
+if [ "$rc" != 0 ] && grep -qxF 'FAIL dev/tenant/gitea: dev/platforms/dev/tenant/gitea key valkey.password is not seeded by hub hub' "$work/out"; then
+  echo "ok   check-vault-seeds.sh refuses a key a remote app reads that its hub does not seed"
+else
+  echo "FAIL check-vault-seeds.sh on a hub without seeds (rc $rc)"; sed 's/^/     /' "$work/out" | head -8; fail=1
+fi
+seeded="$work/seeded"
+cp -R "$hubs" "$seeded"
+cat >>"$seeded/hub/values/core/vault-operator.yaml" <<'YAML'
+ohmlab:
+  vault:
+    secrets:
+    - path: dev/platforms/dev/tenant/gitea
+      data:
+        admin: {username: gitea, password: "<random:32>"}
+        keycloak: {clientId: gitea, clientSecret: ""}
+        postgres:
+          admin: {username: postgres, password: "<random:32>"}
+          app: {username: gitea, password: "<random:32>"}
+          database: gitea
+          host: gitea-pg-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+        valkey: {password: "<random:32>"}
+YAML
+rc=$(runs "$seeded" check-vault-seeds.sh)
+if [ "$rc" = 0 ] && grep -qxF 'ok   dev: 18 key(s) read, all seeded by hub' "$work/out"; then
+  echo "ok   check-vault-seeds.sh passes a remote instance whose hub seeds every key its apps read"
+else
+  echo "FAIL check-vault-seeds.sh on a hub that seeds every key (rc $rc)"; sed 's/^/     /' "$work/out" | head -8; fail=1
+fi
+printf 'apps:\n- app: gitea\n  enabled: "true"\n- app: wiki\n  chart: nosuchchart\n  enabled: "true"\n' >"$seeded/dev/tenant.yaml"
+rc=$(runs "$seeded" check-vault-seeds.sh)
+if [ "$rc" != 0 ] && grep -qF 'FAIL dev/tenant/wiki: does not render' "$work/out" && ! grep -q '^ok   dev: .* key(s) read' "$work/out"; then
+  echo "ok   check-vault-seeds.sh fails a remote app that does not render, with no ok line for its instance"
+else
+  echo "FAIL check-vault-seeds.sh on a remote app that does not render (rc $rc)"; sed 's/^/     /' "$work/out" | head -8; fail=1
+fi
+rm -rf "$seeded/hub"
+rc=$(runs "$seeded" check-vault-seeds.sh)
+if [ "$rc" != 0 ] && grep -qxF "FAIL dev: hub hub is not an instance of $seeded" "$work/out"; then
+  echo "ok   check-vault-seeds.sh refuses a remote instance whose hub is not an instance of INSTANCES_DIR"
+else
+  echo "FAIL check-vault-seeds.sh on a remote instance without its hub (rc $rc)"; sed 's/^/     /' "$work/out" | head -8; fail=1
+fi
+
 # An instance whose manager does not render fails both Vault checks with the
 # manager's reason, instead of being checked against the charts' fallbacks.
 broken="$work/broken-names"
