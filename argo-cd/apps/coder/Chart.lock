@@ -7,6 +7,6 @@ dependencies:
   version: 0.9.0
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
-  version: 2.3.0
-digest: sha256:02c3acbe898eb5bbfb0a7cc07ca46601978ab00e85fe67526de09f804d9ef420
-generated: "2026-11-05T00:51:59.703856902Z"
+  version: 2.3.1
+digest: sha256:53a0ad35a478e175a773564a08803c2650e7a946a93d29ae0a048910192117cd
+generated: "2026-11-05T01:48:59.588840169Z"
