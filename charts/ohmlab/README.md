@@ -125,6 +125,7 @@ A Helm chart to deploy ohmlab.
 | argo-cd.server.resources.limits.memory | string | `"512Mi"` |  |
 | argo-cd.server.resources.requests.cpu | string | `"50m"` |  |
 | argo-cd.server.resources.requests.memory | string | `"128Mi"` |  |
+| clusters | object | `{}` | Remote clusters Argo CD deploys to, by name: `{<name>: {server: <API server URL>}}`. With `vso.enabled`, each becomes the cluster Secret `cluster-<name>`, written by VSO from this Argo CD's own Vault path (the mount and path of `vso.vaultStaticSecretDefaults`): the keys `clusters.<name>.bearerToken` and `clusters.<name>.caData` (base64 PEM) of a service account on that cluster, seeded empty and set by hand. Argo CD needs a route to each server: with `networkPolicy.egressDeny`, an `networkPolicy.extraEgress` group with the server's addresses and port. |
 | coredns.clusterIP | string | `"10.43.0.10"` |  |
 | coredns.enabled | bool | `false` |  |
 | coredns.image | string | `"rancher/mirrored-coredns-coredns:1.15.0"` |  |

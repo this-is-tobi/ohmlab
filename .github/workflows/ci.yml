@@ -175,7 +175,7 @@ jobs:
         run: scripts/ci/test-site-defaults.sh
       # The release PR only bumps Chart.yaml, so the README must carry nothing
       # that changes with a release and must be regenerated with every change.
-      - name: Test the root manager and AppProject sources
+      - name: Test the root manager, the AppProjects and the clusters
         run: scripts/ci/test-root-manager.sh
       - name: Check that the bootstrap chart README is generated
         env:

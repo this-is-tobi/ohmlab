@@ -79,4 +79,40 @@ check "derived project sources apply to the tenant project too" "$OCI,$VAL" "$(p
 render --set "rootManager.repoURL.sources=$SRC" --set 'projects.core.sourceRepos[0]=https://only.example/repo.git' || { cat "$work/err"; exit 1; }
 check "an explicit list is kept as written" "https://only.example/repo.git" "$(project admin-core)"
 
+# A remote cluster in `clusters` becomes an Argo CD cluster Secret, written by
+# VSO from this Argo CD's own Vault path with the chart's VaultAuth.
+VAULT=(--set-json 'global.ohmlab.vault={"mount":"ohmlab","pathPrefix":"platforms/production/core"}')
+CLUSTER=(--set clusters.nonprod.server=https://nonprod.example.com:6443)
+# vss <query> -> the query on the cluster's VaultStaticSecret
+vss() { yq "select(.kind == \"VaultStaticSecret\" and .spec.destination.name == \"cluster-nonprod\") | $1" "$work/out.yaml"; }
+render --set "rootManager.repoURL.sources=$SRC" --set vso.enabled=true "${VAULT[@]}" "${CLUSTER[@]}" || { cat "$work/err"; exit 1; }
+check "the cluster Secret holds only the keys its template writes" 0 \
+  "$("$(dirname "${BASH_SOURCE[0]}")/check-vso-isolation.sh" --stdin <"$work/out.yaml" >/dev/null 2>&1; echo $?)"
+check "a cluster becomes a Secret Argo CD reads as a cluster" "cluster-nonprod true cluster" \
+  "$(vss '.spec.destination.name + " " + (.spec.destination.create | tostring) + " " + .spec.destination.labels["argocd.argoproj.io/secret-type"]')"
+check "the Secret holds the cluster's name and server" "nonprod https://nonprod.example.com:6443" \
+  "$(vss '.spec.destination.transformation.templates.name.text + " " + .spec.destination.transformation.templates.server.text')"
+check "its values come from this Argo CD's own path" "ohmlab platforms/production/core/argo-cd" "$(vss '.spec.mount + " " + .spec.path')"
+check "it logs in with the chart's VaultAuth" \
+  "$(yq 'select(.kind == "VaultAuth") | .metadata.name' "$work/out.yaml")" "$(vss '.spec.vaultAuthRef')"
+config=$(vss '.spec.destination.transformation.templates.config.text')
+check "the config reads clusters.nonprod.bearerToken and .caData" "true" \
+  "$(grep -q '"clusters"' <<<"$config" && grep -q '"nonprod"' <<<"$config" && grep -q bearerToken <<<"$config" && grep -q caData <<<"$config" && echo true)"
+# The config template, rendered the way VSO does (Go templates and Sprig) with
+# fake values, is the JSON Argo CD expects.
+mkdir -p "$work/tpl/templates"
+printf 'apiVersion: v2\nname: tpl\nversion: 0.0.0\n' >"$work/tpl/Chart.yaml"
+printf '%s\n' '{{ tpl .Values.text (dict "Secrets" .Values.secrets "Template" .Template) }}' >"$work/tpl/templates/out.yaml"
+printf '%s' "$config" >"$work/config.txt"
+check "the config renders to Argo CD's cluster JSON" '{"bearerToken":"t0k","tlsClientConfig":{"caData":"Y2E="}}' \
+  "$(helm template tpl "$work/tpl" --set-file "text=$work/config.txt" --set-json 'secrets={"clusters":{"nonprod":{"bearerToken":"t0k","caData":"Y2E="}}}' 2>&1 | grep -v '^---\|^# Source' | jq -cS . 2>&1)"
+# Values as an admin stores them: a token with its file's trailing newline,
+# the CA wrapped by base64. Without the clusters key, empty values.
+check "a token with a trailing newline and a wrapped CA still make valid JSON" '{"bearerToken":"t0k","tlsClientConfig":{"caData":"Y2E=\nY2E="}}' \
+  "$(helm template tpl "$work/tpl" --set-file "text=$work/config.txt" --set-json 'secrets={"clusters":{"nonprod":{"bearerToken":"t0k\n","caData":"Y2E=\nY2E=\n"}}}' 2>&1 | grep -v '^---\|^# Source' | jq -cS . 2>&1)"
+check "without the clusters key, the config holds empty values" '{"bearerToken":"","tlsClientConfig":{"caData":""}}' \
+  "$(helm template tpl "$work/tpl" --set-file "text=$work/config.txt" --set-json 'secrets={"other":"x"}' 2>&1 | grep -v '^---\|^# Source' | jq -cS . 2>&1)"
+render --set "rootManager.repoURL.sources=$SRC" "${VAULT[@]}" "${CLUSTER[@]}" || { cat "$work/err"; exit 1; }
+check "without VSO, no cluster Secret" "" "$(yq 'select(.kind == "VaultStaticSecret") | .kind' "$work/out.yaml")"
+
 exit "$fail"
