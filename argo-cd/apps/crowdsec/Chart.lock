@@ -1,12 +1,12 @@
 dependencies:
 - name: crowdsec
   repository: https://crowdsecurity.github.io/helm-charts
-  version: 0.24.2
+  version: 0.24.3
 - name: cluster
   repository: https://cloudnative-pg.github.io/charts
   version: 0.9.0
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.3.1
-digest: sha256:65d94399fdda98a207c53c90ebb48bfe2bb13e5b4a8cee5ad9e7a9341fee5609
-generated: "2026-11-05T01:49:16.613179973Z"
+digest: sha256:db5ba8da6b4965dc745366fbd270383daafa56913ac4e4d975f69a29f21cea60
+generated: "2026-11-05T16:01:16.42843209Z"
