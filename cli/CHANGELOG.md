@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/this-is-tobi/ohmlab/compare/v0.4.0...v0.5.0) (2026-11-05)
+
+
+### Features
+
+* **cli:** classify what a port answers to a TLS hello ([df0e722](https://github.com/this-is-tobi/ohmlab/commit/df0e72271bff504161eed0313f6b54e80d934ec2))
+* **cli:** fetch a cluster's kubeconfig and merge it as a named context ([4b1e35c](https://github.com/this-is-tobi/ohmlab/commit/4b1e35c1276a40d8ee58f99aa23441d72012b6b9))
+* **cli:** find every Service port and judge the probes ([5535451](https://github.com/this-is-tobi/ohmlab/commit/5535451cb8ac470ed1a6cf5289d853f0ebadad20))
+* **cli:** find the instance to act on ([e5e07c9](https://github.com/this-is-tobi/ohmlab/commit/e5e07c9a9ef2e9202f67f0fe19ca2377646c8afd))
+* **cli:** logs for people on a terminal, JSON elsewhere ([8bdaf68](https://github.com/this-is-tobi/ohmlab/commit/8bdaf68a45acb784d362006095c194a78a215b8e))
+* **cli:** ohmlab audit tls ([a64fc5d](https://github.com/this-is-tobi/ohmlab/commit/a64fc5d981a2be492dfb0ac2c43aaf948932b42b))
+* **cli:** ohmlab kubeconfig ([2f9346e](https://github.com/this-is-tobi/ohmlab/commit/2f9346e786e7cbb3a082ac0a8225258db1838e24))
+* **cli:** output for a terminal or for machines ([cc4bcc2](https://github.com/this-is-tobi/ohmlab/commit/cc4bcc239decd3fa7b83722893fd491c560f72c2))
+* **cli:** read the workspace file ([789927d](https://github.com/this-is-tobi/ohmlab/commit/789927d8d9c3cf08c0b6143bddc24e56aa7ecb69))
+* **cli:** run external tools through one interface ([fcbde8e](https://github.com/this-is-tobi/ohmlab/commit/fcbde8eec47684f24023c4dfeab690ee1532a7ef))
+* **cli:** the workspace settings, from flags, environment, ohmlab.yaml or defaults ([41b6f16](https://github.com/this-is-tobi/ohmlab/commit/41b6f1615c18a64bf245dd89ada0322ea646fdaa))
+
 ## [0.4.0](https://github.com/this-is-tobi/ohmlab/compare/v0.3.1...v0.4.0) (2026-11-01)
 
 
