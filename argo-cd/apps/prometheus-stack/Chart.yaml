@@ -11,10 +11,12 @@ dependencies:
   alias: vso
   version: 2.3.1
   repository: oci://ghcr.io/this-is-tobi/charts
+# Grafana's database: rendered with Grafana only.
 - name: cluster
   alias: cnpg
   version: 0.9.0
   repository: https://cloudnative-pg.github.io/charts
+  condition: kube-prometheus-stack.grafana.enabled
 - name: loki
   alias: loki
   version: 21.0.0
