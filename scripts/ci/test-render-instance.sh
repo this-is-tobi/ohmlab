@@ -72,6 +72,20 @@ defaultCatalog: bundle" '- {app: probe, enabled: true}')
 printf 'expectRelease: probe\nexpectNamespace: probe\n' >"$d/values/core/probe.yaml"
 out=$(run "$d"); expect "a bundle catalog renders from APPS_DIR; a boolean enabled counts" 0 "1 app(s) rendered, 0 failure(s)" "$out" $?
 
+# chartPath is a path of the catalog, whose argo-cd/apps APPS_DIR is, as for
+# Argo CD (charts/ohmlab in this repository).
+mkdir -p "$work/cat/argo-cd/apps" "$work/cat/charts/boot/templates"
+printf 'apiVersion: v2\nname: boot\nversion: 0.1.0\n' >"$work/cat/charts/boot/Chart.yaml"
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: boot}\n' >"$work/cat/charts/boot/templates/cm.yaml"
+d=$(instance p "" '- {app: ohmlab, enabled: "true", chartPath: charts/boot}')
+printf '{}\n' >"$d/values/core/ohmlab.yaml"
+out=$(APPS_DIR="$work/cat/argo-cd/apps" INSTANCES_DIR="$(dirname "$d")" "$SCRIPT" 2>&1)
+expect "an entry's chartPath renders that path of the catalog" 0 "ok   p/core/ohmlab" "$out" $?
+d=$(instance q "" '- {app: ohmlab, enabled: "true", chartPath: charts/none}')
+printf '{}\n' >"$d/values/core/ohmlab.yaml"
+out=$(APPS_DIR="$work/cat/argo-cd/apps" INSTANCES_DIR="$(dirname "$d")" "$SCRIPT" 2>&1)
+expect "a chartPath the catalog lacks is reported" 1 "FAIL q/core/ohmlab" "$out" $?
+
 mkdir -p "$work/apps/named/templates"
 printf 'apiVersion: v2\nname: named\nversion: 0.1.0\n' >"$work/apps/named/Chart.yaml"
 cat >"$work/apps/named/templates/cm.yaml" <<'YAML'

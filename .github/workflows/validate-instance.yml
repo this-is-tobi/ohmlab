@@ -72,9 +72,10 @@ jobs:
         run: |
           set -euo pipefail
           source scripts/lib/helm-repos.sh
-          add_dependency_repos argo-cd/apps/*/Chart.yaml
+          # charts/ohmlab too: an instance may render it by chartPath.
+          add_dependency_repos argo-cd/apps/*/Chart.yaml charts/ohmlab/Chart.yaml
           locked=()
-          for chart in argo-cd/apps/*/; do
+          for chart in argo-cd/apps/*/ charts/ohmlab/; do
             chart="${chart%/}"
             [ -f "$chart/Chart.lock" ] && locked+=("$chart")
           done
@@ -92,9 +93,9 @@ jobs:
         run: |
           set -euo pipefail
           source ../ohmlab/scripts/lib/helm-repos.sh
-          add_dependency_repos argo-cd/apps/*/Chart.yaml
+          add_dependency_repos argo-cd/apps/*/Chart.yaml charts/ohmlab/Chart.yaml
           locked=()
-          for chart in argo-cd/apps/*/; do
+          for chart in argo-cd/apps/*/ charts/ohmlab/; do
             chart="${chart%/}"
             [ -f "$chart/Chart.lock" ] && locked+=("$chart")
           done
