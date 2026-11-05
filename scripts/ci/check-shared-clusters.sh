@@ -17,7 +17,7 @@
 #   check-shared-clusters.sh <render dir>
 #
 # Prints `ok   <server>: ...` or `FAIL <server>: ...`; exits with the number
-# of failures.
+# of failures, at most 255 (an exit status is taken modulo 256).
 set -uo pipefail
 
 dir="${1:?usage: check-shared-clusters.sh <render dir>}"
@@ -81,4 +81,5 @@ out=$(
     }' | sort
 )
 printf '%s\n' "$out"
-exit "$(grep -c '^FAIL' <<<"$out")"
+failures=$(grep -c '^FAIL' <<<"$out")
+exit $((failures > 255 ? 255 : failures))

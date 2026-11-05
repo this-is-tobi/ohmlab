@@ -72,4 +72,12 @@ check "two server strings are two clusters" 0 "ok   https://10.0.0.1:6443: 1 app
 
 check "a directory without renders has nothing to check" 0 "no rendered app, nothing to check" "$work/empty"
 
+# An exit status is taken modulo 256: 256 failures must not read as success.
+r="$work/many"
+for i in $(seq 1 256); do
+  app "$r" a/tenant/x$i "$S" ns$i
+  app "$r" b/tenant/x$i "$S" ns$i
+done
+check "256 failures exit 255" 255 "FAIL $S: namespace ns256 is the destination of" "$r"
+
 exit "$fail"

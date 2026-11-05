@@ -18,7 +18,8 @@
 #
 # projects.json: [{name, destinations: [{server, namespace}]}]; apps.json:
 # [{id, project, server, namespace}]. Prints `ok   <id>` or `FAIL <id>: ...`,
-# never a render; exits with the number of failures. Needs helm, yq and jq.
+# never a render; exits with the number of failures, at most 255 (an exit
+# status is taken modulo 256). Needs helm, yq and jq.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -48,7 +49,8 @@ trap 'rm -rf "$work"' EXIT
 if [ "${1:-}" = "--match" ]; then
   match "$2" "$3" >"$work/out"
   cat "$work/out"
-  exit "$(grep -c '^FAIL' "$work/out")"
+  failures=$(grep -c '^FAIL' "$work/out")
+  exit $((failures > 255 ? 255 : failures))
 fi
 
 failures=0
@@ -96,8 +98,9 @@ done < <(instance_dirs)
 
 if [ -z "$found" ]; then
   echo "ok   projects not checked: no instance enables the ohmlab app"
-  exit "$failures"
+  exit $((failures > 255 ? 255 : failures))
 fi
 match "$work/projects.json" "$work/apps.json" >"$work/out"
 cat "$work/out"
-exit $((failures + $(grep -c '^FAIL' "$work/out")))
+failures=$((failures + $(grep -c '^FAIL' "$work/out")))
+exit $((failures > 255 ? 255 : failures))

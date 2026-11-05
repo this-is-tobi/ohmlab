@@ -37,6 +37,9 @@ match "a * server allows any" 0 "ok   i/tenant/a" "$(project p '*' '*')" "$(app 
 match "a project that does not exist is refused" 1 "project dev-tenant does not exist" "$(project p "$IN" '*')" "$(app dev-tenant "$IN" a)"
 match "a ! destination is reported, as this check does not read it" 1 "starting with !" "$(project p "$IN" '!kube-system')" "$(app p "$IN" a)"
 match "a dot in a pattern is a dot" 1 "allows no destination" "$(project p 'https://a.example.com' '*')" "$(app p 'https://aXexample.com' a)"
+# An exit status is taken modulo 256: 256 failures must not read as success.
+match "256 failures exit 255" 255 "FAIL i/tenant/a256" "$(project p "$IN" a)" \
+  "$(jq -nc --arg s "$IN" '[range(1; 257) | {id: "i/tenant/a\(.)", project: "p", server: $s, namespace: "b"}]')"
 
 # The loop: the projects come from the ohmlab entry of the instance that enables
 # it (here a chartPath of a fixture catalog), the Applications from every
