@@ -245,9 +245,6 @@ A Helm chart to deploy ohmlab.
 | vso.vaultAuth.default.login.role | string | `""` |  |
 | vso.vaultAuth.default.login.serviceAccount | string | `"vso"` |  |
 | vso.vaultAuthDefaults | object | `{"method":"{{ dig \"ohmlab\" \"vault\" \"auth\" \"method\" \"kubernetes\" (.Values.global | default dict) }}","mount":"{{ dig \"ohmlab\" \"vault\" \"auth\" \"mount\" \"kubernetes\" (.Values.global | default dict) }}"}` | How every VaultAuth logs in: the method and mount the instance's manager gives (global.ohmlab.vault.auth, jwt for an instance that reads another instance's Vault), else kubernetes. |
-| vso.vaultConnection.default.address | string | `"https://vault.vault-operator-system.svc.cluster.local:8200"` |  |
-| vso.vaultConnection.default.caCertSecretRef | string | `"vault-tls"` |  |
-| vso.vaultConnection.default.skipTLSVerify | bool | `false` |  |
 | vso.vaultStaticSecretDefaults | object | `{"mount":"{{ dig \"ohmlab\" \"vault\" \"mount\" \"\" (.Values.global | default dict) }}","path":"{{ with dig \"ohmlab\" \"vault\" \"pathPrefix\" \"\" (.Values.global | default dict) }}{{ . }}/argo-cd{{ end }}"}` | The mount and path of each secret that sets none: the ones the manager gives this app's tier (global.ohmlab.vault.mount, and global.ohmlab.vault.pathPrefix followed by argo-cd). |
 | vso.vaultStaticSecrets | object | `{}` |  |
 
