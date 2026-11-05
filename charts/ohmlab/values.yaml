@@ -390,6 +390,20 @@ clusters: {}
 projects:
   # AppProjects are split per scope to mirror real platform/tenant boundaries.
   # Adjust whitelists per scope to enforce stricter RBAC on tenant apps.
+  #
+  # An extra entry with `inherit: core|tenant` takes that tier's sources rule,
+  # whitelists and blacklists, and sets its own `name` and `destinations`
+  # (another cluster's server, a namespace pattern), with an admin role on
+  # itself unless it sets `roles`. Its ohmlab.fr/instance-scope label is the
+  # tier. An instance names it in its instance.yaml `projects`, so Argo CD
+  # refuses any of its Applications outside that cluster and those namespaces.
+  #   dev:
+  #     enabled: true
+  #     inherit: tenant
+  #     name: dev-tenant
+  #     destinations:
+  #     - server: https://nonprod.example.com:6443
+  #       namespace: "dev-*"
   core:
     # -- Render the `core` AppProject.
     enabled: true
