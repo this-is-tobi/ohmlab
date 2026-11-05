@@ -8,11 +8,13 @@ clients, client roles and group client roles, the system realm's first: two
 files for one realm would undo each other, since keycloak-config-cli keeps one
 state per realm and removes what it created and the current file leaves out.
 A realm the values drop (system: null, for an instance whose Keycloak serves
-only its own users) has no file.
+only its own users) has no file, nor has the system realm of an instance that
+reads another's Vault (global.ohmlab.vault.hub).
 */}}
 {{- $files := dict }}
+{{- $hub := dig "ohmlab" "vault" "hub" "" ($.Values.global | default dict) }}
 {{- range $key := list "system" "instance" }}
-{{- if hasKey $.Values.realms $key }}
+{{- if and (hasKey $.Values.realms $key) (not (and $hub (eq $key "system"))) }}
 {{- $realm := mergeOverwrite (deepCopy ($.Values.realms.defaults | default dict)) (deepCopy (get $.Values.realms $key | default dict)) }}
 {{- $json := tpl (toJson $realm) $ }}
 {{- $from := fromJson $json }}

@@ -355,6 +355,8 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "gitea" "clientSecret" "" }}'
     clientGrafanaCore:
+      # The hub's Vault alone holds the core clients: none on a remote instance.
+      enabled: '{{ not (dig "ohmlab" "vault" "hub" "" (.Values.global | default dict)) }}'
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -391,6 +393,8 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "argo-cd" "clientSecret" "" }}'
     clientArgoCdCore:
+      # The hub's Vault alone holds the core clients: none on a remote instance.
+      enabled: '{{ not (dig "ohmlab" "vault" "hub" "" (.Values.global | default dict)) }}'
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -409,6 +413,8 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "argo-cd-core" "clientSecret" "" }}'
     clientVaultCore:
+      # The hub's Vault alone holds the core clients: none on a remote instance.
+      enabled: '{{ not (dig "ohmlab" "vault" "hub" "" (.Values.global | default dict)) }}'
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -427,6 +433,8 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "vault-core" "clientSecret" "" }}'
     clientLonghornCore:
+      # The hub's Vault alone holds the core clients: none on a remote instance.
+      enabled: '{{ not (dig "ohmlab" "vault" "hub" "" (.Values.global | default dict)) }}'
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -445,6 +453,8 @@ vso:
             CLIENT_SECRET:
               text: '{{ get .Secrets "clients" | dig "longhorn-core" "clientSecret" "" }}'
     clientHubbleCore:
+      # The hub's Vault alone holds the core clients: none on a remote instance.
+      enabled: '{{ not (dig "ohmlab" "vault" "hub" "" (.Values.global | default dict)) }}'
       type: kv-v2
       vaultAuthRef: keycloak-vso-default
       refreshAfter: 1h
@@ -545,6 +555,7 @@ keycloakConfigCli:
       secretKeyRef:
         name: keycloak-clients-grafana-core
         key: CLIENT_SECRET
+        optional: true
   - name: ARGOCD_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
@@ -555,21 +566,25 @@ keycloakConfigCli:
       secretKeyRef:
         name: keycloak-clients-argocd-core
         key: CLIENT_SECRET
+        optional: true
   - name: VAULT_CORE_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
         name: keycloak-clients-vault-core
         key: CLIENT_SECRET
+        optional: true
   - name: LONGHORN_CORE_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
         name: keycloak-clients-longhorn-core
         key: CLIENT_SECRET
+        optional: true
   - name: HUBBLE_CORE_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
         name: keycloak-clients-hubble-core
         key: CLIENT_SECRET
+        optional: true
   - name: RUSTFS_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
@@ -629,8 +644,10 @@ keycloakConfigCli:
 # `defaults` with its own keys over it (maps merged, lists replaced), goes
 # through tpl, and is imported from a file named after it
 # (templates/realms.yaml). Two realms with one name are one realm, which holds
-# both tiers' clients and client roles. A remote instance's own Keycloak sets
-# `system: null`: it imports its own realm alone.
+# both tiers' clients and client roles. The Keycloak of an instance that reads
+# another's Vault (global.ohmlab.vault.hub) imports its own realm alone, as one
+# that sets `system: null` does: the core clients' secrets, and their env
+# entries above (optional for that reason), exist on the hub only.
 realms:
   # What every realm gets.
   defaults:

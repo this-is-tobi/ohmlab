@@ -177,6 +177,17 @@ check "it has one admin group and one user" "/admin 1" "$(realms ".[\"ohmlab.jso
 render keycloak -f "$EXAMPLE/core/keycloak.yaml" "${manager_vault[@]}" --set-string global.ohmlab.names.keycloakRealm=lab --set-string global.ohmlab.names.keycloakRealmDisplayName=Lab --set realms.system=null
 check "without the system realm, only the instance's realm file" lab.json "$(realms 'keys | join(",")')"
 check "that realm holds the tenant clients" "$tenant" "$(realms ".[\"lab.json\"] | $ids")"
+# An instance that reads another instance's Vault (global.ohmlab.vault.hub)
+# has no system realm either, nor the core clients' secrets, which only the
+# hub's Vault holds.
+core_vss='select(.kind == "VaultStaticSecret" and (.spec.destination.name | test("^keycloak-clients-.*-core$"))) | .spec.destination.name'
+core_env='select(.kind == "Job" and .metadata.name == "keycloak-config-cli") | .spec.template.spec.containers[].env[] | select(.name | test("_CORE_CLIENT_SECRET$")) | .valueFrom.secretKeyRef.optional'
+render keycloak -f "$EXAMPLE/core/keycloak.yaml" "${manager_vault[@]}" --set-string global.ohmlab.names.keycloakRealm=lab --set-string global.ohmlab.vault.hub=platform
+check "a remote instance's Keycloak imports its own realm alone" lab.json "$(realms 'keys | join(",")')"
+check "it renders none of the core clients' secrets" "" "$(field "$core_vss")"
+check "its config-cli Job takes the core clients' secrets as optional" true,true,true,true,true "$(field "$core_env")"
+render keycloak -f "$EXAMPLE/core/keycloak.yaml" "${manager_vault[@]}"
+check "without a hub, the core clients' five secrets render" 5 "$(field "$core_vss" | tr ',' '\n' | grep -c .)"
 if helm template t "$ROOT/argo-cd/apps/keycloak" -f "$EXAMPLE/core/keycloak.yaml" "${manager_vault[@]}" --set realms.system=null --set realms.instance=null >/dev/null 2>"$work/err"; then
   echo "FAIL a Keycloak with neither realm rendered"; fail=1
 elif grep -q 'neither' "$work/err"; then echo "ok   a Keycloak with neither realm fails"
