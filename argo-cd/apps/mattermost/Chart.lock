@@ -1,12 +1,12 @@
 dependencies:
 - name: mattermost-team-edition
   repository: https://helm.mattermost.com
-  version: 6.6.109
+  version: 6.6.111
 - name: cluster
   repository: https://cloudnative-pg.github.io/charts
   version: 0.9.0
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.3.1
-digest: sha256:bb3a7125cc06535952c45cf6453f46a722529504cf5b8112d1910a1fc9de4017
-generated: "2026-11-05T01:50:42.426507422Z"
+digest: sha256:327f63f2fabbcb22fc6d86d7cb3d6719b87d97740a105f5ae841c40a9794661a
+generated: "2026-11-05T22:02:57.400300542Z"
