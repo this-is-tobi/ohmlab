@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rustfs-listed
+  namespace: dev-rustfs
+spec:
+  containers:
+  - image: nginx:1.27
+    name: a
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rustfs-default
+  namespace: rustfs
+spec:
+  containers:
+  - image: nginx:1.27
+    name: a
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rustfs-unlisted
+  namespace: preprod-rustfs
+spec:
+  containers:
+  - image: nginx:1.27
+    name: a
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: other-in-dev-rustfs
+  namespace: dev-rustfs
+spec:
+  containers:
+  - image: nginx:1.27
+    name: a
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crowdsec-agent-in-dev-rustfs
+  namespace: dev-rustfs
+spec:
+  containers:
+  - image: nginx:1.27
+    name: a

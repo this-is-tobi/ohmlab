@@ -1,0 +1,4 @@
+# Rendered on top of the instance's values: the rustfs of a prefixed instance.
+exceptionNamespaces:
+  rustfs-init-step-limits:
+  - dev-rustfs

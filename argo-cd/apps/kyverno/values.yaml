@@ -93,6 +93,12 @@ kyverno:
       limits:
         memory: 256Mi
 
+# The namespaces each built-in exception (templates/policy-exceptions.yaml)
+# also covers, by its name: where an instance runs that app under a namespace
+# prefix or suffix, or a namespace of its own, on this cluster.
+exceptionNamespaces: {}
+# rustfs-init-step-limits: [dev-rustfs, preprod-rustfs]
+
 # Per-policy failureAction. Enforce blocks non-compliant admission; Audit
 # only reports. baseline / non-root / latest-tag / verify-images ship as
 # Enforce (no expected violations — excluded namespaces are carved out in

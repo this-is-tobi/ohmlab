@@ -5,7 +5,8 @@
 # scripts/lib/instances.sh), the policies.kyverno.io objects are
 # exported, and `kyverno test` runs every <chart>/tests/policies/<name>/.
 # Fixture files reference ../../rendered/policies.yaml and
-# ../../rendered/exceptions.yaml.
+# ../../rendered/exceptions.yaml; a fixture directory with a values.yaml gets a
+# render of its own, those values over the instance's.
 #
 # The CLI cannot evaluate namespaceObject and reports a resource a policy does
 # not apply to as a passing result whatever the test expects. So the tenant
@@ -44,10 +45,17 @@ values_args() {
 }
 mapfile -t args < <(values_args)
 
-mkdir -p "$work/rendered" "$work/tests"
+# export_rendered <render> <dir>: the render's policies.kyverno.io objects as
+# the fixtures read them, <dir>/policies.yaml and <dir>/exceptions.yaml.
+export_rendered() {
+  mkdir -p "$2"
+  yq ea 'select((.apiVersion // "") | test("^policies\\.kyverno\\.io/")) | select(.kind != "PolicyException") | (.spec.variables[]? | select(.name == "outOfScope" and (.expression | contains("namespaceObject"))) | .expression) = "false"' "$1" >"$2/policies.yaml"
+  yq ea 'select((.apiVersion // "") | test("^policies\\.kyverno\\.io/")) | select(.kind == "PolicyException")' "$1" >"$2/exceptions.yaml"
+}
+
+mkdir -p "$work/tests"
 helm template ci "$chart" --namespace kyverno "${args[@]}" >"$work/all.yaml"
-yq ea 'select((.apiVersion // "") | test("^policies\\.kyverno\\.io/")) | select(.kind != "PolicyException") | (.spec.variables[]? | select(.name == "outOfScope" and (.expression | contains("namespaceObject"))) | .expression) = "false"' "$work/all.yaml" >"$work/rendered/policies.yaml"
-yq ea 'select((.apiVersion // "") | test("^policies\\.kyverno\\.io/")) | select(.kind == "PolicyException")' "$work/all.yaml" >"$work/rendered/exceptions.yaml"
+export_rendered "$work/all.yaml" "$work/rendered"
 
 own_webhook=$(yq ea 'select(.kind == "ValidatingPolicy") | select(.spec.matchConstraints.namespaceSelector or .spec.matchConstraints.objectSelector or .spec.matchConditions or .spec.webhookConfiguration) | .metadata.name' "$work/all.yaml")
 if [ -n "$own_webhook" ]; then
@@ -65,12 +73,31 @@ if [ -n "$bound" ]; then
   failures=$((failures + 1))
 fi
 
+# A chart's exceptionNamespaces is refused at render time when it names no
+# built-in exception or holds what is not a namespace name: an int or a bool
+# would render, then make the policy's CEL fail to compile in Kyverno.
+if [ "$(yq '.exceptionNamespaces | tag' "$chart/values.yaml")" = '!!map' ]; then
+  for bad in 'nope[0]=a' 'rustfs-init-step-limits[0]=Dev_X' 'rustfs-init-step-limits[0]=2024' 'rustfs-init-step-limits[0]=true'; do
+    if helm template ci "$chart" --namespace kyverno "${args[@]}" --set "exceptionNamespaces.$bad" >/dev/null 2>&1; then
+      echo "::error::exceptionNamespaces.$bad renders: the chart must refuse it"
+      failures=$((failures + 1))
+    fi
+  done
+fi
+
 for d in "${dirs[@]}"; do
   t=$(basename "$d")
-  cp -R "$d" "$work/tests/$t"
   echo "::group::$t"
   rc=0
-  (cd "$work/tests/$t" && kyverno test . --remove-color) >"$work/$t.out" 2>&1 || rc=1
+  root="$work"
+  if [ -f "$d/values.yaml" ]; then
+    root="$work/sets/$t"
+    mkdir -p "$root/tests"
+    helm template ci "$chart" --namespace kyverno "${args[@]}" -f "$d/values.yaml" >"$root/all.yaml"
+    export_rendered "$root/all.yaml" "$root/rendered"
+  fi
+  cp -R "$d" "$root/tests/$t"
+  (cd "$root/tests/$t" && kyverno test . --remove-color) >"$work/$t.out" 2>&1 || rc=1
   cat "$work/$t.out"
   # The CLI exits 0 when it finds no test file ("No test yamls available"),
   # which is also what it does when it cannot read the directory.
