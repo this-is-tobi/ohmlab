@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.5.4...chart-v0.6.0) (2026-11-05)
+
+
+### Features
+
+* **charts:** the VaultAuth of every app follows its instance ([99cc10f](https://github.com/this-is-tobi/ohmlab/commit/99cc10f35557f7b45e737385c462c9e8c8c08afe))
+* **ohmlab:** projects that inherit a tier's rules ([107da15](https://github.com/this-is-tobi/ohmlab/commit/107da152d2c5b3149f1e7860b6573edfe8928074))
+* **ohmlab:** register remote clusters in Argo CD from Vault ([2f65826](https://github.com/this-is-tobi/ohmlab/commit/2f6582672b400dbc0ecad7f426cb1e0ac84bb901))
+
+
+### Bug Fixes
+
+* **deps:** update vso-utils docker tag to v2.3.0 ([e6645c7](https://github.com/this-is-tobi/ohmlab/commit/e6645c739b92c0b5a8cd4325c40c13ad76b2eb1f))
+* **deps:** update vso-utils docker tag to v2.3.1 ([9d9a725](https://github.com/this-is-tobi/ohmlab/commit/9d9a725365cbeefa9b5f404a64f954cdfd5af05c))
+
 ## [0.5.4](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.5.3...chart-v0.5.4) (2026-11-04)
 
 
