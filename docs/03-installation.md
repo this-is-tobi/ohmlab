@@ -521,49 +521,11 @@ Adding a new instance is purely declarative — just create a folder under [argo
 
 ### Topologies
 
-The two-level pattern accommodates very different deployment models, all driven by the same root manager and chart catalog:
-
-```mermaid
-flowchart TB
-    subgraph t1["All-in-one"]
-        h1(["folder: mylab/<br/>core.yaml + tenant.yaml"]) --> c1["single cluster"]
-    end
-    subgraph t2["SaaS shared core"]
-        a2(["folder: saas-admin/<br/>core.yaml"]) --> ca["admin cluster"]
-        b2a(["folder: saas-customer-a/<br/>tenant.yaml"]) --> cca["customer-a cluster"]
-        b2b(["folder: saas-customer-b/<br/>tenant.yaml"]) --> ccb["customer-b cluster"]
-    end
-    subgraph t3["Dedicated core"]
-        a3(["folder: org-x-admin/<br/>core.yaml"]) --> ox1["org-x admin cluster"]
-        b3(["folder: org-x-prod/<br/>tenant.yaml"]) --> ox2["org-x prod cluster"]
-    end
-```
-
-| Topology             | Folders on disk                                                  | Where things run                                                                   |
-| -------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| All-in-one           | `mylab/` with both `core.yaml` and `tenant.yaml`                 | Single cluster, single ArgoCD, both AppSets land on `in-cluster`.                  |
-| SaaS shared core     | `saas-admin/` (core only) + N × `saas-customer-*/` (tenant only) | Admin cluster runs the core stack; each customer gets its own cluster for tenants. |
-| Dedicated core       | One pair per org: `<org>-admin/` (core) + `<org>-prod/` (tenant) | Strict per-org isolation: dedicated admin cluster + dedicated app cluster.         |
-
-The target cluster for each instance is set in its `instance.yaml.destination.server`; remote clusters are registered in ArgoCD via `Cluster` secrets (managed via Vault/VSO if desired).
+The instances of one repository can share one cluster or spread over many: one instance with both tiers, a platform team's management cluster with its environments, or a provider's with a cluster per customer. [Topologies](09-topologies/README.md) describes each case and the mechanisms they combine: a remote Vault, remote clusters and clusters shared between instances.
 
 ### Tier-flexible apps
 
-A handful of apps don't naturally belong in a single tier — they're needed *wherever workloads run*, regardless of whether the cluster is acting as a "core/admin" cluster or a "tenant/apps" cluster. The catalog lists them in **both** [`_example/core.yaml`](../argo-cd/instances/_example/core.yaml) and [`_example/tenant.yaml`](../argo-cd/instances/_example/tenant.yaml) with appropriate per-tier `syncWave`s; for any concrete instance you enable the entry in **exactly one** tier and leave the other disabled.
-
-| App                | Where to enable                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `apisix`           | Wherever it is the ingress controller instead of `traefik`.                         |
-| `cert-manager`     | Wherever Ingress / TLS certificates are issued.                                     |
-| `cilium`           | Wherever the cluster runs the Cilium CNI.                                           |
-| `crowdsec`         | Wherever the ingress controller whose access logs it parses runs.                   |
-| `keycloak`         | Wherever the SSO IdP runs (often tenant in SaaS, core in all-in-one).               |
-| `longhorn`         | Wherever block storage is needed (typically every cluster with stateful workloads). |
-| `prometheus-stack` | Wherever observability is collected (often core in shared topologies).              |
-| `teleport`         | Wherever the access proxy runs.                                                     |
-| `vault`            | Wherever the secrets backend lives (often co-located with workloads consuming it).  |
-
-> Enabling a tier-flexible app in **both** tiers of the same instance would create two `Application`s with the same name and is not supported. The `_example` template ships with everything disabled to make this an explicit, deliberate choice.
+A few apps (cert-manager, keycloak, prometheus-stack, ...) fit either tier: [`_example`](../argo-cd/instances/_example) lists them in both, and an instance enables each in exactly one. [Where an app runs](09-topologies/README.md#where-an-app-runs) says where to enable which.
 
 ### Splitting infra and values across two repositories
 
