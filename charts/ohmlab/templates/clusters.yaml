@@ -1,0 +1,50 @@
+{{- /*
+One Argo CD cluster Secret per entry of `clusters`, written by VSO from this
+Argo CD's own Vault path, which its VaultAuth already reads. The VSO templates
+are built with printf so that Helm leaves them to VSO. The config goes through
+toJson, trimmed, so that a token stored with its file's newline or a wrapped
+CA still makes the JSON Argo CD reads.
+*/}}
+{{- if and .Values.vso.enabled .Values.clusters }}
+{{- $vso := .Values.vso }}
+{{- $base := $vso.nameOverride | default "vso" }}
+{{- $full := $vso.fullnameOverride | default (ternary .Release.Name (printf "%s-%s" .Release.Name $base) (contains $base .Release.Name)) | trunc 63 | trimSuffix "-" }}
+{{- $mount := tpl ($vso.vaultStaticSecretDefaults.mount | default "") . | required "clusters needs global.ohmlab.vault.mount, which the instance's manager gives" }}
+{{- $path := tpl ($vso.vaultStaticSecretDefaults.path | default "") . | required "clusters needs global.ohmlab.vault.pathPrefix, which the instance's manager gives with instance.env" }}
+{{- range $name, $cluster := .Values.clusters }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,53}[a-z0-9])?$" $name) }}
+{{- fail (printf "clusters.%s: the name must be a lowercase DNS label of at most 55 characters, it names the Secret cluster-%s" $name $name) }}
+{{- end }}
+{{- $server := $cluster.server | required (printf "clusters.%s.server is required: the API server Argo CD deploys to" $name) }}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: {{ printf "%s-cluster-%s" $full $name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  type: kv-v2
+  mount: {{ $mount }}
+  path: {{ $path }}
+  vaultAuthRef: {{ printf "%s-default" $full }}
+  refreshAfter: 1h
+  hmacSecretData: true
+  destination:
+    name: {{ printf "cluster-%s" $name }}
+    create: true
+    type: Opaque
+    labels:
+      argocd.argoproj.io/secret-type: cluster
+    transformation:
+      excludeRaw: true
+      excludes:
+      - ".*"
+      templates:
+        name:
+          text: {{ $name | quote }}
+        server:
+          text: {{ $server | quote }}
+        config:
+          text: {{ printf `{{ $c := get (get .Secrets "clusters" | default dict) %q | default dict }}{{ dict "bearerToken" (get $c "bearerToken" | default "" | trim) "tlsClientConfig" (dict "caData" (get $c "caData" | default "" | trim)) | toJson }}` $name | quote }}
+{{- end }}
+{{- end }}
