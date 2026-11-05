@@ -95,3 +95,37 @@ chart_ref() {
     chart_args=("$apps/$chart")
   fi
 }
+
+# vso_render <instance dir> <scope> <entry> <parameters> <namespace> <file>:
+# renders one entry of the instance's <scope>.yaml (JSON) into <file> the way
+# its Application does: its chart (chart_ref), its values file (valuesPath,
+# else values/<scope>/<app>.yaml when there is one), the manager's parameters
+# for the scope (manager_parameters' lines), its release name and namespace.
+# Returns 2 without rendering for a local chart that renders no VSO object (no
+# vso-utils dependency, other than vault-operator and ohmlab, which write
+# theirs by hand), 1 with the reason on stdout when it does not render.
+vso_render() {
+  local dir="$1" scope="$2" entry="$3" params="$4" ns="$5" out="$6" chart values p args=()
+  local -a chart_args
+  chart_ref "$dir" "$(jq -r '.chart // .app' <<<"$entry")" "$(jq -r '.chartPath // ""' <<<"$entry")" \
+    "$(jq -r '.catalog // ""' <<<"$entry")" "$(jq -r '.targetRevision // ""' <<<"$entry")" || return 1
+  chart="${chart_args[0]}"
+  if [ -f "$chart/Chart.yaml" ]; then
+    case "${chart##*/}" in
+      vault-operator | ohmlab) ;;
+      *) grep -q 'name: vso-utils' "$chart/Chart.yaml" || return 2 ;;
+    esac
+    if [ -f "$chart/Chart.lock" ] && [ ! -d "$chart/charts" ]; then
+      helm dependency build "$chart" >/dev/null 2>&1 || { echo "helm dependency build fails"; return 1; }
+    fi
+  fi
+  values=$(jq -r '.valuesPath // ""' <<<"$entry")
+  if [ -n "$values" ]; then values="$dir/../../../$values"; else values="$dir/values/$scope/$(jq -r '.app' <<<"$entry").yaml"; fi
+  [ -f "$values" ] && args=(-f "$values")
+  while IFS= read -r p; do [ -n "$p" ] && args+=(--set-string "$p"); done <<<"$params"
+  if ! helm template "$(jq -r '.releaseName // .app' <<<"$entry")" "${chart_args[@]}" --namespace "$ns" \
+      "${args[@]+"${args[@]}"}" >"$out" 2>"$out.err"; then
+    grep -m1 Error "$out.err" | cut -c1-240
+    return 1
+  fi
+}
