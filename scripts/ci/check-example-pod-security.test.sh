@@ -5,6 +5,7 @@
 set -uo pipefail
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-example-pod-security.sh"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
@@ -86,6 +87,80 @@ if [ "$rc" = 1 ] && grep -qF 'ok   lab/core/good' <<<"$out" && grep -qF 'FAIL la
   echo "ok   --instances checks each enabled app of every instance, without the example's known failures"
 else
   echo "FAIL --instances: exit $rc"; printf '%s\n' "$out" | sed 's/^/     /'; fail=1
+fi
+
+# --instances: an app is checked against the policies of the instance that
+# runs kyverno on its cluster (its values), else the example's.
+mkdir -p "$work/apps/rustfs/templates"
+printf 'apiVersion: v2\nname: rustfs\nversion: 0.1.0\n' >"$work/apps/rustfs/Chart.yaml"
+pod name=rustfs limits=no >"$work/apps/rustfs/templates/rustfs.yaml"
+ln -s "$ROOT/argo-cd/apps/kyverno" "$work/apps/kyverno"
+r="$work/clusters/argo-cd/instances"
+mkdir -p "$r/layer/values/core" "$r/dev/values/tenant" "$r/away/values/tenant"
+printf 'instance: {name: layer}\nrepoURL: https://git.example/x.git\ndestination: {server: "https://s.example.com:6443"}\n' >"$r/layer/instance.yaml"
+printf 'apps:\n- {app: kyverno, enabled: "true"}\n' >"$r/layer/core.yaml"
+printf 'exceptionNamespaces:\n  rustfs-init-step-limits: [dev-rustfs]\n' >"$r/layer/values/core/kyverno.yaml"
+for i in dev away; do
+  server=https://s.example.com:6443
+  [ "$i" = away ] && server=https://other.example.com:6443
+  printf 'instance: {name: %s}\nrepoURL: https://git.example/x.git\ndestination: {server: "%s"}\nnamespacePrefix: dev-\n' "$i" "$server" >"$r/$i/instance.yaml"
+  printf 'apps:\n- {app: rustfs, enabled: "true"}\n' >"$r/$i/tenant.yaml"
+  printf '{}\n' >"$r/$i/values/tenant/rustfs.yaml"
+done
+out=$(APPS_DIR="$work/apps" "$SCRIPT" --instances "$r" 2>&1); rc=$?
+if [ "$rc" = 1 ] && grep -qx 'ok   dev/tenant/rustfs' <<<"$out" && grep -qF 'FAIL away/tenant/rustfs Deployment/rustfs require-resource-limits' <<<"$out"; then
+  echo "ok   --instances checks an app against the policies of its own cluster's kyverno"
+else
+  echo "FAIL --instances with a kyverno per cluster: exit $rc"; printf '%s\n' "$out" | sed 's/^/     /'; fail=1
+fi
+
+# mkcase <dir>: an instances directory where layer runs kyverno, its rustfs
+# exception extended to dev-rustfs, on the cluster dev runs rustfs on.
+S1=https://s.example.com:6443
+mkcase() {
+  local r="$1"
+  rm -rf "$r"
+  mkdir -p "$r/layer/values/core" "$r/dev/values/tenant"
+  printf 'instance: {name: layer}\nrepoURL: https://git.example/x.git\ndestination: {server: "%s"}\n' "$S1" >"$r/layer/instance.yaml"
+  printf 'apps:\n- {app: kyverno, enabled: "true"}\n' >"$r/layer/core.yaml"
+  printf 'exceptionNamespaces:\n  rustfs-init-step-limits: [dev-rustfs]\n' >"$r/layer/values/core/kyverno.yaml"
+  printf 'instance: {name: dev}\nrepoURL: https://git.example/x.git\ndestination: {server: "%s"}\nnamespacePrefix: dev-\n' "$S1" >"$r/dev/instance.yaml"
+  printf 'apps:\n- {app: rustfs, enabled: "true"}\n' >"$r/dev/tenant.yaml"
+  printf '{}\n' >"$r/dev/values/tenant/rustfs.yaml"
+}
+# percluster <label> <instances dir> <fixed text the output must hold>
+percluster() {
+  local out
+  out=$(APPS_DIR="$work/apps" "$SCRIPT" --instances "$2" 2>&1)
+  if grep -qF -- "$3" <<<"$out"; then echo "ok   $1"; else
+    echo "FAIL $1: the output does not say: $3"; printf '%s\n' "$out" | sed 's/^/     /'; fail=1
+  fi
+}
+r="$work/cases/argo-cd/instances"
+mkcase "$r"
+printf 'apps: []\n' >"$r/layer/core.yaml"
+printf 'apps:\n- {app: kyverno, enabled: "true"}\n' >"$r/layer/tenant.yaml"
+mkdir -p "$r/layer/values/tenant"
+mv "$r/layer/values/core/kyverno.yaml" "$r/layer/values/tenant/kyverno.yaml"
+percluster "--instances reads a kyverno of the tenant tier" "$r" "ok   dev/tenant/rustfs"
+mkcase "$r"
+printf 'instance: {name: layer}\nrepoURL: https://git.example/x.git\ndestination: {server: "https://elsewhere.example.com:6443"}\n' >"$r/layer/instance.yaml"
+printf 'apps:\n- {app: kyverno, enabled: "true", destination: {server: "%s"}}\n' "$S1" >"$r/layer/core.yaml"
+percluster "--instances places a kyverno by its entry's own server" "$r" "ok   dev/tenant/rustfs"
+mkcase "$r"
+printf 'instance: {name: dev}\nrepoURL: https://git.example/x.git\ndestination: {server: "https://elsewhere.example.com:6443"}\nnamespacePrefix: dev-\n' >"$r/dev/instance.yaml"
+printf 'apps:\n- {app: rustfs, enabled: "true", destination: {server: "%s"}}\n' "$S1" >"$r/dev/tenant.yaml"
+percluster "--instances places an app by its entry's own server" "$r" "ok   dev/tenant/rustfs"
+mkcase "$r"
+printf 'apps:\n- {app: kyverno, enabled: "false"}\n' >"$r/layer/core.yaml"
+percluster "--instances leaves out a kyverno that is not enabled" "$r" "FAIL dev/tenant/rustfs Deployment/rustfs require-resource-limits"
+mkcase "$r"
+printf 'exceptionNamespaces:\n  nope: [x]\n' >"$r/layer/values/core/kyverno.yaml"
+out=$(APPS_DIR="$work/apps" "$SCRIPT" --instances "$r" 2>&1); rc=$?
+if [ "$rc" != 0 ] && grep -q '^FAIL layer/core/kyverno: .*exceptionNamespaces.nope' <<<"$out"; then
+  echo "ok   --instances fails a kyverno whose policies do not render, naming it"
+else
+  echo "FAIL --instances with a kyverno whose policies do not render: exit $rc"; printf '%s\n' "$out" | sed 's/^/     /'; fail=1
 fi
 
 exit "$fail"
