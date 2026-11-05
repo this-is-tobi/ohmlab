@@ -1,5 +1,5 @@
 ARG GO_IMAGE=mirror.gcr.io/library/golang:1.27-alpine
-ARG BASE_IMAGE=mirror.gcr.io/library/alpine:3.24.3
+ARG BASE_IMAGE=mirror.gcr.io/library/alpine:3.24.4
 ARG CONTROLLER_BASE_IMAGE=gcr.io/distroless/static-debian13:nonroot@sha256:25ac8f0c3b2334a9eb05452266bd4697864a8c8ef0ef71e5e6480d7f92868329
 
 # =============================================================================
