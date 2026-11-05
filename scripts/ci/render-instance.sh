@@ -57,6 +57,19 @@ record() {
       done | sort >"$3"
 }
 
+# record_cluster <manifest> <server> <namespace> <app path> <CRD scopes file>:
+# what check-shared-clusters.sh reads: the app's destination in
+# <app path>.destination, the objects it renders without a namespace in
+# <app path>.unnamespaced, and the scopes of its CRDs added to the instance's
+# file.
+record_cluster() {
+  printf '%s %s\n' "$2" "$3" >"$4.destination"
+  yq -r 'select(. != null and .kind != null and (.metadata.namespace // "") == "") | .kind + "/" + .metadata.name' "$1" \
+    | grep -v '^---$' | sort -u >"$4.unnamespaced"
+  yq -r 'select(.kind == "CustomResourceDefinition") | .spec.names.kind + " " + .spec.scope' "$1" | grep -v '^---$' >>"$5"
+  sort -u -o "$5" "$5"
+}
+
 # crd_api_versions <manifest>...: the API versions the CRDs of the manifests
 # serve, as Helm's --api-versions takes them: <group>/<version> and
 # <group>/<version>/<Kind> for each served version, sorted and unique.
@@ -75,8 +88,8 @@ crd_api_versions() {
 # that its CRDs can be read; check renders with the API versions in api,
 # reports each app and records it.
 render_apps() {
-  local dir="$1" mode="$2" instance values_root prefix suffix default_catalog tier lines p
-  local app chart release namespace catalog revision values_path chart_path id values out
+  local dir="$1" mode="$2" instance values_root prefix suffix default_catalog default_server tier lines p
+  local app chart release namespace catalog revision values_path chart_path server id values out
   local -a params chart_args
   instance="${dir##*/}"
   # The values repository: Argo CD reads every values file under
@@ -85,6 +98,7 @@ render_apps() {
   prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
   suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
   default_catalog=$(yq '.defaultCatalog // "git"' "$dir/instance.yaml")
+  default_server=$(yq '.destination.server // "https://kubernetes.default.svc"' "$dir/instance.yaml")
   for tier in core tenant; do
     [ -f "$dir/$tier.yaml" ] || continue
     # The parameters the manager gives every app of the tier, from the
@@ -100,7 +114,7 @@ render_apps() {
     done <<<"$lines"
     # '|' separates the fields: unlike a tab it is not whitespace to read,
     # so empty fields do not collapse.
-    while IFS='|' read -r app chart release namespace catalog revision values_path chart_path; do
+    while IFS='|' read -r app chart release namespace catalog revision values_path chart_path server; do
       [ -n "$app" ] || continue
       id="$instance/$tier/$app"
       [ -n "$namespace" ] || namespace="$prefix$app$suffix"
@@ -123,12 +137,15 @@ render_apps() {
           "${api[@]+"${api[@]}"}" "${params[@]+"${params[@]}"}" 2>&1 >"$work/manifest"); then
         echo "ok   $id"
         rendered=$((rendered + 1))
-        [ -z "${RENDER_OUT:-}" ] || record "$work/manifest" "$namespace" "$RENDER_OUT/$id.objects"
+        if [ -n "${RENDER_OUT:-}" ]; then
+          record "$work/manifest" "$namespace" "$RENDER_OUT/$id.objects"
+          record_cluster "$work/manifest" "${server:-$default_server}" "$namespace" "$RENDER_OUT/$id" "$RENDER_OUT/$instance/crd-scopes"
+        fi
       else
         fail "$id: $(grep -m1 -i 'error' <<<"$out" | cut -c1-240)"
       fi
     done < <(yq -r '.apps[] | select(.enabled == "true" or .enabled == true)
-      | [.app, (.chart // .app), (.releaseName // .app), (.namespace // ""), (.catalog // ""), (.targetRevision // ""), (.valuesPath // ""), (.chartPath // "")]
+      | [.app, (.chart // .app), (.releaseName // .app), (.namespace // ""), (.catalog // ""), (.targetRevision // ""), (.valuesPath // ""), (.chartPath // ""), (.destination.server // "")]
       | join("|")' "$dir/$tier.yaml")
   done
 }

@@ -230,4 +230,26 @@ if [ "$(grep -c '^FAIL u/core/broken' <<<"$out")" = 1 ]; then echo "ok   an app 
   echo "FAIL an app that fails is reported once"; sed 's/^/     /' <<<"$out"; fail=1
 fi
 
+# What check-shared-clusters.sh reads: each app's destination (the entry's
+# server, else the instance's, else in-cluster), the objects it renders without
+# a namespace, and the scopes of the CRDs the instance renders.
+d=$(instance w "destination: {server: https://w.example.com:6443}" '- {app: gen, enabled: "true"}
+- {app: crdapp, enabled: "true", destination: {server: https://other.example.com:6443}}')
+printf 'x: 1\n' >"$d/values/core/gen.yaml"; printf 'x: 1\n' >"$d/values/core/crdapp.yaml"
+APPS_DIR="$work/apps" INSTANCES_DIR="$(dirname "$d")" RENDER_OUT="$work/out-w" "$SCRIPT" >/dev/null 2>&1
+o="$work/out-w/w"
+if [ "$(cat "$o/core/gen.destination" 2>/dev/null)" = "https://w.example.com:6443 gen" ] \
+    && [ "$(cat "$o/core/crdapp.destination" 2>/dev/null)" = "https://other.example.com:6443 crdapp" ] \
+    && [ "$(cat "$work/out1/r/core/gen.destination" 2>/dev/null)" = "https://kubernetes.default.svc gen" ] \
+    && [ "$(cat "$o/core/gen.unnamespaced" 2>/dev/null)" = $'Deployment/gen\nSecret/gen' ] \
+    && grep -qx 'Widget Namespaced' "$o/crd-scopes" 2>/dev/null && grep -qx 'Thing Namespaced' "$o/crd-scopes"; then
+  echo "ok   RENDER_OUT records each app's destination, its objects without a namespace and the instance's CRD scopes"
+else
+  echo "FAIL RENDER_OUT destination, objects without a namespace or CRD scopes"
+  for f in "$o"/core/*.destination "$o"/core/*.unnamespaced "$o/crd-scopes" "$work/out1/r/core/gen.destination"; do
+    echo "     $f: $(tr '\n' ';' <"$f" 2>&1)"
+  done
+  fail=1
+fi
+
 exit "$fail"
