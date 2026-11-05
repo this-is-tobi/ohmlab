@@ -473,6 +473,9 @@ vso:
   vaultStaticSecretDefaults:
     mount: '{{ dig "ohmlab" "vault" "mount" "" (.Values.global | default dict) }}'
     path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/prometheus-stack{{ end }}'
+  # Grafana's secrets (monitoringAdmin, monitoringSso, grafanaDb*,
+  # grafanaPgBackup) render with or without Grafana: a cluster that turns it
+  # off disables them too, each with `enabled: false`.
   vaultStaticSecrets:
     monitoringAdmin:
       type: kv-v2
