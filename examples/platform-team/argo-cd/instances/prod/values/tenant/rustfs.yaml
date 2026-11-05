@@ -1,0 +1,24 @@
+gateway:
+  enabled: true
+  gatewayName: prod-gateway
+  gatewayNamespace: traefik
+  routes:
+    - name: rustfs
+      hostnames:
+        - console.s3.example.com
+      rules:
+        - backendService: rustfs-svc
+          backendPort: 9001
+    - name: rustfs-api
+      hostnames:
+        - s3.example.com
+      rules:
+        - backendService: rustfs-svc
+          backendPort: 9000
+rustfs:
+  ingress:
+    enabled: false
+  # The cluster's default StorageClass.
+  storageclass:
+    name: ""
+    dataStorageSize: 50Gi

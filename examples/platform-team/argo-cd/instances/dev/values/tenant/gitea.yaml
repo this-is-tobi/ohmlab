@@ -1,0 +1,70 @@
+gitea:
+  gitea:
+    admin:
+      username: admin
+      email: admin@dev.example.com
+      existingSecret: gitea-admin
+    oauth:
+      - name: Keycloak
+        provider: openidConnect
+        key: gitea
+        secret: ""
+        autoDiscoverUrl: "https://keycloak.dev.example.com/realms/dev/.well-known/openid-configuration"
+        scopes: openid profile email roles groups
+        adminGroup: admin
+        groupClaimName: groups
+    config:
+      database:
+        HOST: gitea-pg-cluster-rw
+        NAME: gitea
+        USER: gitea
+      server:
+        DOMAIN: gitea.dev.example.com
+        ROOT_URL: "https://gitea.dev.example.com"
+      openid:
+        WHITELISTED_URIS: keycloak.dev.example.com
+    additionalConfigSources: []
+    additionalConfigFromEnvs:
+      - name: GITEA__CACHE__HOST
+        valueFrom:
+          secretKeyRef:
+            name: gitea-valkey-auth
+            key: cache-host
+      - name: GITEA__SESSION__PROVIDER_CONFIG
+        valueFrom:
+          secretKeyRef:
+            name: gitea-valkey-auth
+            key: session-config
+      - name: GITEA__QUEUE__CONN_STR
+        valueFrom:
+          secretKeyRef:
+            name: gitea-valkey-auth
+            key: queue-conn
+      - name: GITEA__database__PASSWD
+        valueFrom:
+          secretKeyRef:
+            name: gitea-pg-cluster-app
+            key: password
+cnpg:
+  cluster:
+    # Any node of the managed cluster.
+    affinity:
+      nodeSelector: null
+    superuserSecret: gitea-pg-cluster-admin
+    initdb:
+      secret:
+        name: gitea-pg-cluster-app
+  backups:
+    enabled: false
+gateway:
+  enabled: true
+  gatewayName: nonprod-gateway
+  gatewayNamespace: traefik
+  routes:
+    - name: gitea
+      listener: https-dev
+      hostnames:
+        - gitea.dev.example.com
+      rules:
+        - backendService: gitea-http
+          backendPort: 3000

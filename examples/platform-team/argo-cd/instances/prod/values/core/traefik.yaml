@@ -1,0 +1,31 @@
+# The cluster's Gateway, on the apex domain.
+gateway:
+  enabled: true
+  namespace: traefik
+  domain: example.com
+  manageCertificate: true
+lanOnly:
+  sourceRange:
+    - 203.0.113.0/24
+# No CrowdSec on this cluster: no bouncer on the entrypoints, and no key to
+# read from Vault.
+traefik:
+  deployment:
+    additionalVolumes: []
+  additionalVolumeMounts: []
+  ports:
+    web:
+      http:
+        middlewares: []
+    websecure:
+      http:
+        middlewares: []
+crowdsecBouncer:
+  enabled: false
+vso:
+  vaultAuth:
+    default:
+      enabled: false
+  vaultStaticSecrets:
+    traefikCrowdsecBouncerKey:
+      enabled: false

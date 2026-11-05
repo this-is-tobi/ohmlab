@@ -1,0 +1,18 @@
+# The platform team's management instance, on the core cluster: the core
+# Argo CD (ohmlab chart, root manager) deploys every instance of this
+# repository, and its Vault is the hub the remote instances read.
+instance:
+  name: platform
+  env: production
+destination:
+  server: https://kubernetes.default.svc
+repoURL: https://git.example.org/platform-team/instances.git
+targetRevision: main
+catalogs:
+  release:
+    repoURL: oci://ghcr.io/this-is-tobi/ohmlab/catalog
+    version: 0.16.0
+defaultCatalog: release
+projects:
+  core: admin-core
+  tenant: admin-tenant

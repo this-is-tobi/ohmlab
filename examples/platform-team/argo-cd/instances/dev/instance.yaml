@@ -1,0 +1,22 @@
+# A tenant on the shared non-production cluster: its namespaces carry the
+# prefix dev-, its routes attach to the nonprod layer's Gateway, and its
+# secrets are its own KV mount on the platform's Vault.
+instance:
+  name: dev
+  env: dev
+destination:
+  server: https://nonprod.example.com:6443
+repoURL: https://git.example.org/platform-team/instances.git
+targetRevision: main
+catalogs:
+  release:
+    repoURL: oci://ghcr.io/this-is-tobi/ohmlab/catalog
+    version: 0.16.0
+defaultCatalog: release
+namespacePrefix: dev-
+names:
+  gateway: nonprod-gateway
+vault:
+  hub: platform
+projects:
+  tenant: dev-tenant

@@ -1,0 +1,54 @@
+mattermost:
+  image:
+    repository: ghcr.io/this-is-tobi/mirror/mattermost
+    tag: 12.0.2
+  persistence:
+    data:
+      enabled: true
+    plugins:
+      enabled: true
+  config:
+    MM_SERVICESETTINGS_SITEURL: "https://mattermost.preprod.example.com"
+    MM_FILESETTINGS_AMAZONS3BUCKET: mattermost
+    MM_FILESETTINGS_AMAZONS3PATHPREFIX: ""
+    MM_FILESETTINGS_AMAZONS3REGION: fr-par
+    MM_FILESETTINGS_AMAZONS3ENDPOINT: "https://s3.preprod.example.com"
+  extraEnvVars:
+    - name: MM_SQLSETTINGS_DATASOURCE
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-db-infos
+          key: DB_URL
+    - name: MM_FILESETTINGS_AMAZONS3ACCESSKEYID
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-s3
+          key: S3_ACCESS_KEY
+    - name: MM_FILESETTINGS_AMAZONS3SECRETACCESSKEY
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-s3
+          key: S3_SECRET_KEY
+cnpg:
+  cluster:
+    # Any node of the managed cluster.
+    affinity:
+      nodeSelector: null
+    superuserSecret: mattermost-pg-cluster-admin
+    initdb:
+      secret:
+        name: mattermost-pg-cluster-app
+  backups:
+    enabled: false
+gateway:
+  enabled: true
+  gatewayName: nonprod-gateway
+  gatewayNamespace: traefik
+  routes:
+    - name: mattermost
+      listener: https-preprod
+      hostnames:
+        - mattermost.preprod.example.com
+      rules:
+        - backendService: mattermost
+          backendPort: 8065

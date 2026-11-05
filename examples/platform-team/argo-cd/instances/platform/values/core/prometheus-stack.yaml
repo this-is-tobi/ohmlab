@@ -1,0 +1,47 @@
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      minReadySeconds: 1800
+      maximumStartupDurationSeconds: 1800
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 200Gi
+  grafana:
+    admin:
+      existingSecret: monitoring-admin
+      userKey: username
+      passwordKey: password
+    envValueFrom:
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID:
+        secretKeyRef:
+          name: monitoring-sso
+          key: OIDC_CLIENT_ID
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+        secretKeyRef:
+          name: monitoring-sso
+          key: OIDC_CLIENT_SECRET
+    grafana.ini:
+      server:
+        root_url: "https://monitoring.platform.example.com"
+      auth.generic_oauth:
+        auth_url: "https://keycloak.platform.example.com/realms/ohmlab/protocol/openid-connect/auth"
+        token_url: "https://keycloak.platform.example.com/realms/ohmlab/protocol/openid-connect/token"
+        api_url: "https://keycloak.platform.example.com/realms/ohmlab/protocol/openid-connect/userinfo"
+# Grafana's database, on any node of the managed cluster.
+cnpg:
+  cluster:
+    affinity:
+      nodeSelector: null
+gateway:
+  enabled: true
+  gatewayNamespace: traefik
+  routes:
+  - name: grafana
+    hostnames:
+    - monitoring.platform.example.com
+    rules:
+    - backendService: prometheus-stack-grafana
+      backendPort: 80
