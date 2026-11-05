@@ -5,7 +5,7 @@ version: 0.1.0
 dependencies:
 - name: mattermost-team-edition
   alias: mattermost
-  version: 6.6.109
+  version: 6.6.111
   repository: https://helm.mattermost.com
 - name: cluster
   alias: cnpg
