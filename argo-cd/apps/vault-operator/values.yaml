@@ -159,21 +159,18 @@ vault:
         path "*" {
           capabilities = ["create", "read", "update", "delete", "list", "sudo", "patch"]
         }
+    # Each Argo CD reads only its own tier's path, not both as the other apps
+    # do: the core one's (the ohmlab chart, in argocd-system) holds the
+    # credentials of the clusters it deploys to, which the tenant's personal
+    # Argo CD must not read.
     - name: argo-cd
       rules: |
-        path "{{ .systemMount }}/data/platforms/+/core/argo-cd" {
-          capabilities = ["read", "list"]
-        }
         path "{{ .kvMount }}/data/platforms/+/tenant/argo-cd" {
           capabilities = ["read", "list"]
         }
     - name: argo-cd-core
       rules: |
-        # Same as argo-cd but bound to argocd-system SA (core ArgoCD VSO)
         path "{{ .systemMount }}/data/platforms/+/core/argo-cd" {
-          capabilities = ["read", "list"]
-        }
-        path "{{ .kvMount }}/data/platforms/+/tenant/argo-cd" {
           capabilities = ["read", "list"]
         }
     - name: vault

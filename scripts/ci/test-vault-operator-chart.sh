@@ -60,5 +60,17 @@ render "$work/novso.yaml" --api-versions monitoring.coreos.com/v1 --set vso.enab
 [ -z "$(yq 'select(.kind == "ServiceMonitor" and .metadata.name == "vault-secrets-operator") | .kind' "$work/novso.yaml")" ] \
   || fail "the VSO monitor renders with VSO off"
 
-[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port"
+# Each Argo CD reads only its own tier's path: the core one's holds the
+# credentials of the clusters it deploys to, which a tenant must not read.
+# argo_paths <policy>: the paths of that policy, comma-separated.
+argo_paths() {
+  yq -o=json -I=0 "select(.kind == \"Vault\") | .spec.externalConfig.policies[] | select(.name == \"$1\") | .rules" "$work/bare.yaml" \
+    | jq -r '[scan("path \"([^\"]+)\"") | .[0]] | join(",")'
+}
+got=$(argo_paths argo-cd)
+[ "$got" = "example/data/platforms/+/tenant/argo-cd" ] || fail "the tenant's Argo CD must read only its tier's path, got '$got'"
+got=$(argo_paths argo-cd-core)
+[ "$got" = "ohmlab/data/platforms/+/core/argo-cd" ] || fail "the core Argo CD must read only its tier's path, got '$got'"
+
+[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path"
 exit "$failures"
