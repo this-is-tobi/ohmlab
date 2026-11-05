@@ -213,8 +213,10 @@ jobs:
         run: scripts/ci/test-vault-spokes.sh
       - name: Check that the controller's Vault policy is the one the tests run under
         run: scripts/ci/check-controller-policy.sh
-      - name: Validate the VaultSeed objects each instance would deploy
-        run: scripts/ci/check-vault-seeds.sh
+      - name: Validate the VaultSeed objects each instance would deploy, and that a hub seeds what its remote apps read
+        run: |
+          scripts/ci/check-vault-seeds.test.sh
+          scripts/ci/check-vault-seeds.sh
       - name: Test that the instance checks read INSTANCES_DIR
         run: scripts/ci/test-instances-dir.sh
       - name: Test the render of every app an instance enables
