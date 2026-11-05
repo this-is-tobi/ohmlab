@@ -279,5 +279,38 @@ refuse "a core role that lists no policy" "its kubernetes role lists no policy" 
 refuse "a jwt mount an auth entry here already uses" "jwt-taken is already an auth mount" \
   --values "$work/roles.yaml" --set-json "$(spoke "{\"name\":\"c\",$disco,\"instances\":[{\"name\":\"taken\",\"apps\":[{\"name\":\"two\",\"namespace\":\"t-a\"}]}]}")"
 
+# The hub seeds the spoke instances' paths too. A seed's name drops the mount
+# only when it is one of this Vault's own, so two instances with one env do not
+# collide, and the names of the hub's own seeds stay.
+# seeds <helm args>...: "<VaultSeed name> <path>" per seed, sorted.
+seeds() {
+  helm template vault-operator "$CHART" --namespace vault-operator-system "${args[@]}" \
+    --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false "$@" 2>"$work/err" \
+    | yq -r 'select(.kind == "VaultSeed") | .metadata.name + " " + .spec.path' | { grep -v '^---$' || true; } | sort
+}
+kv=$(printf '%s\n' "${args[@]}" | sed -n 's/^global\.ohmlab\.names\.vaultMount=//p')
+[ -n "$kv" ] || fail "the manager gives no global.ohmlab.names.vaultMount"
+cat >"$work/seeds.yaml" <<YAML
+ohmlab:
+  vault:
+    secrets:
+    - {path: dev/platforms/staging/tenant/gitea, data: {k: ""}}
+    - {path: preprod/platforms/staging/tenant/gitea, data: {k: ""}}
+    - {path: ohmlab/platforms/production/core/keycloak, data: {k: ""}}
+    - {path: $kv/platforms/production/tenant/gitea, data: {k: ""}}
+    - {path: kv2/platforms/production/tenant/rustfs, data: {k: ""}}
+YAML
+got=$(seeds --values "$work/seeds.yaml" --set ohmlab.controller.kvMount=kv2)
+want="dev-staging-tenant-gitea dev/platforms/staging/tenant/gitea
+preprod-staging-tenant-gitea preprod/platforms/staging/tenant/gitea
+production-core-keycloak ohmlab/platforms/production/core/keycloak
+production-tenant-gitea $kv/platforms/production/tenant/gitea
+production-tenant-rustfs kv2/platforms/production/tenant/rustfs"
+if [ "$got" = "$want" ]; then
+  ok "a seed of another mount keeps it in its name; the system, instance and controller mounts' seeds keep theirs"
+else
+  fail "seed names: expected '$want', got '$got' $(grep -m1 -i error "$work/err" | cut -c1-200)"
+fi
+
 [ "$failures" -eq 0 ] && echo "ok   vault-operator spoke clusters: per instance mounts, read-only roles and policies"
 exit "$failures"
