@@ -1,0 +1,12 @@
+# VSO alone: the cluster's apps read the provider's Vault through its route,
+# behind a public certificate, so no CA is configured.
+vault-operator:
+  enabled: false
+vault:
+  enabled: false
+vaultOidcCredentials:
+  enabled: false
+vso:
+  defaultVaultConnection:
+    address: https://vault.provider.example.com
+    caCertSecret: ""

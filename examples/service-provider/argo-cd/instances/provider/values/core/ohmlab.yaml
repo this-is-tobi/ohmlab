@@ -1,0 +1,97 @@
+rootManager:
+  enabled: true
+  repoURL:
+    # The instance-manager chart, from the catalog bundle the instances pin:
+    # this repository holds the instances alone.
+    sources: oci://ghcr.io/this-is-tobi/ohmlab/catalog
+    values: https://git.example.org/provider/instances.git
+  sourcesRevision: 0.16.0
+  targetRevision: main
+# The remote clusters this Argo CD deploys to. VSO writes each one's cluster
+# Secret from the bearer token and CA of a service account there, seeded
+# empty on this app's Vault path and set by hand.
+clusters:
+  customer-a:
+    server: https://customer-a.example.net:6443
+  customer-b:
+    server: https://customer-b.example.net:6443
+vso:
+  enabled: true
+  vaultAuth:
+    default:
+      login:
+        role: argo-cd-core
+projects:
+  core:
+    enabled: true
+    name: admin-core
+    extraSourceRepos:
+      - oci://ghcr.io/this-is-tobi/ohmlab/catalog
+  tenant:
+    enabled: true
+    name: admin-tenant
+    extraSourceRepos:
+      - oci://ghcr.io/this-is-tobi/ohmlab/catalog
+  # One project per customer and tier, on that customer's cluster only.
+  customer-a-core:
+    enabled: true
+    inherit: core
+    name: customer-a-core
+    destinations:
+    - server: https://customer-a.example.net:6443
+      namespace: "*"
+  customer-a-tenant:
+    enabled: true
+    inherit: tenant
+    name: customer-a-tenant
+    destinations:
+    - server: https://customer-a.example.net:6443
+      namespace: "*"
+  customer-b-core:
+    enabled: true
+    inherit: core
+    name: customer-b-core
+    destinations:
+    - server: https://customer-b.example.net:6443
+      namespace: "*"
+  customer-b-tenant:
+    enabled: true
+    inherit: tenant
+    name: customer-b-tenant
+    destinations:
+    - server: https://customer-b.example.net:6443
+      namespace: "*"
+argo-cd:
+  enabled: true
+  configs:
+    cm:
+      url: https://gitops.provider.example.com
+  crds:
+    install: true
+    keep: true
+  # argocd-server serves TLS itself, with a certificate of the DNS-01 issuer,
+  # which the route's BackendTLSPolicy checks.
+  server:
+    certificate:
+      enabled: true
+      domain: gitops.provider.example.com
+      issuer:
+        group: cert-manager.io
+        kind: ClusterIssuer
+        name: letsencrypt-dns-prod
+  notifications:
+    argocdUrl: https://gitops.provider.example.com
+gateway:
+  enabled: true
+  gatewayNamespace: traefik
+  backendTLSPolicies:
+    - name: argocd-server
+      serviceName: argocd-server
+      hostname: gitops.provider.example.com
+  routes:
+    - name: argocd-server
+      hostnames:
+        - gitops.provider.example.com
+      rules:
+        - backendService: argocd-server
+          backendPort: 443

@@ -1,0 +1,31 @@
+# The core cluster's Gateway.
+gateway:
+  enabled: true
+  namespace: traefik
+  domain: provider.example.com
+  manageCertificate: true
+lanOnly:
+  sourceRange:
+    - 192.0.2.0/24
+# No CrowdSec on this cluster: no bouncer on the entrypoints, and no key to
+# read from Vault.
+traefik:
+  deployment:
+    additionalVolumes: []
+  additionalVolumeMounts: []
+  ports:
+    web:
+      http:
+        middlewares: []
+    websecure:
+      http:
+        middlewares: []
+crowdsecBouncer:
+  enabled: false
+vso:
+  vaultAuth:
+    default:
+      enabled: false
+  vaultStaticSecrets:
+    traefikCrowdsecBouncerKey:
+      enabled: false

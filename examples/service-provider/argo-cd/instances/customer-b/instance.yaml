@@ -1,0 +1,18 @@
+# A customer, alone on its own cluster: one instance holds both tiers.
+instance:
+  name: customer-b
+  env: production
+destination:
+  server: https://customer-b.example.net:6443
+repoURL: https://git.example.org/provider/instances.git
+targetRevision: main
+catalogs:
+  release:
+    repoURL: oci://ghcr.io/this-is-tobi/ohmlab/catalog
+    version: 0.16.0
+defaultCatalog: release
+vault:
+  hub: provider
+projects:
+  core: customer-b-core
+  tenant: customer-b-tenant

@@ -1,0 +1,25 @@
+# Prometheus and Alertmanager only, no Grafana: the cluster's alerts reach the
+# operators' chat through a webhook read from Vault.
+kube-prometheus-stack:
+  grafana:
+    enabled: false
+  prometheus:
+    prometheusSpec:
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 50Gi
+vso:
+  vaultStaticSecrets:
+    monitoringAdmin:
+      enabled: false
+    monitoringSso:
+      enabled: false
+    grafanaDbAdmin:
+      enabled: false
+    grafanaDbApp:
+      enabled: false
+    grafanaPgBackup:
+      enabled: false

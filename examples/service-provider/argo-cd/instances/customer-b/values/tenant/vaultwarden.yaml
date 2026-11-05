@@ -1,0 +1,14 @@
+vaultwarden:
+  domain: "https://vaultwarden.customer-b.example.net"
+  invitationOrgName: Ohmlab
+  ingress:
+    hostname: vaultwarden.customer-b.example.net
+    tlsSecret: vaultwarden.customer-b.example.net-tls
+cnpg:
+  cluster:
+    superuserSecret: vaultwarden-pg-cluster-admin
+    initdb:
+      secret:
+        name: vaultwarden-pg-cluster-app
+  backups:
+    enabled: false
