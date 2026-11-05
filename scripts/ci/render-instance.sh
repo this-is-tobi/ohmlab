@@ -76,7 +76,7 @@ crd_api_versions() {
 # reports each app and records it.
 render_apps() {
   local dir="$1" mode="$2" instance values_root prefix suffix default_catalog tier lines p
-  local app chart release namespace catalog revision values_path id values registry out
+  local app chart release namespace catalog revision values_path chart_path id values registry out
   local -a params ref
   instance="${dir##*/}"
   # The values repository: Argo CD reads every values file under
@@ -100,7 +100,7 @@ render_apps() {
     done <<<"$lines"
     # '|' separates the fields: unlike a tab it is not whitespace to read,
     # so empty fields do not collapse.
-    while IFS='|' read -r app chart release namespace catalog revision values_path; do
+    while IFS='|' read -r app chart release namespace catalog revision values_path chart_path; do
       [ -n "$app" ] || continue
       id="$instance/$tier/$app"
       [ -n "$namespace" ] || namespace="$prefix$app$suffix"
@@ -117,6 +117,9 @@ render_apps() {
           continue
         fi
         ref=(oci://"$registry/$chart" --version "$revision")
+      elif [ -n "$chart_path" ]; then
+        # A path of the catalog, whose argo-cd/apps APPS_DIR is.
+        ref=("$APPS_DIR/../../$chart_path")
       else
         ref=("$APPS_DIR/$chart")
       fi
@@ -134,7 +137,7 @@ render_apps() {
         fail "$id: $(grep -m1 -i 'error' <<<"$out" | cut -c1-240)"
       fi
     done < <(yq -r '.apps[] | select(.enabled == "true" or .enabled == true)
-      | [.app, (.chart // .app), (.releaseName // .app), (.namespace // ""), (.catalog // ""), (.targetRevision // ""), (.valuesPath // "")]
+      | [.app, (.chart // .app), (.releaseName // .app), (.namespace // ""), (.catalog // ""), (.targetRevision // ""), (.valuesPath // ""), (.chartPath // "")]
       | join("|")' "$dir/$tier.yaml")
   done
 }
