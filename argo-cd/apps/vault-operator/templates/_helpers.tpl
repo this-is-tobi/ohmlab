@@ -219,17 +219,23 @@ tpl context> "auth" <the auth list>).
 {{- end -}}
 
 {{/*
-The name of the VaultSeed for a KV path: the path without its mount and without
-a leading "platforms/", slashes, dots and underscores turned into dashes
-("ohmlab/platforms/production/core/keycloak" -> "production-core-keycloak").
+The name of the VaultSeed for a KV path, called with (dict "path" <path> "hub"
+<this Vault's own mounts>): the path without a leading "platforms/" after its
+mount, slashes, dots and underscores turned into dashes. The mount is left out
+when it is one of the hub's ("ohmlab/platforms/production/core/keycloak" ->
+"production-core-keycloak") and kept otherwise, so that two spoke instances
+with one env do not collide ("dev/platforms/staging/tenant/gitea" ->
+"dev-staging-tenant-gitea").
 */}}
 {{- define "vault-operator.seedName" -}}
-{{- $n := regexReplaceAll "^[^/]+/" . "" -}}
+{{- $mount := regexFind "^[^/]+" .path -}}
+{{- $n := regexReplaceAll "^[^/]+/" .path "" -}}
 {{- $n = regexReplaceAll "^platforms/" $n "" -}}
+{{- if and (contains "/" .path) (not (has $mount .hub)) }}{{ $n = printf "%s/%s" $mount $n }}{{ end -}}
 {{- $n = lower (regexReplaceAll "[/_.]" $n "-") -}}
 {{- if not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $n) -}}
-{{- fail (printf "ohmlab.vault.secrets: path %q cannot be turned into a Kubernetes name (got %q)" . $n) -}}
+{{- fail (printf "ohmlab.vault.secrets: path %q cannot be turned into a Kubernetes name (got %q)" .path $n) -}}
 {{- end -}}
-{{- if gt (len $n) 253 -}}{{- fail (printf "ohmlab.vault.secrets: the name for %q is longer than 253 characters" .) -}}{{- end -}}
+{{- if gt (len $n) 253 -}}{{- fail (printf "ohmlab.vault.secrets: the name for %q is longer than 253 characters" .path) -}}{{- end -}}
 {{- $n -}}
 {{- end -}}

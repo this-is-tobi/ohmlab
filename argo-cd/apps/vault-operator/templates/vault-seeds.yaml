@@ -17,8 +17,10 @@ controller down, a reference pending) holds nothing else back.
 {{- if and .Values.vault.enabled .Values.ohmlab.vault.seeds.enabled }}
 {{- if or (not .Values.ohmlab.vault.seeds.requireCRD) (.Capabilities.APIVersions.Has "ohmlab.fr/v1alpha1/VaultSeed") }}
 {{- $names := dict }}
+{{- $hub := list (include "vault-operator.systemMount" .) (include "vault-operator.kvMount" .) }}
+{{- with .Values.ohmlab.controller.kvMount }}{{ $hub = append $hub (toString .) }}{{ end }}
 {{- range $entry := .Values.ohmlab.vault.secrets }}
-{{- $name := include "vault-operator.seedName" $entry.path }}
+{{- $name := include "vault-operator.seedName" (dict "path" $entry.path "hub" $hub) }}
 {{- if hasKey $names $name }}
 {{- fail (printf "ohmlab.vault.secrets: %q and %q both become the VaultSeed %q" (get $names $name) $entry.path $name) }}
 {{- end }}
