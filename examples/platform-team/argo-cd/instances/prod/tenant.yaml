@@ -1,0 +1,24 @@
+apps:
+  - app: keycloak
+    enabled: "true"
+    syncWave: 95
+  - app: gitea
+    enabled: "true"
+    syncWave: 110
+  - app: mattermost
+    enabled: "true"
+    syncWave: 110
+    ignoreDifferences:
+      - group: ""
+        kind: Secret
+        name: mattermost-mattermost-dbsecret
+        jqPathExpressions:
+          - .data
+        managedFieldsManagers:
+          - vault-secrets-operator
+  - app: rustfs
+    enabled: "true"
+    syncWave: 110
+  - app: vaultwarden
+    enabled: "true"
+    syncWave: 110

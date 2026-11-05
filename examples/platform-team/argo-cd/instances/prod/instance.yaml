@@ -1,0 +1,18 @@
+# Production, alone on its cluster: one instance holds both tiers.
+instance:
+  name: prod
+  env: production
+destination:
+  server: https://prod.example.com:6443
+repoURL: https://git.example.org/platform-team/instances.git
+targetRevision: main
+catalogs:
+  release:
+    repoURL: oci://ghcr.io/this-is-tobi/ohmlab/catalog
+    version: 0.16.0
+defaultCatalog: release
+vault:
+  hub: platform
+projects:
+  core: prod-core
+  tenant: prod-tenant

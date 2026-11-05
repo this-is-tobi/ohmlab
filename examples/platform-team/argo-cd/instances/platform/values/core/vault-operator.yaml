@@ -1,0 +1,290 @@
+# The hub: every instance of this repository reads its secrets from this
+# Vault, the remote ones through its route.
+gateway:
+  enabled: true
+  gatewayNamespace: traefik
+  backendTLS: true
+  routes:
+  - name: vault
+    hostnames:
+    - vault.platform.example.com
+    rules:
+    - backendService: vault
+      backendPort: 8200
+  # The remote clusters' outbound addresses, and the admins' network.
+  sourceRange:
+  - 198.51.100.0/24
+  - 203.0.113.0/24
+  - 192.0.2.0/24
+vault:
+  # The remote clusters' apps refresh their secrets here: no single replica.
+  size: 3
+  # Any node of the managed cluster, and its default StorageClass.
+  nodeSelector: null
+  storage:
+    raft:
+      storageClass: ""
+  externalConfig:
+    # One jwt mount and one KV mount per remote instance. Vault fetches each
+    # managed cluster's keys from its issuer, at its provider.
+    spokeClusters:
+    - name: nonprod
+      oidcDiscoveryUrl: https://oidc.example.org/id/nonprod
+      instances:
+      - name: nonprod
+        apps: [prometheus-stack]
+      - name: dev
+        namespacePrefix: dev-
+        apps: [gitea, mattermost, rustfs, vaultwarden, {name: keycloak, namespace: dev-keycloak}]
+      - name: preprod
+        namespacePrefix: preprod-
+        apps: [gitea, mattermost, rustfs, vaultwarden, {name: keycloak, namespace: preprod-keycloak}]
+    - name: prod
+      oidcDiscoveryUrl: https://oidc.example.org/id/prod
+      instances:
+      - name: prod
+        apps: [prometheus-stack, gitea, mattermost, rustfs, vaultwarden, {name: keycloak, namespace: keycloak}]
+ohmlab:
+  controller:
+    enabled: true
+  vault:
+    seeds:
+      enabled: true
+    secrets:
+    # The core Argo CD's credentials for each remote cluster: a service
+    # account's bearer token and the cluster's CA there, set by hand.
+    - path: ohmlab/platforms/production/core/argo-cd
+      data:
+        clusters:
+          nonprod: {bearerToken: "", caData: ""}
+          prod: {bearerToken: "", caData: ""}
+    # The hub's own apps, on the system mount: its Keycloak, with the clients
+    # of the system realm, and Grafana, whose client secret is Keycloak's.
+    - path: ohmlab/platforms/production/core/keycloak
+      data:
+        admin: {username: admin, password: "<random:24>"}
+        adminUser: {username: admin, password: "<random:24>"}
+        domain: keycloak.platform.example.com
+        rootDomain: platform.example.com
+        clients:
+          argo-cd-core: {clientId: argo-cd-core, clientSecret: "<random:32>"}
+          vault-core: {clientId: vault-core, clientSecret: "<random:32>"}
+          grafana-core: {clientId: grafana-core, clientSecret: "<random:32>"}
+          longhorn-core: {clientId: longhorn-core, clientSecret: "<random:32>"}
+          hubble-core: {clientId: hubble-core, clientSecret: "<random:32>"}
+          argo-cd: {clientId: argo-cd, clientSecret: "<random:32>"}
+          gitea: {clientId: gitea, clientSecret: "<random:32>"}
+          rustfs: {clientId: rustfs, clientSecret: "<random:32>"}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: keycloak, password: "<random:24>"}
+          database: keycloak
+          host: keycloak-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: ohmlab/platforms/production/core/prometheus-stack
+      data:
+        alertmanagerMattermostWebhookUrl: ""
+        admin: {username: admin, password: "<random:24>"}
+        keycloak: {clientId: grafana-core, clientSecret: "<ref:ohmlab/platforms/production/core/keycloak#clients.grafana-core.clientSecret>"}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: grafana, password: "<random:24>"}
+          database: grafana
+          host: prometheus-stack-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    # What every remote instance's apps read, on each one's own KV mount. The
+    # databases' backups are off, so their s3 keys are placeholders, as is
+    # vaultwarden's single sign-on until the realm has a client for it.
+    - path: dev/platforms/dev/tenant/keycloak
+      data:
+        admin: {username: admin, password: "<random:24>"}
+        adminUser: {username: admin, password: "<random:24>"}
+        domain: keycloak.dev.example.com
+        rootDomain: dev.example.com
+        clients:
+          argo-cd: {clientId: argo-cd, clientSecret: "<random:32>"}
+          gitea: {clientId: gitea, clientSecret: "<random:32>"}
+          rustfs: {clientId: rustfs, clientSecret: "<random:32>"}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: keycloak, password: "<random:24>"}
+          database: keycloak
+          host: keycloak-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: dev/platforms/dev/tenant/gitea
+      data:
+        admin: {username: gitea-admin, password: "<random:24>"}
+        keycloak: {clientId: gitea, clientSecret: "<ref:dev/platforms/dev/tenant/keycloak#clients.gitea.clientSecret>"}
+        valkey: {password: "<random:32>"}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: gitea, password: "<random:24>"}
+          database: gitea
+          host: gitea-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: dev/platforms/dev/tenant/rustfs
+      data:
+        admin: {accessKey: "<random:16>", secretKey: "<random:32>"}
+        keycloak: {clientId: rustfs, clientSecret: "<ref:dev/platforms/dev/tenant/keycloak#clients.rustfs.clientSecret>"}
+    - path: dev/platforms/dev/tenant/mattermost
+      data:
+        # Its files go to the instance's own rustfs.
+        s3:
+          accessKey: "<ref:dev/platforms/dev/tenant/rustfs#admin.accessKey>"
+          secretKey: "<ref:dev/platforms/dev/tenant/rustfs#admin.secretKey>"
+          bucketName: mattermost
+          bucketPrefix: ""
+          endpoint: s3.dev.example.com
+          region: us-east-1
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: mattermost, password: "<random:24>"}
+          database: mattermost
+          host: mattermost-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: dev/platforms/dev/tenant/vaultwarden
+      data:
+        admin: {token: "<random:48>"}
+        keycloak: {clientId: vaultwarden, clientSecret: ""}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: vaultwarden, password: "<random:24>"}
+          database: vaultwarden
+          host: vaultwarden-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: preprod/platforms/preprod/tenant/keycloak
+      data:
+        admin: {username: admin, password: "<random:24>"}
+        adminUser: {username: admin, password: "<random:24>"}
+        domain: keycloak.preprod.example.com
+        rootDomain: preprod.example.com
+        clients:
+          argo-cd: {clientId: argo-cd, clientSecret: "<random:32>"}
+          gitea: {clientId: gitea, clientSecret: "<random:32>"}
+          rustfs: {clientId: rustfs, clientSecret: "<random:32>"}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: keycloak, password: "<random:24>"}
+          database: keycloak
+          host: keycloak-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: preprod/platforms/preprod/tenant/gitea
+      data:
+        admin: {username: gitea-admin, password: "<random:24>"}
+        keycloak: {clientId: gitea, clientSecret: "<ref:preprod/platforms/preprod/tenant/keycloak#clients.gitea.clientSecret>"}
+        valkey: {password: "<random:32>"}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: gitea, password: "<random:24>"}
+          database: gitea
+          host: gitea-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: preprod/platforms/preprod/tenant/rustfs
+      data:
+        admin: {accessKey: "<random:16>", secretKey: "<random:32>"}
+        keycloak: {clientId: rustfs, clientSecret: "<ref:preprod/platforms/preprod/tenant/keycloak#clients.rustfs.clientSecret>"}
+    - path: preprod/platforms/preprod/tenant/mattermost
+      data:
+        # Its files go to the instance's own rustfs.
+        s3:
+          accessKey: "<ref:preprod/platforms/preprod/tenant/rustfs#admin.accessKey>"
+          secretKey: "<ref:preprod/platforms/preprod/tenant/rustfs#admin.secretKey>"
+          bucketName: mattermost
+          bucketPrefix: ""
+          endpoint: s3.preprod.example.com
+          region: us-east-1
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: mattermost, password: "<random:24>"}
+          database: mattermost
+          host: mattermost-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: preprod/platforms/preprod/tenant/vaultwarden
+      data:
+        admin: {token: "<random:48>"}
+        keycloak: {clientId: vaultwarden, clientSecret: ""}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: vaultwarden, password: "<random:24>"}
+          database: vaultwarden
+          host: vaultwarden-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: prod/platforms/production/tenant/keycloak
+      data:
+        admin: {username: admin, password: "<random:24>"}
+        adminUser: {username: admin, password: "<random:24>"}
+        domain: keycloak.example.com
+        rootDomain: example.com
+        clients:
+          argo-cd: {clientId: argo-cd, clientSecret: "<random:32>"}
+          gitea: {clientId: gitea, clientSecret: "<random:32>"}
+          rustfs: {clientId: rustfs, clientSecret: "<random:32>"}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: keycloak, password: "<random:24>"}
+          database: keycloak
+          host: keycloak-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: prod/platforms/production/tenant/gitea
+      data:
+        admin: {username: gitea-admin, password: "<random:24>"}
+        keycloak: {clientId: gitea, clientSecret: "<ref:prod/platforms/production/tenant/keycloak#clients.gitea.clientSecret>"}
+        valkey: {password: "<random:32>"}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: gitea, password: "<random:24>"}
+          database: gitea
+          host: gitea-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: prod/platforms/production/tenant/rustfs
+      data:
+        admin: {accessKey: "<random:16>", secretKey: "<random:32>"}
+        keycloak: {clientId: rustfs, clientSecret: "<ref:prod/platforms/production/tenant/keycloak#clients.rustfs.clientSecret>"}
+    - path: prod/platforms/production/tenant/mattermost
+      data:
+        # Its files go to the instance's own rustfs.
+        s3:
+          accessKey: "<ref:prod/platforms/production/tenant/rustfs#admin.accessKey>"
+          secretKey: "<ref:prod/platforms/production/tenant/rustfs#admin.secretKey>"
+          bucketName: mattermost
+          bucketPrefix: ""
+          endpoint: s3.example.com
+          region: us-east-1
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: mattermost, password: "<random:24>"}
+          database: mattermost
+          host: mattermost-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: prod/platforms/production/tenant/vaultwarden
+      data:
+        admin: {token: "<random:48>"}
+        keycloak: {clientId: vaultwarden, clientSecret: ""}
+        postgres:
+          admin: {username: postgres, password: "<random:24>"}
+          app: {username: vaultwarden, password: "<random:24>"}
+          database: vaultwarden
+          host: vaultwarden-pg-cluster-rw
+          port: "5432"
+          s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
+    - path: nonprod/platforms/nonprod/core/prometheus-stack
+      data:
+        # The chat webhook of the cluster's alerts, set by hand.
+        alertmanagerMattermostWebhookUrl: ""
+    - path: prod/platforms/production/core/prometheus-stack
+      data:
+        # The chat webhook of the cluster's alerts, set by hand.
+        alertmanagerMattermostWebhookUrl: ""

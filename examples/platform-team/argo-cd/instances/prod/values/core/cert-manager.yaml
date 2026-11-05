@@ -1,0 +1,41 @@
+cert-manager:
+  crds:
+    enabled: true
+    keep: true
+# The Gateway's certificate (traefik's gateway.manageCertificate) needs a
+# DNS-01 issuer of the domain's DNS provider, named letsencrypt-dns-prod; the
+# HTTP-01 issuers serve single hosts.
+defaultWildcard:
+  enabled: false
+clusterIssuers:
+  - name: letsencrypt-http-staging
+    spec:
+      acme:
+        email: admin@example.com
+        server: "https://acme-staging-v02.api.letsencrypt.org/directory"
+        privateKeySecretRef:
+          name: letsencrypt-http-staging-key
+        solvers:
+          - http01:
+              ingress:
+                serviceType: ClusterIP
+                ingressClassName: traefik
+  - name: letsencrypt-http-prod
+    spec:
+      acme:
+        email: admin@example.com
+        server: "https://acme-v02.api.letsencrypt.org/directory"
+        privateKeySecretRef:
+          name: letsencrypt-http-prod-key
+        solvers:
+          - http01:
+              ingress:
+                serviceType: ClusterIP
+                ingressClassName: traefik
+vso:
+  vaultAuth:
+    default:
+      enabled: false
+  vaultStaticSecrets:
+    scwCreds:
+      enabled: false

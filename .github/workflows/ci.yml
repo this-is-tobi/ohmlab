@@ -29,6 +29,7 @@ jobs:
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
         "sonarqube": ["argo-cd/apps/sonarqube/*"],
+        "examples": ["examples/*"],
         "ci": [".github/*", "release-please-config.json", "renovate.json"]}
 
   shellcheck:
@@ -449,6 +450,75 @@ jobs:
       instance-ref: main
       base-ref: ${{ github.event.pull_request.base.sha }}
 
+  # Each folder of examples/ is an instance repository, checked as one at this
+  # change's revision.
+  validate-examples:
+    needs: classify
+    if: ${{ fromJSON(needs.classify.outputs.groups).charts || fromJSON(needs.classify.outputs.groups).shell || fromJSON(needs.classify.outputs.groups).ci || fromJSON(needs.classify.outputs.groups).examples }}
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [platform-team]
+    uses: ./.github/workflows/validate-instance.yml
+    permissions:
+      contents: read
+    with:
+      ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      product-repository: ${{ github.repository }}
+      instance-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      instances-path: examples/${{ matrix.example }}/argo-cd/instances
+
+  # The checks the helm job runs on the example instance, on each example's.
+  check-examples:
+    needs: classify
+    if: ${{ fromJSON(needs.classify.outputs.groups).charts || fromJSON(needs.classify.outputs.groups).shell || fromJSON(needs.classify.outputs.groups).ci || fromJSON(needs.classify.outputs.groups).examples }}
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [platform-team]
+    runs-on: ubuntu-latest
+    env:
+      INSTANCES: examples/${{ matrix.example }}/argo-cd/instances
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - name: Build the chart dependencies
+        run: |
+          set -euo pipefail
+          source scripts/lib/helm-repos.sh
+          add_dependency_repos argo-cd/apps/*/Chart.yaml charts/ohmlab/Chart.yaml
+          locked=()
+          for chart in argo-cd/apps/*/ charts/ohmlab/; do
+            chart="${chart%/}"
+            [ -f "$chart/Chart.lock" ] && locked+=("$chart")
+          done
+          logs="$RUNNER_TEMP/deps"
+          mkdir -p "$logs"
+          if ! vendor_dependencies "$logs" "${locked[@]}"; then
+            while IFS= read -r chart; do
+              echo "::error::helm dependency build failed for $chart: $(tail -1 "$logs/$(printf '%s' "$chart" | tr / _).log")"
+            done <"$logs/failed"
+            exit 1
+          fi
+      - name: Install the Kyverno CLI
+        env:
+          KYVERNO_VERSION: 1.19.1
+          KYVERNO_SHA256: b38228f367fc0fdc2b08f4c83ea50ac5f16c60ff8d62d76a66157c33c47b70ae
+        run: |
+          set -euo pipefail
+          tarball="kyverno-cli_v${KYVERNO_VERSION}_linux_x86_64.tar.gz"
+          curl -fsSLO "https://github.com/kyverno/kyverno/releases/download/v${KYVERNO_VERSION}/${tarball}"
+          echo "${KYVERNO_SHA256}  ${tarball}" | sha256sum --check
+          sudo tar -xzf "$tarball" -C /usr/local/bin kyverno
+      - name: Check that every Secret an app reads is written by that app, once
+        run: scripts/ci/check-example-secrets.sh --instances "$INSTANCES"
+      - name: Check that the pods pass the kyverno chart's pod policies
+        run: scripts/ci/check-example-pod-security.sh --instances "$INSTANCES"
+      - name: Check that the apps run on the clusters they target
+        run: |
+          INSTANCES_DIR="$INSTANCES" RENDER_OUT="$RUNNER_TEMP/render" scripts/ci/render-instance.sh
+          scripts/ci/check-example-clusters.sh "$RUNNER_TEMP/render"
+
   # The controller image is the `controller` stage of the same Dockerfile.
   build-controller-image:
     needs: classify
@@ -554,6 +624,8 @@ jobs:
       - e2e-controller
       - validate-instance
       - validate-homelab
+      - validate-examples
+      - check-examples
       - gitleaks
       - lint-commits
       - workflow-permissions

@@ -1,0 +1,5 @@
+# The tenants of this cluster run rustfs under their namespace prefixes.
+exceptionNamespaces:
+  rustfs-init-step-limits:
+  - dev-rustfs
+  - preprod-rustfs
