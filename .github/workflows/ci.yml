@@ -30,6 +30,7 @@ jobs:
         "shell": ["run.sh", "scripts/*"],
         "sonarqube": ["argo-cd/apps/sonarqube/*"],
         "examples": ["examples/*"],
+        "docs": ["docs/*", "README.md", "examples/*", "scripts/ci/check-doc-links*"],
         "ci": [".github/*", "release-please-config.json", "renovate.json"]}
 
   shellcheck:
@@ -450,6 +451,18 @@ jobs:
       instance-ref: main
       base-ref: ${{ github.event.pull_request.base.sha }}
 
+  # Every relative link of the docs, the README and the examples' READMEs.
+  doc-links:
+    needs: classify
+    if: ${{ fromJSON(needs.classify.outputs.groups).docs || fromJSON(needs.classify.outputs.groups).ci }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check that every relative link of the docs resolves
+        run: |
+          scripts/ci/check-doc-links.test.sh
+          scripts/ci/check-doc-links.sh
+
   # Each folder of examples/ is an instance repository, checked as one at this
   # change's revision.
   validate-examples:
@@ -626,6 +639,7 @@ jobs:
       - validate-homelab
       - validate-examples
       - check-examples
+      - doc-links
       - gitleaks
       - lint-commits
       - workflow-permissions

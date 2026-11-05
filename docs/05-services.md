@@ -303,28 +303,7 @@ vault kv patch -mount=<instance> platforms/production/tenant/actions-runner-cont
 
 #### Multi-cluster (spoke clusters)
 
-Everything above assumes VSO and Vault live in the same cluster — the default. Vault can additionally act as a **hub** that separate Kubernetes clusters pull their own secrets from, via `vault.externalConfig.spokeClusters` in [argo-cd/apps/vault-operator/values.yaml](../argo-cd/apps/vault-operator/values.yaml), where the shape is documented, commented out. Off by default; nothing changes until an instance sets it.
-
-A **spoke cluster** here means a separate physical/virtual Kubernetes cluster running one or more instances, each of which sets `vault.hub` in its `instance.yaml` to the instance whose Vault it reads. The hub's `spokeClusters` lists each cluster with its instances. Each instance keeps both of its tiers in its own KV mount on the hub and logs in through its own jwt mount, `jwt-<instance>`. Per app it gets a read-only role bound to the app's namespace and a policy on its own mount alone, both derived from the hub's own kubernetes role and policies of that app. Two instances on one cluster are kept apart by their mounts and namespaces, not by their cluster, whose admins can read both.
-
-```mermaid
-flowchart LR
-    subgraph hub[Hub cluster]
-        vault[(HashiCorp Vault)]
-    end
-    subgraph spoke[Spoke cluster]
-        vso[Vault Secrets Operator]
-        secret[Kubernetes Secret]
-        pod([App pod])
-    end
-
-    vso -->|1: jwt login, the cluster's keys| vault
-    vso -->|2: read own mount only| vault
-    vso -->|materializes| secret
-    pod -->|envFrom / volume| secret
-```
-
-The reason this needs a different Vault auth method, not just another `kubernetes`-auth role: that method validates a token by calling **TokenReview on the cluster that issued it**, so the hub would need a network route *into* every spoke's API server — the direction that does not survive NAT, firewalls, or a spoke cluster that comes and goes. `jwt` auth validates the token's signature with the cluster's keys: pinned in the values (`publicKeys`), or fetched from the cluster's issuer (`oidcDiscoveryUrl`, which a managed cluster publishes, following the provider's key rotations). The hub calls that issuer over HTTPS at most, never the cluster's API server. Isolation between clusters is therefore cryptographic (a signature from other keys is rejected). `bound_issuer` adds to it only where clusters have distinct issuers, as managed ones do: k3s gives every cluster the same default issuer, so that claim alone would tell its clusters apart in name only.
+Everything above assumes the Vault Secrets Operator and Vault run in the same cluster, the default. A Vault can also serve instances on other clusters, which read it with the jwt method: [a remote Vault](09-topologies/40-remote-vault.md).
 
 ### Security policies
 
