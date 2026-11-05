@@ -68,4 +68,24 @@ printf '#!/bin/sh\nexit 0\n' >"$work/bin/kyverno"
 chmod +x "$work/bin/kyverno"
 PATH="$work/bin:$PATH" check "a CLI that reports no result is refused" 1 "$(pod)" tenant/app app "no result"
 
+# --instances: each enabled entry of every instance of a directory, its chart
+# from APPS_DIR; the known failures are the product example's only.
+mkdir -p "$work/apps/good/templates" "$work/apps/bad/templates"
+printf 'apiVersion: v2\nname: good\nversion: 0.1.0\n' >"$work/apps/good/Chart.yaml"
+pod name=good >"$work/apps/good/templates/good.yaml"
+printf 'apiVersion: v2\nname: bad\nversion: 0.1.0\n' >"$work/apps/bad/Chart.yaml"
+pod name=bad privileged=true >"$work/apps/bad/templates/bad.yaml"
+d="$work/repo/argo-cd/instances/lab"
+mkdir -p "$d/values/core"
+printf 'instance: {name: lab}\nrepoURL: https://git.example/x.git\n' >"$d/instance.yaml"
+printf 'apps:\n- {app: good, enabled: "true"}\n- {app: bad, enabled: "true"}\n' >"$d/core.yaml"
+printf 'apps: []\n' >"$d/tenant.yaml"
+for a in good bad; do printf '{}\n' >"$d/values/core/$a.yaml"; done
+out=$(APPS_DIR="$work/apps" "$SCRIPT" --instances "$work/repo/argo-cd/instances" 2>&1); rc=$?
+if [ "$rc" = 1 ] && grep -qF 'ok   lab/core/good' <<<"$out" && grep -qF 'FAIL lab/core/bad' <<<"$out" && ! grep -qF 'no such app' <<<"$out"; then
+  echo "ok   --instances checks each enabled app of every instance, without the example's known failures"
+else
+  echo "FAIL --instances: exit $rc"; printf '%s\n' "$out" | sed 's/^/     /'; fail=1
+fi
+
 exit "$fail"
