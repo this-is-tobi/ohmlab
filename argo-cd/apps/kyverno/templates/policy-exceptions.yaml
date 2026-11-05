@@ -23,7 +23,21 @@
         "ns" "trivy-operator" "prefix" "node-collector-"
         "allowed" (list "host-namespaces" "host-path-volumes")
         "confined" `(spec.containers + spec.?initContainers.orValue([])).all(c, c.image.startsWith('ghcr.io/aquasecurity/node-collector:') || c.image.startsWith('ghcr.io/aquasecurity/node-collector@')) && !spec.?hostNetwork.orValue(false) && !spec.?hostIPC.orValue(false) && spec.?volumes.orValue([]).filter(v, has(v.hostPath)).all(v, (spec.containers + spec.?initContainers.orValue([])).all(c, c.?volumeMounts.orValue([]).filter(m, m.name == v.name).all(m, m.?readOnly.orValue(false))))`) }}
+{{- $extra := .Values.exceptionNamespaces | default dict }}
+{{- $known := list }}
+{{- range $e := $exceptions }}{{ $known = append $known $e.name }}{{ end }}
+{{- range $name, $nss := $extra }}
+{{- if not (has $name $known) }}
+{{- fail (printf "exceptionNamespaces.%s is not a built-in exception (%s)" $name (join ", " $known)) }}
+{{- end }}
+{{- range $ns := $nss }}
+{{- if not (and (kindIs "string" $ns) (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$" $ns)) }}
+{{- fail (printf "exceptionNamespaces.%s: %q is not a namespace name" $name (toString $ns)) }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- range $e := $exceptions }}
+{{- $nss := prepend (get $extra $e.name | default list) $e.ns }}
 ---
 apiVersion: policies.kyverno.io/v1
 kind: PolicyException
@@ -46,7 +60,11 @@ spec:
   - name: scope
     expression: >-
       object.kind in {{ $e.kinds | toJson }} &&
+      {{- if gt (len $nss) 1 }}
+      object.metadata.namespace in {{ $nss | toJson }} &&
+      {{- else }}
       object.metadata.namespace == {{ $e.ns | quote }} &&
+      {{- end }}
       object.metadata.name.startsWith({{ $e.prefix | quote }})
   {{- with $e.confined }}
   # What the exempted pods must still look like, `spec` being the pod spec of

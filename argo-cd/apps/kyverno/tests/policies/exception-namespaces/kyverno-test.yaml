@@ -1,0 +1,28 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: exception-namespaces
+policies:
+- ../../rendered/policies.yaml
+exceptions:
+- ../../rendered/exceptions.yaml
+resources:
+- resources.yaml
+results:
+# A namespace listed for the exception, and the app's own, are exempt.
+- policy: require-resource-limits
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - rustfs-listed
+  - rustfs-default
+  result: skip
+# Another namespace, another object or another exception's object is not.
+- policy: require-resource-limits
+  isValidatingPolicy: true
+  kind: Pod
+  resources:
+  - rustfs-unlisted
+  - other-in-dev-rustfs
+  - crowdsec-agent-in-dev-rustfs
+  result: fail
