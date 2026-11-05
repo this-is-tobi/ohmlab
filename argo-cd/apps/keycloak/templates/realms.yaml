@@ -7,9 +7,12 @@ manager, or the instance is called ohmlab) are one realm holding both tiers'
 clients, client roles and group client roles, the system realm's first: two
 files for one realm would undo each other, since keycloak-config-cli keeps one
 state per realm and removes what it created and the current file leaves out.
+A realm the values drop (system: null, for an instance whose Keycloak serves
+only its own users) has no file.
 */}}
 {{- $files := dict }}
 {{- range $key := list "system" "instance" }}
+{{- if hasKey $.Values.realms $key }}
 {{- $realm := mergeOverwrite (deepCopy ($.Values.realms.defaults | default dict)) (deepCopy (get $.Values.realms $key | default dict)) }}
 {{- $json := tpl (toJson $realm) $ }}
 {{- $from := fromJson $json }}
@@ -39,6 +42,10 @@ state per realm and removes what it created and the current file leaves out.
 {{- else }}
 {{- $_ := set $files $name $json }}
 {{- end }}
+{{- end }}
+{{- end }}
+{{- if not $files }}
+{{- fail "realms keeps neither system nor instance: keycloak-config-cli would import no realm" }}
 {{- end }}
 ---
 apiVersion: v1

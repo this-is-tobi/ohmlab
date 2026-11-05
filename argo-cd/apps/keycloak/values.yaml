@@ -634,7 +634,8 @@ keycloakConfigCli:
 # `defaults` with its own keys over it (maps merged, lists replaced), goes
 # through tpl, and is imported from a file named after it
 # (templates/realms.yaml). Two realms with one name are one realm, which holds
-# both tiers' clients and client roles.
+# both tiers' clients and client roles. A remote instance's own Keycloak sets
+# `system: null`: it imports its own realm alone.
 realms:
   # What every realm gets.
   defaults:
