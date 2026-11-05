@@ -112,6 +112,8 @@ jobs:
         run: scripts/ci/check-vault-seeds.sh
       - name: Check that Vault-managed Secrets carry only their own keys
         run: scripts/ci/check-vso-isolation.sh
+      - name: Check that each Application's project allows its destination
+        run: scripts/ci/check-app-projects.sh
       - name: Render every app the instance enables with its values
         env:
           RENDER_OUT: ${{ runner.temp }}/render-head

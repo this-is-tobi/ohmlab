@@ -76,8 +76,8 @@ crd_api_versions() {
 # reports each app and records it.
 render_apps() {
   local dir="$1" mode="$2" instance values_root prefix suffix default_catalog tier lines p
-  local app chart release namespace catalog revision values_path chart_path id values registry out
-  local -a params ref
+  local app chart release namespace catalog revision values_path chart_path id values out
+  local -a params chart_args
   instance="${dir##*/}"
   # The values repository: Argo CD reads every values file under
   # argo-cd/instances/<instance>/ of it.
@@ -110,25 +110,16 @@ render_apps() {
         [ "$mode" = collect ] || fail "$id: no values file ${values#"$values_root"/} (Argo CD refuses a missing value file)"
         continue
       fi
-      registry=$(C="$catalog" yq '.catalogs[strenv(C)] | select(tag == "!!str")' "$dir/instance.yaml")
-      if [ -n "$registry" ]; then
-        if [ -z "$revision" ]; then
-          [ "$mode" = collect ] || fail "$id: catalog $catalog is a registry, the entry needs its exact chart version in targetRevision"
-          continue
-        fi
-        ref=(oci://"$registry/$chart" --version "$revision")
-      elif [ -n "$chart_path" ]; then
-        # A path of the catalog, whose argo-cd/apps APPS_DIR is.
-        ref=("$APPS_DIR/../../$chart_path")
-      else
-        ref=("$APPS_DIR/$chart")
+      if ! chart_ref "$dir" "$chart" "$chart_path" "$catalog" "$revision" >"$work/why"; then
+        [ "$mode" = collect ] || fail "$id: $(cat "$work/why")"
+        continue
       fi
       if [ "$mode" = collect ]; then
-        helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" --include-crds \
+        helm template "$release" "${chart_args[@]}" --namespace "$namespace" -f "$values" --include-crds \
           "${params[@]+"${params[@]}"}" >"$work/collect/$tier-$app.yaml" 2>/dev/null || true
         continue
       fi
-      if out=$(helm template "$release" "${ref[@]}" --namespace "$namespace" -f "$values" --include-crds \
+      if out=$(helm template "$release" "${chart_args[@]}" --namespace "$namespace" -f "$values" --include-crds \
           "${api[@]+"${api[@]}"}" "${params[@]+"${params[@]}"}" 2>&1 >"$work/manifest"); then
         echo "ok   $id"
         rendered=$((rendered + 1))

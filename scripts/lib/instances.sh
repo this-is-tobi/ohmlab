@@ -74,3 +74,24 @@ app_args() {
   done <<<"$params"
   return 0
 }
+
+# chart_ref <instance dir> <chart> <chartPath> <catalog> <targetRevision>:
+# sets the array `chart_args` to the chart an entry's Application renders: from a
+# registry catalog oci://<registry>/<chart> --version <targetRevision>, else
+# the chartPath of the catalog whose argo-cd/apps APPS_DIR is (default this
+# repository's), else APPS_DIR/<chart>. The catalog defaults to the instance's
+# defaultCatalog. A registry entry without its version prints why and returns 1.
+# shellcheck disable=SC2034 # chart_args is the caller's
+chart_ref() {
+  local dir="$1" chart="$2" chart_path="$3" catalog="$4" revision="$5" apps="${APPS_DIR:-$ROOT/argo-cd/apps}" registry
+  [ -n "$catalog" ] || catalog=$(yq '.defaultCatalog // "git"' "$dir/instance.yaml")
+  registry=$(C="$catalog" yq '.catalogs[strenv(C)] | select(tag == "!!str")' "$dir/instance.yaml")
+  if [ -n "$registry" ]; then
+    [ -n "$revision" ] || { echo "catalog $catalog is a registry, the entry needs its exact chart version in targetRevision"; return 1; }
+    chart_args=(oci://"$registry/$chart" --version "$revision")
+  elif [ -n "$chart_path" ]; then
+    chart_args=("$apps/../../$chart_path")
+  else
+    chart_args=("$apps/$chart")
+  fi
+}
