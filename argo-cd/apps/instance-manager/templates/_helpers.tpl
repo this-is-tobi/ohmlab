@@ -176,7 +176,9 @@ only with instance.env. The literal ohmlab here and the default of the
 vault-operator chart's systemMount are the two places that name the system
 mount. An instance with vault.hub reads the Vault of that instance, whose
 spokeClusters declare it: both tiers read the instance's own mount, logging in
-with the jwt method at the mount jwt-<instance>. Called with (list . <scope>).
+with the jwt method at the mount jwt-<instance>, and every app gets the hub's
+name (a remote Keycloak leaves out the realm the hub serves). Called with
+(list . <scope>).
 */}}
 {{- define "instance-manager.vaultParameters" -}}
 {{- $root := index . 0 -}}
@@ -211,6 +213,9 @@ with the jwt method at the mount jwt-<instance>. Called with (list . <scope>).
   forceString: true
 - name: "global.ohmlab.vault.auth.mount"
   value: {{ printf "jwt-%s" $instance | quote }}
+  forceString: true
+- name: "global.ohmlab.vault.hub"
+  value: {{ $hub | quote }}
   forceString: true
 {{- end }}
 {{- end -}}
