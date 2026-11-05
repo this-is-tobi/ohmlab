@@ -115,6 +115,26 @@ helm template t "$ROOT/charts/ohmlab" --set vso.enabled=true --set vso.vaultAuth
   || { echo "FAIL charts/ohmlab does not render: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1; }
 check "the ohmlab chart: an instance that sets only kubernetes.role keeps the service account and audiences" \
   '{"kubernetes":{"audiences":["vault"],"role":"argo-cd-core","serviceAccount":"vso"},"method":"kubernetes","mount":"kubernetes"}' "$(auth_spec)"
+# No app renders a VaultConnection of its own: every VaultAuth leaves
+# vaultConnectionRef out, so VSO uses its operator-wide default connection,
+# vault-operator's `default`, the only one.
+connections=""
+for chart in "$ROOT/charts/ohmlab" $(grep -l 'name: vso-utils' "$ROOT"/argo-cd/apps/*/Chart.yaml | xargs -n1 dirname) "$ROOT/argo-cd/apps/vault-operator"; do
+  name=$(basename "$chart")
+  example=()
+  for scope in core tenant; do
+    [ -f "$EXAMPLE/$scope/$name.yaml" ] && { example=(-f "$EXAMPLE/$scope/$name.yaml"); break; }
+  done
+  if [ -f "$chart/Chart.lock" ] && [ ! -d "$chart/charts" ]; then
+    helm dependency build "$chart" >/dev/null 2>&1 || { echo "FAIL cannot build the dependencies of $chart"; fail=1; }
+  fi
+  helm template t "$chart" "${example[@]+"${example[@]}"}" --set vso.enabled=true "${vault_params[@]}" \
+    --set-string global.ohmlab.vault.pathPrefix=platforms/p/core >"$work/out.yaml" 2>"$work/err" \
+    || { echo "FAIL $name does not render: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1; }
+  connections+=$(yq e -r "select(.kind == \"VaultConnection\") | \"$name:\" + .metadata.name, select(.kind == \"VaultAuth\" and .spec.vaultConnectionRef) | \"$name:ref=\" + .spec.vaultConnectionRef" "$work/out.yaml" | grep -v '^---$')$'\n'
+done
+check "the only VaultConnection is vault-operator's default, the only reference to it vault-operator's own" \
+  "vault-operator:default,vault-operator:ref=default" "$(grep -v '^$' <<<"$connections" | sort | paste -sd, -)"
 oidc_at='select(.kind == "VaultStaticSecret" and .metadata.name == "vault-oidc-credentials") | .spec.mount + " " + .spec.path'
 render vault-operator --set vault.enabled=true "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/core
 check "Vault's OIDC credentials take the manager's mount and path" "m platforms/p/core/keycloak" "$(field "$oidc_at")"

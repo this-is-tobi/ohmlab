@@ -219,11 +219,6 @@ vso:
         role: harbor
         serviceAccount: vso
         audiences: [vault]
-  vaultConnection:
-    default:
-      address: "https://vault.vault-operator-system.svc.cluster.local:8200"
-      skipTLSVerify: false
-      caCertSecretRef: vault-tls
   # The mount and path of each secret that sets none: the ones the manager
   # gives this app's tier (global.ohmlab.vault.mount, and
   # global.ohmlab.vault.pathPrefix followed by harbor).
