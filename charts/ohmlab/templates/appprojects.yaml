@@ -1,5 +1,26 @@
 {{- range $scope, $proj := .Values.projects }}
 {{- if $proj.enabled }}
+{{- $tier := $scope }}
+{{- /*
+  A project that inherits a tier takes that tier's sources rule, whitelists
+  and blacklists, and keeps its own name, destinations, roles (by default an
+  admin role on itself) and source namespaces.
+*/}}
+{{- with $proj.inherit }}
+{{- if not (has . (list "core" "tenant")) }}
+{{- fail (printf "projects.%s.inherit is %q: a project inherits core or tenant" $scope .) }}
+{{- end }}
+{{- $base := index $.Values.projects . }}
+{{- $name := $proj.name | required (printf "projects.%s.name is required: a project that inherits a tier names itself" $scope) }}
+{{- $role := dict "name" "admin" "description" "Admin keycloak group" "groups" (list "admin") "policies" (list (printf "p, proj:%s:admin, applications, *, %s/*, allow" $name $name)) }}
+{{- $proj = dict "name" $name "description" $proj.description
+    "destinations" ($proj.destinations | required (printf "projects.%s.destinations is required: a project that inherits a tier says where its Applications go" $scope))
+    "roles" ($proj.roles | default (list $role)) "sourceNamespaces" $proj.sourceNamespaces
+    "sourceRepos" $base.sourceRepos "extraSourceRepos" $base.extraSourceRepos
+    "clusterResourceWhitelist" $base.clusterResourceWhitelist "clusterResourceBlacklist" $base.clusterResourceBlacklist
+    "namespaceResourceWhitelist" $base.namespaceResourceWhitelist "namespaceResourceBlacklist" $base.namespaceResourceBlacklist }}
+{{- $tier = . }}
+{{- end }}
 {{- /* No list given: the repositories the root manager reads, plus extras. */}}
 {{- $sourceRepos := $proj.sourceRepos }}
 {{- if not $sourceRepos }}
@@ -14,7 +35,7 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: {{ $.Release.Name }}
     app.kubernetes.io/part-of: ohmlab
-    ohmlab.fr/instance-scope: {{ $scope | quote }}
+    ohmlab.fr/instance-scope: {{ $tier | quote }}
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:

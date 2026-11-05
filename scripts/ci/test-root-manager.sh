@@ -115,4 +115,28 @@ check "without the clusters key, the config holds empty values" '{"bearerToken":
 render --set "rootManager.repoURL.sources=$SRC" "${VAULT[@]}" "${CLUSTER[@]}" || { cat "$work/err"; exit 1; }
 check "without VSO, no cluster Secret" "" "$(yq 'select(.kind == "VaultStaticSecret") | .kind' "$work/out.yaml")"
 
+# A project that inherits a tier takes its sources rule, whitelists and
+# blacklists, under its own name, destinations and admin role.
+# appproject <name> <query> -> the query on that AppProject, as JSON
+appproject() { yq -o=json -I=0 "select(.kind == \"AppProject\" and .metadata.name == \"$1\") | $2" "$work/out.yaml"; }
+# The tier's blacklists are set so that an inherited one is seen, not null.
+BLACKLISTS=(--set-json 'projects.tenant.clusterResourceBlacklist=[{"group":"storage.k8s.io","kind":"StorageClass"}]'
+  --set-json 'projects.tenant.namespaceResourceBlacklist=[{"group":"","kind":"ResourceQuota"}]')
+render --set "rootManager.repoURL.sources=$SRC" "${BLACKLISTS[@]}" || { cat "$work/err"; exit 1; }
+tiers=$(appproject admin-core . && appproject admin-tenant .)
+DEV='{"enabled":true,"inherit":"tenant","name":"dev-tenant","destinations":[{"server":"https://nonprod.example.com:6443","namespace":"dev-*"}]}'
+render --set "rootManager.repoURL.sources=$SRC" "${BLACKLISTS[@]}" --set-json "projects.dev=$DEV" || { cat "$work/err"; exit 1; }
+check "the tier's blacklists are set for this test" '[{"group":"","kind":"ResourceQuota"}]' "$(appproject admin-tenant .spec.namespaceResourceBlacklist)"
+for field in sourceRepos clusterResourceWhitelist clusterResourceBlacklist namespaceResourceWhitelist namespaceResourceBlacklist; do
+  check "an inheriting project takes the tier's $field" "$(appproject admin-tenant ".spec.$field")" "$(appproject dev-tenant ".spec.$field")"
+done
+check "an inheriting project keeps its own destinations" '[{"namespace":"dev-*","server":"https://nonprod.example.com:6443"}]' \
+  "$(appproject dev-tenant .spec.destinations | jq -cS .)"
+check "an inheriting project gets an admin role on itself" '["admin"] ["p, proj:dev-tenant:admin, applications, *, dev-tenant/*, allow"]' \
+  "$(appproject dev-tenant '.spec.roles[0].groups') $(appproject dev-tenant '.spec.roles[0].policies')"
+check "an inheriting project carries its tier's label" '"tenant"' "$(appproject dev-tenant '.metadata.labels["ohmlab.fr/instance-scope"]')"
+check "the tier projects are unchanged" "$tiers" "$(appproject admin-core . && appproject admin-tenant .)"
+refuses "a project that inherits no tier fails" "projects.dev.inherit" \
+  --set "rootManager.repoURL.sources=$SRC" --set-json "projects.dev=$(jq -c '.inherit = "dev"' <<<"$DEV")"
+
 exit "$fail"
