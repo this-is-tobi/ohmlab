@@ -1,7 +1,7 @@
 mattermost:
   image:
     repository: ghcr.io/this-is-tobi/mirror/mattermost
-    tag: 12.0.1
+    tag: 12.0.2
   persistence:
     data:
       enabled: true
