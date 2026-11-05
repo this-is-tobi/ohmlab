@@ -9,7 +9,7 @@ dependencies:
   repository: oci://ghcr.io/prometheus-community/charts
 - name: vso-utils
   alias: vso
-  version: 2.2.1
+  version: 2.3.0
   repository: oci://ghcr.io/this-is-tobi/charts
 - name: cluster
   alias: cnpg

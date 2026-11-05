@@ -19,5 +19,5 @@ dependencies:
   repository: https://cloudnative-pg.github.io/charts
 - name: vso-utils
   alias: vso
-  version: 2.2.1
+  version: 2.3.0
   repository: oci://ghcr.io/this-is-tobi/charts

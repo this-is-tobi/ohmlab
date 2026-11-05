@@ -9,5 +9,5 @@ dependencies:
   repository: https://charts.rustfs.com
 - name: vso-utils
   alias: vso
-  version: 2.2.1
+  version: 2.3.0
   repository: oci://ghcr.io/this-is-tobi/charts
