@@ -97,6 +97,24 @@ if helm template t "$ROOT/argo-cd/apps/gitea" -f "$EXAMPLE/tenant/gitea.yaml" "$
 elif grep -q 'path is required' "$work/err"; then echo "ok   a secret without a path prefix nor a path of its own does not render"; else
   echo "FAIL a secret without a path: expected 'path is required', got: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1
 fi
+# Every app's VaultAuth logs in the way its instance says: the jwt method at
+# jwt-<instance> for an instance that reads another instance's Vault
+# (global.ohmlab.vault.auth), else kubernetes; only that method's block renders.
+auth_spec() { yq e -o=json -I=0 'select(.kind == "VaultAuth") | .spec' "$work/out.yaml" | jq -cS .; }
+jwt=(--set-string global.ohmlab.vault.auth.method=jwt --set-string global.ohmlab.vault.auth.mount=jwt-dev)
+for app in tenant/gitea core/cert-manager; do
+  name=${app#*/}
+  render "$name" -f "$EXAMPLE/$app.yaml" "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/${app%/*} "${jwt[@]}"
+  check "$name: on another instance's Vault, its VaultAuth logs in with jwt, and only jwt" \
+    "{\"jwt\":{\"audiences\":[\"vault\"],\"role\":\"$name\",\"serviceAccount\":\"vso\"},\"method\":\"jwt\",\"mount\":\"jwt-dev\"}" "$(auth_spec)"
+  render "$name" -f "$EXAMPLE/$app.yaml" "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/${app%/*}
+  check "$name: on its own cluster's Vault, its VaultAuth logs in with kubernetes" \
+    "{\"kubernetes\":{\"audiences\":[\"vault\"],\"role\":\"$name\",\"serviceAccount\":\"vso\"},\"method\":\"kubernetes\",\"mount\":\"kubernetes\"}" "$(auth_spec)"
+done
+helm template t "$ROOT/charts/ohmlab" --set vso.enabled=true --set vso.vaultAuth.default.kubernetes.role=argo-cd-core >"$work/out.yaml" 2>"$work/err" \
+  || { echo "FAIL charts/ohmlab does not render: $(grep -m1 Error "$work/err" | cut -c1-200)"; fail=1; }
+check "the ohmlab chart: an instance that sets only kubernetes.role keeps the service account and audiences" \
+  '{"kubernetes":{"audiences":["vault"],"role":"argo-cd-core","serviceAccount":"vso"},"method":"kubernetes","mount":"kubernetes"}' "$(auth_spec)"
 oidc_at='select(.kind == "VaultStaticSecret" and .metadata.name == "vault-oidc-credentials") | .spec.mount + " " + .spec.path'
 render vault-operator --set vault.enabled=true "${vault_params[@]}" --set-string global.ohmlab.vault.pathPrefix=platforms/p/core
 check "Vault's OIDC credentials take the manager's mount and path" "m platforms/p/core/keycloak" "$(field "$oidc_at")"

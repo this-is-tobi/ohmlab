@@ -476,11 +476,15 @@ vso:
     kind: ServiceAccount
     metadata:
       name: vso
+  # How every VaultAuth logs in: the method and mount the instance's manager
+  # gives (global.ohmlab.vault.auth, jwt for an instance that reads another
+  # instance's Vault), else kubernetes.
+  vaultAuthDefaults:
+    method: '{{ dig "ohmlab" "vault" "auth" "method" "kubernetes" (.Values.global | default dict) }}'
+    mount: '{{ dig "ohmlab" "vault" "auth" "mount" "kubernetes" (.Values.global | default dict) }}'
   vaultAuth:
     default:
-      method: kubernetes
-      mount: kubernetes
-      kubernetes:
+      login:
         role: argo-cd
         serviceAccount: vso
         audiences: [vault]

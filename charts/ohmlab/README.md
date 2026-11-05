@@ -240,11 +240,10 @@ A Helm chart to deploy ohmlab.
 | rootManager.targetRevision | string | `"main"` | Git revision (branch, tag, commit) of the `values` repository, and of `sources` when `sourcesRevision` is empty. |
 | vso.enabled | bool | `false` | Enable VSO integration. Set to true in instance values AFTER vault-operator is deployed so VaultStaticSecret CRDs are available. |
 | vso.extraObjects | list | `[]` |  |
-| vso.vaultAuth.default.kubernetes.audiences | list | `["vault"]` | The audience of the token VSO logs in with: a token meant for Vault, not a Kubernetes API credential. The Vault role can require it. |
-| vso.vaultAuth.default.kubernetes.role | string | `""` |  |
-| vso.vaultAuth.default.kubernetes.serviceAccount | string | `"vso"` |  |
-| vso.vaultAuth.default.method | string | `"kubernetes"` |  |
-| vso.vaultAuth.default.mount | string | `"kubernetes"` |  |
+| vso.vaultAuth.default.login.audiences | list | `["vault"]` | The audience of the token VSO logs in with: a token meant for Vault, not a Kubernetes API credential. The Vault role can require it. |
+| vso.vaultAuth.default.login.role | string | `""` |  |
+| vso.vaultAuth.default.login.serviceAccount | string | `"vso"` |  |
+| vso.vaultAuthDefaults | object | `{"method":"{{ dig \"ohmlab\" \"vault\" \"auth\" \"method\" \"kubernetes\" (.Values.global | default dict) }}","mount":"{{ dig \"ohmlab\" \"vault\" \"auth\" \"mount\" \"kubernetes\" (.Values.global | default dict) }}"}` | How every VaultAuth logs in: the method and mount the instance's manager gives (global.ohmlab.vault.auth, jwt for an instance that reads another instance's Vault), else kubernetes. |
 | vso.vaultConnection.default.address | string | `"https://vault.vault-operator-system.svc.cluster.local:8200"` |  |
 | vso.vaultConnection.default.caCertSecretRef | string | `"vault-tls"` |  |
 | vso.vaultConnection.default.skipTLSVerify | bool | `false` |  |
