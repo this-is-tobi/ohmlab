@@ -16,8 +16,10 @@
 #
 # With --stdin <tier>/<app> [<namespace>] the manifests are read from standard
 # input; with --instances <dir> each enabled app of every instance of <dir> is
-# checked, as <instance>/<tier>/<app>; without arguments every app the example
-# lists, enabled or not. Each app is rendered as Argo CD would (its release
+# checked, as <instance>/<tier>/<app>, against the policies of the instance
+# that runs kyverno on its cluster (with that instance's values), else the
+# example's; without arguments every app the example lists, enabled or not.
+# Each app is rendered as Argo CD would (its release
 # name, namespace and the manager's parameters), its chart from APPS_DIR
 # (default argo-cd/apps) or its chartPath. Prints names only, never a render.
 # Needs helm, yq, jq and the kyverno CLI.
@@ -45,26 +47,29 @@ KNOWN=$(grep -v -E '^[[:space:]]*(#|$)' <<<"${POD_SECURITY_KNOWN-$KNOWN_DEFAULT}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# render_policies: the kyverno chart's policies, one copy per tier, and its
-# exceptions, into $work.
+# render_policies [<kyverno values file> <dir>]: the kyverno chart's
+# policies, one copy per tier, and its exceptions, into <dir>, with the values
+# of the example's kyverno unless given.
 render_policies() {
-  local dir="$ROOT/argo-cd/apps/kyverno" scope
+  local dir="$ROOT/argo-cd/apps/kyverno" vf="${1:-$EXAMPLE/values/core/kyverno.yaml}" out="${2:-$work}" scope
   if [ -f "$dir/Chart.lock" ] && [ ! -d "$dir/charts" ]; then
     helm dependency build "$dir" >/dev/null 2>&1 || { echo "FAIL kyverno: helm dependency build"; return 1; }
   fi
   args=()
-  app_args "$EXAMPLE/values/core/kyverno.yaml" 2>"$work/err" \
-    || { echo "FAIL kyverno: the example's manager does not render: $(head -c 240 "$work/err")"; return 1; }
-  helm template kyverno "$dir" --namespace kyverno "${args[@]}" >"$work/kyverno.yaml" 2>"$work/err" \
+  app_args "$vf" 2>"$work/err" \
+    || { echo "FAIL kyverno: the manager of $vf does not render: $(head -c 240 "$work/err")"; return 1; }
+  helm template kyverno "$dir" --namespace kyverno "${args[@]}" >"$out/kyverno.yaml" 2>"$work/err" \
     || { echo "FAIL kyverno: $(grep -m1 Error "$work/err" | cut -c1-240)"; return 1; }
   for scope in true false; do
     SCOPE=$scope yq ea 'select(.kind == "ValidatingPolicy")
       | (.spec.variables[]? | select(.name == "outOfScope" and (.expression | contains("namespaceObject"))) | .expression) = strenv(SCOPE)' \
-      "$work/kyverno.yaml" >"$work/policies-$scope.yaml"
+      "$out/kyverno.yaml" >"$out/policies-$scope.yaml"
   done
-  yq ea 'select(.kind == "PolicyException")' "$work/kyverno.yaml" >"$work/exceptions.yaml"
-  [ -s "$work/policies-true.yaml" ] || { echo "FAIL kyverno: the chart renders no ValidatingPolicy"; return 1; }
+  yq ea 'select(.kind == "PolicyException")' "$out/kyverno.yaml" >"$out/exceptions.yaml"
+  [ -s "$out/policies-true.yaml" ] || { echo "FAIL kyverno: the chart renders no ValidatingPolicy"; return 1; }
 }
+# The policies check_stream applies: render_policies' output directory.
+policies="$work"
 
 # check_stream [<instance>/]<tier>/<app> <namespace>: reads the app's manifests
 # on stdin, prints one FAIL line per failure the list does not know and per
@@ -87,7 +92,7 @@ check_stream() {
     # No pod: every listed failure of the app passes.
     out=""
   else
-    kyverno apply "$work/policies-$scope.yaml" --exceptions "$work/exceptions.yaml" --resource "$pods" \
+    kyverno apply "$policies/policies-$scope.yaml" --exceptions "$policies/exceptions.yaml" --resource "$pods" \
       --policy-report --output-format json >"$report" 2>"$work/err"
     out=$(jq -r '[.. | objects | select(has("results") and (.results | type) == "array") | .results[]]
       | if length == 0 then "none" else .[] | select(.result == "fail" or .result == "error")
@@ -131,9 +136,10 @@ checked=""
 
 # check_instance <instance dir> <label prefix> <enabled apps only: true|false>
 check_instance() {
-  local dir="$1" label="$2" enabled_only="$3" prefix suffix tier entry app id values chart chart_path release namespace chart_dir n
+  local dir="$1" label="$2" enabled_only="$3" prefix suffix server tier entry app id values chart chart_path release namespace chart_dir n
   prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
   suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
+  server=$(yq '.destination.server // "https://kubernetes.default.svc"' "$dir/instance.yaml")
   for tier in core tenant; do
     [ -f "$dir/$tier.yaml" ] || continue
     while IFS= read -r entry; do
@@ -161,6 +167,9 @@ check_instance() {
         failures=$((failures + 1))
         continue
       fi
+      # The policies of the kyverno on the app's cluster, else the example's.
+      policies=$(S=$(jq -r --arg s "$server" '.destination.server // $s' <<<"$entry") awk -F'\t' '$1 == ENVIRON["S"] {print $2; exit}' "$work/clusters" 2>/dev/null)
+      policies="${policies:-$work}"
       if check_stream "$id" "$namespace" <"$work/manifest"; then
         n=$(awk -v app="$id" '$1 == app' <<<"$KNOWN" | grep -c .)
         echo "ok   $id$([ "$n" -gt 0 ] && echo " ($n known)")"
@@ -174,6 +183,24 @@ check_instance() {
 if [ "${1:-}" = "--instances" ]; then
   INSTANCES_DIR="${2:?--instances needs a directory}"
   INSTANCES_DIR="${INSTANCES_DIR%/}"
+  # The policies of each cluster that an instance runs kyverno on, with that
+  # instance's values: "<server>\t<dir>" lines.
+  : >"$work/clusters"
+  n=0
+  while IFS= read -r d; do
+    for tier in core tenant; do
+      entry=$(yq -o=json -I=0 '.apps[] | select(.app == "kyverno" and (.enabled == "true" or .enabled == true))' "$d/$tier.yaml" 2>/dev/null | head -n1)
+      [ -n "$entry" ] && [ -f "$d/values/$tier/kyverno.yaml" ] || continue
+      n=$((n + 1))
+      mkdir -p "$work/cluster-$n"
+      if render_policies "$d/values/$tier/kyverno.yaml" "$work/cluster-$n"; then
+        server=$(jq -r --arg s "$(yq '.destination.server // "https://kubernetes.default.svc"' "$d/instance.yaml")" '.destination.server // $s' <<<"$entry")
+        printf '%s\t%s\n' "$server" "$work/cluster-$n" >>"$work/clusters"
+      else
+        failures=$((failures + 1))
+      fi
+    done
+  done < <(instance_dirs)
   while IFS= read -r d; do
     check_instance "$d" "${d##*/}/" true
   done < <(instance_dirs)
