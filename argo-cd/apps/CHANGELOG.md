@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.14.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.13.1...catalog-v0.14.0) (2026-11-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **vault-operator:** spoke clusters declare their instances
+
+### Features
+
+* **charts:** the VaultAuth of every app follows its instance ([99cc10f](https://github.com/this-is-tobi/ohmlab/commit/99cc10f35557f7b45e737385c462c9e8c8c08afe))
+* **deps:** update helm release loki to v21 ([27ba99e](https://github.com/this-is-tobi/ohmlab/commit/27ba99e25050a9e01501ccdc8dc23326997e7040))
+* **instance-manager:** an instance that reads another instance's Vault ([24e6b0c](https://github.com/this-is-tobi/ohmlab/commit/24e6b0caa5e1d484ea4ccf240d276d543595a84c))
+* **keycloak:** import only the realms the values keep ([85f7cab](https://github.com/this-is-tobi/ohmlab/commit/85f7cabb3e35fd3043e0ea46418a9036e4c538b8))
+* **vault-operator:** admit only some source ranges on Vault's routes ([a7e0037](https://github.com/this-is-tobi/ohmlab/commit/a7e003720f623a3e307b8d73cb631c396a2e304b))
+* **vault-operator:** run VSO alone on a cluster that reads a remote Vault ([9dc8fb7](https://github.com/this-is-tobi/ohmlab/commit/9dc8fb7591f0e6d44d1f5164aee432064f865307))
+* **vault-operator:** spoke clusters declare their instances ([7ccb4df](https://github.com/this-is-tobi/ohmlab/commit/7ccb4df80236b0093b779db2b658e8bbca11c405))
+
+
+### Bug Fixes
+
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.5.0 ([a3986a7](https://github.com/this-is-tobi/ohmlab/commit/a3986a78bc9a971d1c3e7cc9c1e0d238be3f4ea2))
+* **deps:** update vso-utils docker tag to v2.3.0 ([e6645c7](https://github.com/this-is-tobi/ohmlab/commit/e6645c739b92c0b5a8cd4325c40c13ad76b2eb1f))
+* **deps:** update vso-utils docker tag to v2.3.1 ([9d9a725](https://github.com/this-is-tobi/ohmlab/commit/9d9a725365cbeefa9b5f404a64f954cdfd5af05c))
+* **gitea:** refuse plaintext Postgres clients ([e94d9c9](https://github.com/this-is-tobi/ohmlab/commit/e94d9c9d23b626f8f0a7e471825df046d238c6c9))
+* **keycloak:** refuse plaintext Postgres clients ([5dee390](https://github.com/this-is-tobi/ohmlab/commit/5dee390541a7bd9aa5519cdf16a837e785d0dc0c))
+* **vault-operator:** each Argo CD reads only its own tier's path ([f1ab1a0](https://github.com/this-is-tobi/ohmlab/commit/f1ab1a05ae239184afb33f52b88ba6e1a2dd44e2))
+* **vaultwarden:** refuse plaintext Postgres clients ([4b3502a](https://github.com/this-is-tobi/ohmlab/commit/4b3502acd856f1d0f23a634ddb46eb1ed0c1b00c))
+
 ## [0.13.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.13.0...catalog-v0.13.1) (2026-11-04)
 
 
