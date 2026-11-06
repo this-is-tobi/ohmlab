@@ -1,9 +1,10 @@
 {{- /*
 One Argo CD cluster Secret per entry of `clusters`, written by VSO from this
 Argo CD's own Vault path, which its VaultAuth already reads. The VSO templates
-are built with printf so that Helm leaves them to VSO. The config goes through
-toJson, trimmed, so that a token stored with its file's newline or a wrapped
-CA still makes the JSON Argo CD reads.
+are built with printf so that Helm leaves them to VSO. Each value of the config
+goes through toJson, trimmed, so that a token stored with its file's newline or
+a wrapped CA still makes the JSON Argo CD reads, in a form check-vault-seeds.sh
+follows.
 */}}
 {{- if and .Values.vso.enabled .Values.clusters }}
 {{- $vso := .Values.vso }}
@@ -45,6 +46,6 @@ spec:
         server:
           text: {{ $server | quote }}
         config:
-          text: {{ printf `{{ $c := get (get .Secrets "clusters" | default dict) %q | default dict }}{{ dict "bearerToken" (get $c "bearerToken" | default "" | trim) "tlsClientConfig" (dict "caData" (get $c "caData" | default "" | trim)) | toJson }}` $name | quote }}
+          text: {{ printf `{{ printf %q (get .Secrets "clusters" | default dict | dig %q "bearerToken" "" | trim | toJson) (get .Secrets "clusters" | default dict | dig %q "caData" "" | trim | toJson) }}` `{"bearerToken":%s,"tlsClientConfig":{"caData":%s}}` $name $name | quote }}
 {{- end }}
 {{- end }}

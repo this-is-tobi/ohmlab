@@ -112,6 +112,11 @@ check "a token with a trailing newline and a wrapped CA still make valid JSON" '
   "$(helm template tpl "$work/tpl" --set-file "text=$work/config.txt" --set-json 'secrets={"clusters":{"nonprod":{"bearerToken":"t0k\n","caData":"Y2E=\nY2E=\n"}}}' 2>&1 | grep -v '^---\|^# Source' | jq -cS . 2>&1)"
 check "without the clusters key, the config holds empty values" '{"bearerToken":"","tlsClientConfig":{"caData":""}}' \
   "$(helm template tpl "$work/tpl" --set-file "text=$work/config.txt" --set-json 'secrets={"other":"x"}' 2>&1 | grep -v '^---\|^# Source' | jq -cS . 2>&1)"
+# check-vault-seeds.sh follows the config, so it checks that both are seeded.
+jq -n --arg t "$config" '[{label: "core/ohmlab", secret: "cluster-nonprod", path: "ohmlab/platforms/production/core/argo-cd", texts: [$t]}]' >"$work/reads.json"
+printf '%s\n' '[{"path": "ohmlab/platforms/production/core/argo-cd", "data": {"clusters": {"nonprod": {"bearerToken": "", "caData": ""}}}}]' >"$work/seeds.json"
+check "the seed check reads the config's two credentials" "ok   2 key(s) read, all seeded by hub" \
+  "$("$(dirname "${BASH_SOURCE[0]}")/check-vault-seeds.sh" --reads "$work/reads.json" "$work/seeds.json" hub 2>&1)"
 render --set "rootManager.repoURL.sources=$SRC" "${VAULT[@]}" "${CLUSTER[@]}" || { cat "$work/err"; exit 1; }
 check "without VSO, no cluster Secret" "" "$(yq 'select(.kind == "VaultStaticSecret") | .kind' "$work/out.yaml")"
 
