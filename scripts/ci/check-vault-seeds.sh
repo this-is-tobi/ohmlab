@@ -49,11 +49,14 @@ seed_reads() {
       elif test("^\\s*" + field_re + "\\s*$") then [match(field_re) | .captures[0].string | ltrimstr(".") | split(".")]
       elif test("^\\s*printf\\s+" + lit + "(?:\\s+(?:\\(\\s*" + get_re + "\\s*\\)|" + lit + "))+\\s*$") then [match(get_re; "g") | get_path]
       else null end;
+    # An action, the text between {{ and }}: as in Go templates, a }} inside
+    # a string does not end it.
+    def act: "\\{\\{-?((?:" + lit + "|`[^`]*`|[^\"`}]|\\}(?!\\}))*?)-?\\}\\}";
     # The key paths a template text reads, or null when one of its actions is
     # none of the forms, or one is left open.
     def keys_read:
-      if gsub("\\{\\{.*?\\}\\}"; ""; "s") | test("\\{\\{") then null
-      else [match("\\{\\{-?(.*?)-?\\}\\}"; "gs") | .captures[0].string | action_reads] as $acts
+      if gsub(act; "") | test("\\{\\{") then null
+      else [match(act; "g") | .captures[0].string | action_reads] as $acts
         | if any($acts[]; . == null or any(.[]; . == null)) then null else [$acts[][]] end end;
     # Whether the seed data has the key path, whatever its value: an empty
     # one is a placeholder that an operator fills.
