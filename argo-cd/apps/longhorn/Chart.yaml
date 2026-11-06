@@ -9,7 +9,7 @@ dependencies:
   repository: https://charts.longhorn.io
 - name: vso-utils
   alias: vso
-  version: 2.3.1
+  version: 2.4.0
   repository: oci://ghcr.io/this-is-tobi/charts
 - name: oauth2-proxy
   alias: sso
