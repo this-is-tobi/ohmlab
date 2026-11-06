@@ -10,7 +10,7 @@ description: >-
 dependencies:
 - name: traefik
   alias: traefik
-  version: 42.3.0
+  version: 42.3.1
   repository: https://traefik.github.io/charts
 - name: vso-utils
   alias: vso
