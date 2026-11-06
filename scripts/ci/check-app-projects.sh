@@ -13,6 +13,11 @@
 # instance-manager sets them. Destination patterns are matched as Argo CD's
 # globs (* and ?); a pattern starting with ! is reported, not read.
 #
+# The same render's root manager must find its chart: it reads
+# argo-cd/apps/instance-manager from rootManager.repoURL.sources, so when that
+# is the instances' own repository (their repoURL), the repository must hold
+# the chart, which a repository of instances alone does not.
+#
 #   check-app-projects.sh
 #   check-app-projects.sh --match <projects.json> <apps.json>
 #
@@ -79,6 +84,11 @@ while IFS= read -r dir; do
     else
       yq -o=json -I=0 'select(.kind == "AppProject") | {"name": .metadata.name, "destinations": (.spec.destinations // [])}' "$work/manifest" \
         | jq -s -c --slurpfile have "$work/projects.json" '$have[0] + .' >"$work/more.json" && mv "$work/more.json" "$work/projects.json"
+      chart_repo=$(yq 'select(.kind == "ApplicationSet") | (.spec.template.spec.sources // [])[] | select(.path == "argo-cd/apps/instance-manager") | .repoURL' "$work/manifest" | head -n1)
+      if [ -n "$chart_repo" ] && [ "$chart_repo" = "$(yq '.repoURL // ""' "$dir/instance.yaml")" ] && [ ! -f "$dir/../../apps/instance-manager/Chart.yaml" ]; then
+        echo "FAIL $id: the root manager reads argo-cd/apps/instance-manager from $chart_repo, the instances' own repository, which holds no such chart: set rootManager.repoURL.sources to the product (its git repository or an oci:// catalog) and rootManager.repoURL.values to this repository"
+        failures=$((failures + 1))
+      fi
     fi
   fi
   # Its Applications.
