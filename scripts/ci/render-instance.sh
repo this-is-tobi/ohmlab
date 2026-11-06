@@ -19,7 +19,9 @@
 # charts are pulled anonymously. With RENDER_OUT set, each app's objects are
 # recorded in RENDER_OUT/<instance>/<tier>/<app>.objects, one line per object:
 # kind/namespace/name and a hash of its content (never the content itself,
-# some objects are Secrets), for compare-instance-renders.sh.
+# some objects are Secrets), for compare-instance-renders.sh, and the objects
+# themselves in <app>.yaml, a Secret's values blanked, for the checks that read
+# them.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -55,6 +57,12 @@ record() {
     | while IFS=$'\t' read -r id object; do
         printf '%s %s\n' "$id" "$(printf '%s' "$object" | shasum -a 256 | cut -c1-16)"
       done | sort >"$3"
+}
+
+# keep <manifest> <file>: the objects of a rendered manifest, a Secret's values
+# blanked.
+keep() {
+  yq 'select(. != null and .kind != null) | (select(.kind == "Secret") | .data[], .stringData[]) = ""' "$1" >"$2"
 }
 
 # record_cluster <manifest> <server> <namespace> <app path> <CRD scopes file>:
@@ -139,6 +147,7 @@ render_apps() {
         rendered=$((rendered + 1))
         if [ -n "${RENDER_OUT:-}" ]; then
           record "$work/manifest" "$namespace" "$RENDER_OUT/$id.objects"
+          keep "$work/manifest" "$RENDER_OUT/$id.yaml"
           record_cluster "$work/manifest" "${server:-$default_server}" "$namespace" "$RENDER_OUT/$id" "$RENDER_OUT/$instance/crd-scopes"
         fi
       else

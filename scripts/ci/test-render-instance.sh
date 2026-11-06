@@ -141,6 +141,14 @@ if [ -f "$rec" ] && [ "$(wc -l <"$rec" | tr -d ' ')" = 2 ] && grep -q '^Secret/g
 else
   echo "FAIL RENDER_OUT recording"; sed 's/^/     /' "$rec" "$work/out2/r/core/gen.objects" 2>&1; fail=1
 fi
+man="$work/out1/r/core/gen.yaml"
+if [ -f "$man" ] && [ "$(yq ea '[select(.kind != null)] | length' "$man")" = 2 ] \
+    && [ "$(yq 'select(.kind == "Deployment") | .spec.template.spec.containers[0].image' "$man")" = busybox ] \
+    && [ "$(yq 'select(.kind == "Secret") | .data.password' "$man")" = "" ]; then
+  echo "ok   RENDER_OUT keeps each app's objects for the checks that read them, a Secret's values blanked"
+else
+  echo "FAIL RENDER_OUT does not keep the app's objects, or keeps a Secret's values"; fail=1
+fi
 
 # crdapp installs example.com/v1 Widget from a template (its v1beta1 is not
 # served) and example.com/v1 Gadget from its crds/ directory; gated renders
