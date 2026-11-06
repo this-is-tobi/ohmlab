@@ -98,8 +98,8 @@ traefik:
 
   service:
     enabled: true
-    type: LoadBalancer
     spec:
+      type: LoadBalancer
       # Cluster (not Local): makes kube-proxy DNAT nodeIP:80/443 -> traefik
       # on EVERY node via the Service's externalIPs list, regardless of
       # which node a given traefik pod lands on. Known trade-off: this
