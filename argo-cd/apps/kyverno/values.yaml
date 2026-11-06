@@ -95,7 +95,11 @@ kyverno:
 
 # The namespaces each built-in exception (templates/policy-exceptions.yaml)
 # also covers, by its name: where an instance runs that app under a namespace
-# prefix or suffix, or a namespace of its own, on this cluster.
+# prefix or suffix, or a namespace of its own, on this cluster. A listed
+# namespace is covered as the app's own is: system-upgrade-jobs-baseline and
+# trivy-node-collector-baseline give host access (host namespaces, host paths)
+# to the pods named with their prefix (apply-, node-collector-) there, so list
+# only a namespace that app alone uses.
 exceptionNamespaces: {}
 # rustfs-init-step-limits: [dev-rustfs, preprod-rustfs]
 
