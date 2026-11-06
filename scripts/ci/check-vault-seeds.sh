@@ -6,7 +6,9 @@
 #
 # A remote instance (vault.hub) reads its secrets from its hub's Vault, where
 # the hub's VaultSeeds create them: every key its apps' VaultStaticSecrets read
-# must be in the hub's seed of that path.
+# must be in the hub's seed of that path. An instance with a Vault of its own
+# (vault-operator values and no vault.hub) is its own hub: nothing but its
+# seeds writes what its own apps read either.
 #
 #   check-vault-seeds.sh
 #   check-vault-seeds.sh --reads <reads.json> <seeds.json> <hub>
@@ -163,13 +165,17 @@ for dir in "$INSTANCES_DIR"/*/; do
   dir="${dir%/}"
   instance="${dir##*/}"
   hub=$(yq '.vault.hub // ""' "$dir/instance.yaml" 2>/dev/null)
-  [ -n "$hub" ] || continue
-  if [ ! -f "$INSTANCES_DIR/$hub/instance.yaml" ]; then
+  if [ -z "$hub" ]; then
+    [ -f "$dir/values/core/vault-operator.yaml" ] || continue
+    hub=$instance
+  elif [ ! -f "$INSTANCES_DIR/$hub/instance.yaml" ]; then
     echo "FAIL $instance: hub $hub is not an instance of $INSTANCES_DIR"
     failures=$((failures + 1))
     continue
   fi
   if ! render_seeds "$INSTANCES_DIR/$hub"; then
+    # The loop above reported an instance's own seeds that do not render.
+    [ "$hub" = "$instance" ] && continue
     echo "FAIL $instance: the seeds of hub $hub do not render: $rendered"
     failures=$((failures + 1))
     continue

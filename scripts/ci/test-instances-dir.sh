@@ -207,8 +207,22 @@ ohmlab:
           s3: {accessKey: "", bucketName: "", bucketPrefix: "", endpoint: "", region: "", secretKey: ""}
         valkey: {password: "<random:32>"}
 YAML
+# An instance with a Vault of its own seeds what its own apps read too: here
+# the OIDC client secret its Vault reads from its Keycloak path.
 rc=$(runs "$seeded" check-vault-seeds.sh)
-if [ "$rc" = 0 ] && grep -qxF 'ok   dev: 18 key(s) read, all seeded by hub' "$work/out"; then
+if [ "$rc" != 0 ] && grep -qxF 'FAIL hub/core/vault-operator: ohmlab/platforms/production/core/keycloak key clients.vault-core.clientSecret is not seeded by hub hub' "$work/out" \
+    && ! grep -q '^ok   hub: .* key(s) read' "$work/out"; then
+  echo "ok   check-vault-seeds.sh refuses a key an instance's own app reads that its own seeds lack"
+else
+  echo "FAIL check-vault-seeds.sh on an instance that does not seed its own reads (rc $rc)"; sed 's/^/     /' "$work/out" | head -8; fail=1
+fi
+cat >>"$seeded/hub/values/core/vault-operator.yaml" <<'YAML'
+    - path: ohmlab/platforms/production/core/keycloak
+      data:
+        clients: {vault-core: {clientSecret: "<random:32>"}}
+YAML
+rc=$(runs "$seeded" check-vault-seeds.sh)
+if [ "$rc" = 0 ] && grep -qxF 'ok   dev: 18 key(s) read, all seeded by hub' "$work/out" && grep -qxF 'ok   hub: 1 key(s) read, all seeded by hub' "$work/out"; then
   echo "ok   check-vault-seeds.sh passes a remote instance whose hub seeds every key its apps read"
 else
   echo "FAIL check-vault-seeds.sh on a hub that seeds every key (rc $rc)"; sed 's/^/     /' "$work/out" | head -8; fail=1
