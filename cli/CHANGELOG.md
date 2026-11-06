@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/this-is-tobi/ohmlab/compare/v0.5.0...v0.5.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/spf13/pflag to v1.1.0 ([1d95e9a](https://github.com/this-is-tobi/ohmlab/commit/1d95e9ab014854063cb5d16e908e3bfb72c6fa65))
+
 ## [0.5.0](https://github.com/this-is-tobi/ohmlab/compare/v0.4.0...v0.5.0) (2026-11-05)
 
 
