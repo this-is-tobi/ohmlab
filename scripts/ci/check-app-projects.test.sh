@@ -83,6 +83,35 @@ if [ "$rc" = 1 ] && grep -qF 'ok   hub/core/ohmlab' <<<"$out" && grep -qF 'ok   
 else
   echo "FAIL the loop: exit $rc"; printf '%s\n' "$out" | sed 's/^/     /'; fail=1
 fi
+
+# The root manager reads the instance-manager chart from rootManager.repoURL.sources:
+# a repository of instances alone, such as a copied example, holds no such chart.
+cat >"$work/cat/charts/boot/templates/manager.yaml" <<'YAML'
+{{- with .Values.rootManager }}
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata: {name: manager}
+spec:
+  template:
+    spec:
+      sources:
+      - {repoURL: {{ .repoURL.sources | quote }}, path: argo-cd/apps/instance-manager}
+      - {repoURL: {{ .repoURL.values | default .repoURL.sources | quote }}, ref: values}
+{{- end }}
+YAML
+manager() { # manager <label> <sources> <FAIL expected: yes|no>
+  local got=no
+  printf 'rootManager: {repoURL: {sources: %s}}\n' "$2" >"$work/repo/argo-cd/instances/hub/values/core/ohmlab.yaml"
+  out=$(APPS_DIR="$work/cat/argo-cd/apps" INSTANCES_DIR="$work/repo/argo-cd/instances" "$SCRIPT" 2>&1)
+  grep -qF "FAIL hub/core/ohmlab: the root manager reads argo-cd/apps/instance-manager from $2," <<<"$out" && got=yes
+  if [ "$got" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1"; printf '%s\n' "$out" | sed 's/^/     /'; fail=1; fi
+}
+manager "a root manager reading its chart from the instances' own repository, which holds none, fails" https://git.example/x.git yes
+manager "a root manager reading its chart from a catalog bundle passes" oci://ghcr.io/x/catalog no
+mkdir -p "$work/repo/argo-cd/apps/instance-manager"
+printf 'apiVersion: v2\nname: instance-manager\nversion: 0.1.0\n' >"$work/repo/argo-cd/apps/instance-manager/Chart.yaml"
+manager "a repository holding both the instances and the chart passes" https://git.example/x.git no
+rm -rf "$work/repo/argo-cd/apps"
 rm -rf "$work/repo/argo-cd/instances/hub"
 out=$(APPS_DIR="$work/cat/argo-cd/apps" INSTANCES_DIR="$work/repo/argo-cd/instances" "$SCRIPT" 2>&1); rc=$?
 if [ "$rc" = 0 ] && grep -qF 'projects not checked: no instance enables the ohmlab app' <<<"$out"; then
