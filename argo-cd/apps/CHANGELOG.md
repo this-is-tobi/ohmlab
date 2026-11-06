@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.15.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.14.0...catalog-v0.15.0) (2026-11-06)
+
+
+### Features
+
+* **kyverno:** let a built-in exception cover more namespaces ([680e86c](https://github.com/this-is-tobi/ohmlab/commit/680e86c291440c3e3bf64995f4a2bf0eba69c039))
+
+
+### Bug Fixes
+
+* **deps:** update helm release argo-cd to v10.14.0 ([c0fdb49](https://github.com/this-is-tobi/ohmlab/commit/c0fdb491937032c28731cb52fe0aa13401b3829c))
+* **deps:** update helm release crowdsec to v0.24.3 ([a0ed912](https://github.com/this-is-tobi/ohmlab/commit/a0ed9120fb3cb09d3a7a834031d92b9198ded5a0))
+* **deps:** update helm release mattermost-team-edition to v6.6.111 ([9b185ed](https://github.com/this-is-tobi/ohmlab/commit/9b185ed36be2acbf538975e35924ddbbf9b1c697))
+* **deps:** update helm release oauth2-proxy to v10.7.2 ([b47d6c8](https://github.com/this-is-tobi/ohmlab/commit/b47d6c8a6761a66751232502d12301cc632a80e9))
+* **deps:** update kube-prometheus-stack docker tag to v92.21.1 ([958be8a](https://github.com/this-is-tobi/ohmlab/commit/958be8a6282b6a41823f091a5e41e22724bd7421))
+* **prometheus-stack:** render Grafana's database only with Grafana ([a956e39](https://github.com/this-is-tobi/ohmlab/commit/a956e39474e66e524b61e393dba705c7d53d9059))
+* **vault-operator:** a spoke instance's seeds keep its mount in their names ([0cfe3fd](https://github.com/this-is-tobi/ohmlab/commit/0cfe3fd88a481dff386e157f48d6a1955a47acd7))
+
 ## [0.14.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.13.1...catalog-v0.14.0) (2026-11-05)
 
 
