@@ -13,7 +13,8 @@ cat >"$work/seeds.json" <<'JSON'
 [
   {"path": "dev/platforms/dev/tenant/gitea", "data": {"admin": {"username": "gitea", "password": "<random:32>"}, "token": "", "url": null}},
   {"path": "dev/platforms/dev/core/keycloak", "data": {"clients": {"grafana": {"clientSecret": "<random:32>"}}, "admin": "<random:32>"}},
-  {"path": "ohmlab/platforms/dev/tenant/outline", "data": {"secret": "<random:32>"}}
+  {"path": "ohmlab/platforms/dev/tenant/outline", "data": {"secret": "<random:32>"}},
+  {"path": "ohmlab/platforms/production/core/argo-cd", "data": {"clusters": {"nonprod": {"bearerToken": "", "caData": ""}}}}
 ]
 JSON
 
@@ -77,7 +78,11 @@ check "a }} inside a string does not close the action" 1 "$(reads $r s $gitea '{
 check "a dig with a default that is not a string cannot be followed" 1 "$(reads $r s $gitea '{{ get .Secrets "admin" | dig "password" 0 }}')" -- "$cannot"
 check "a dig with a dict default cannot be followed" 1 "$(reads $r s $gitea '{{ get .Secrets "admin" | dig "password" (dict) }}')" -- "$cannot"
 check "an index of a get cannot be followed" 1 "$(reads $r s $gitea '{{ index (get .Secrets "admin") "password" }}')" -- "$cannot"
-check "a get through default dict cannot be followed" 1 "$(reads $r s $gitea '{{ get .Secrets "admin" | default dict | dig "password" "" }}')" -- "$cannot"
+check "a get through default dict reads the dug key" 0 "$(reads $r s $gitea '{{ get .Secrets "admin" | default dict | dig "password" "" }}')" -- '1 key(s) read'
+check "a key under default dict the seed does not have is refused" 1 "$(reads $r s $gitea '{{ get .Secrets "admin" | default dict | dig "email" "" }}')" -- 'key admin.email is not seeded'
+check "trim and toJson read their key" 0 "$(reads $r s $gitea '{{ get .Secrets "token" | trim | toJson }}')" -- '1 key(s) read'
+check "a cluster's config reads its two credentials" 0 "$(reads dev/core/ohmlab cluster-nonprod ohmlab/platforms/production/core/argo-cd \
+  '{{ printf "{\"bearerToken\":%s,\"tlsClientConfig\":{\"caData\":%s}}" (get .Secrets "clusters" | default dict | dig "nonprod" "bearerToken" "" | trim | toJson) (get .Secrets "clusters" | default dict | dig "nonprod" "caData" "" | trim | toJson) }}')" -- '2 key(s) read'
 check "a get kept in a variable cannot be followed" 1 "$(reads $r s $gitea '{{ $a := get .Secrets "admin" }}{{ $a.password }}')" -- "$cannot"
 check "a field piped to dig cannot be followed" 1 "$(reads $r s $gitea '{{ .Secrets.admin | dig "password" "" }}')" -- "$cannot"
 check "an action left open cannot be followed" 1 "$(reads $r s $gitea '{{ get .Secrets "token"')" -- "$cannot"
