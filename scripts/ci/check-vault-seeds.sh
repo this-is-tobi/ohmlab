@@ -26,17 +26,18 @@ source "$ROOT/scripts/lib/instances.sh"
 # key read that the hub's seed of its path does not have, and per entry of
 # reads.json that is a failure ({label, fail}), else one ok line. Each template
 # action that uses .Secrets must be one of
-#   get .Secrets "<k>" [| dig "<k2>"... "<default>"] [| default "<s>" | b64dec]...
-#   .Secrets.<k>[.<k2>...] [| default "<s>" | b64dec]...
+#   get .Secrets "<k>" [| default dict] [| dig "<k2>"... "<default>"] [| <filter>]...
+#   .Secrets.<k>[.<k2>...] [| <filter>]...
 #   printf "<format>" with such gets in parentheses, and strings, as arguments
-# and any other fails, naming the secret: it could read keys this check does
-# not see. A secret without templates needs its path seeded. Returns 1 when
-# the files cannot be read.
+# where a filter is default "<s>", b64dec, trim or toJson, and any other fails,
+# naming the secret: it could read keys this check does not see. A secret
+# without templates needs its path seeded. Returns 1 when the files cannot be
+# read.
 seed_reads() {
   jq -r --slurpfile seeds "$2" --arg hub "$3" --arg prefix "${4:-}" '
     def lit: "\"(?:[^\"\\\\]|\\\\.)*\"";
-    def filters: "(?:\\s*\\|\\s*(?:default\\s+" + lit + "|b64dec))*";
-    def get_re: "get\\s+\\.Secrets\\s+(" + lit + ")((?:\\s*\\|\\s*dig(?:\\s+" + lit + ")+)?)" + filters;
+    def filters: "(?:\\s*\\|\\s*(?:default\\s+" + lit + "|b64dec|trim|toJson))*";
+    def get_re: "get\\s+\\.Secrets\\s+(" + lit + ")(?:\\s*\\|\\s*default\\s+dict)?((?:\\s*\\|\\s*dig(?:\\s+" + lit + ")+)?)" + filters;
     def field_re: "\\.Secrets((?:\\.[A-Za-z_][A-Za-z0-9_]*)+)" + filters;
     # The key path of a get_re match (the last argument of dig is its
     # default), or null for a dig without one.
