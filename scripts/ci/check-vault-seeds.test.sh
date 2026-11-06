@@ -73,6 +73,7 @@ check "no read passes" 0 -- '0 key(s) read'
 # fails: a form the check cannot follow could read keys it does not see.
 cannot='reads .Secrets in a form this check cannot follow'
 check "trim markers close an action" 0 "$(reads $r s $gitea '{{- get .Secrets "token" -}}')"
+check "a }} inside a string does not close the action" 1 "$(reads $r s $gitea '{{ printf "}}%s" (get .Secrets "missing") }}')" -- 'key missing is not seeded'
 check "a dig with a default that is not a string cannot be followed" 1 "$(reads $r s $gitea '{{ get .Secrets "admin" | dig "password" 0 }}')" -- "$cannot"
 check "a dig with a dict default cannot be followed" 1 "$(reads $r s $gitea '{{ get .Secrets "admin" | dig "password" (dict) }}')" -- "$cannot"
 check "an index of a get cannot be followed" 1 "$(reads $r s $gitea '{{ index (get .Secrets "admin") "password" }}')" -- "$cannot"
