@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.16.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.15.0...catalog-v0.16.0) (2026-11-06)
+
+
+### Features
+
+* **instance-manager:** name the hub to an instance's apps ([05bfe8b](https://github.com/this-is-tobi/ohmlab/commit/05bfe8bb6b007ceb07ba3ff8e1f01e615d764ffb))
+* **keycloak:** a remote instance's Keycloak leaves out the system realm ([5527672](https://github.com/this-is-tobi/ohmlab/commit/552767286ece32aba0e21cf96c3cf35d84918078))
+
+
+### Bug Fixes
+
+* **deps:** update dependency cnescatlab/sonar-cnes-report to v5.0.5 ([70f2943](https://github.com/this-is-tobi/ohmlab/commit/70f29438cda47d3a8fc2efd3406a71ee91f7aa72))
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.5.1 ([57d2501](https://github.com/this-is-tobi/ohmlab/commit/57d25012378b552222150d41e3383ce1bf36b662))
+* **deps:** update helm release argo-workflows to v2.0.18 ([db87760](https://github.com/this-is-tobi/ohmlab/commit/db87760f28b79aa80a93f7da4426cf417b067462))
+* **deps:** update helm release traefik to v42.3.1 ([9f6f7d5](https://github.com/this-is-tobi/ohmlab/commit/9f6f7d5ba99d749c36d59dc41ab584ddd247cc83))
+* **deps:** update kube-prometheus-stack docker tag to v92.21.2 ([c1f2e66](https://github.com/this-is-tobi/ohmlab/commit/c1f2e66bb03469424efd1d0cc18ff3f2bbda5732))
+* **deps:** update vso-utils docker tag to v2.4.0 ([18cec5b](https://github.com/this-is-tobi/ohmlab/commit/18cec5ba55d13a8780ce64c159ba5098f0f9be8a))
+* **traefik:** set the Service type where the chart reads it ([f388e2b](https://github.com/this-is-tobi/ohmlab/commit/f388e2bd8f086e2e7dfb94bc759721bbea534538))
+
 ## [0.15.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.14.0...catalog-v0.15.0) (2026-11-06)
 
 
