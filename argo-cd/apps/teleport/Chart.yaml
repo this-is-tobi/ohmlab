@@ -5,5 +5,5 @@ version: 0.1.0
 dependencies:
 - name: teleport-cluster
   alias: server
-  version: 18.11.8
+  version: 18.11.9
   repository: https://charts.releases.teleport.dev
