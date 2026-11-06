@@ -327,6 +327,8 @@ namespace (a CEL `PolicyException` anywhere else is ignored), so every exception
 [policy-exceptions.yaml](../argo-cd/apps/kyverno/templates/policy-exceptions.yaml)
 and workloads cannot self-exempt. In-cluster encryption is described in [In-cluster TLS](#in-cluster-tls).
 
+Each built-in exception covers one app's pods in that app's default namespace. An instance that runs the app in another namespace of its cluster, under a namespace prefix or beside another instance, lists that namespace under the exception's name in the kyverno values' `exceptionNamespaces`, such as `rustfs-init-step-limits: [dev-rustfs, preprod-rustfs]`. The exception then covers that namespace too, with the same kinds, name prefix and image conditions. Two exceptions grant host access: `system-upgrade-jobs-baseline` lets the k3s upgrade Jobs use the host namespaces and host paths, and run privileged from the k3s-upgrade image, and `trivy-node-collector-baseline` lets trivy's node collectors see the node's processes and read its files. In a namespace they cover, whoever can create a pod named with their prefix (`apply-`, `node-collector-`) gets that access, so list only a namespace that app alone uses.
+
 ### Monitoring
 
 The cluster itself and the platform services are monitored using [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/). Every component that exposes metrics ships a `ServiceMonitor`/`PodMonitor` (ArgoCD, Vault, Traefik, cert-manager, CrowdSec, Longhorn, Gitea, Keycloak, CNPG, sops, ...).

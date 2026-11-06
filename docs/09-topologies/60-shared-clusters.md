@@ -29,7 +29,7 @@ Each instance sets a `namespacePrefix` (`dev-`, `preprod-`), so that its apps' d
 
 - the instance's project allows its prefixed namespaces only (`dev-*`);
 - the hub's spoke entry of the instance carries the same prefix, so that each app's Vault role is bound to its prefixed namespace;
-- the layer's Kyverno lists the prefixed namespaces of the apps its built-in exceptions cover, in `exceptionNamespaces` (`rustfs-init-step-limits: [dev-rustfs, preprod-rustfs]`).
+- the layer's Kyverno lists the prefixed namespaces of the apps its built-in exceptions cover, in `exceptionNamespaces` (`rustfs-init-step-limits: [dev-rustfs, preprod-rustfs]`); [security policies](../05-services.md#security-policies) says which two grant host access.
 
 ## The shared Gateway
 

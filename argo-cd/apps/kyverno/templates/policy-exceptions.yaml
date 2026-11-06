@@ -23,6 +23,8 @@
         "ns" "trivy-operator" "prefix" "node-collector-"
         "allowed" (list "host-namespaces" "host-path-volumes")
         "confined" `(spec.containers + spec.?initContainers.orValue([])).all(c, c.image.startsWith('ghcr.io/aquasecurity/node-collector:') || c.image.startsWith('ghcr.io/aquasecurity/node-collector@')) && !spec.?hostNetwork.orValue(false) && !spec.?hostIPC.orValue(false) && spec.?volumes.orValue([]).filter(v, has(v.hostPath)).all(v, (spec.containers + spec.?initContainers.orValue([])).all(c, c.?volumeMounts.orValue([]).filter(m, m.name == v.name).all(m, m.?readOnly.orValue(false))))`) }}
+{{- /* Every exception can be widened, the two host ones too, so that their
+apps can run in another namespace; the values say what that grants. */}}
 {{- $extra := .Values.exceptionNamespaces | default dict }}
 {{- $known := list }}
 {{- range $e := $exceptions }}{{ $known = append $known $e.name }}{{ end }}
