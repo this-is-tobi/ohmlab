@@ -61,6 +61,9 @@ func New(o Options) *UI {
 	return &UI{o: o, in: bufio.NewReader(o.In), log: slog.New(slog.NewJSONHandler(o.Out, nil))}
 }
 
+// Human reports whether a person reads the output, rather than a program.
+func (u *UI) Human() bool { return u.o.Mode == Human }
+
 // Detect chooses the mode from out: Human on a terminal, JSON otherwise.
 // Color needs a terminal, no --no-color and an empty NO_COLOR.
 func Detect(out *os.File, noColor bool) (mode Mode, color bool) {

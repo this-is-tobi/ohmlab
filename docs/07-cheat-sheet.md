@@ -37,6 +37,11 @@ ohmlab audit tls --context <context>
 # inventory) and merge it into yours as a named context. --dry-run prints the
 # Ansible command and the change, and runs nothing.
 ohmlab kubeconfig --product <checkout of ohmlab> --name <context>
+
+# Install the instance's bootstrap chart on its cluster: the Gateway API CRDs
+# when they are missing, Argo CD alone on an empty cluster, then the whole
+# chart. --dry-run prints the plan and the helm commands, and changes nothing.
+ohmlab bootstrap [instance]
 ```
 
 `ohmlab check` uses the in-cluster ServiceAccount when available and falls
@@ -58,6 +63,8 @@ An exception that allows nothing any more, such as one whose port speaks TLS now
 
 `ohmlab kubeconfig` fetches `/etc/rancher/k3s/k3s.yaml` from the first master with `ansible --become` (adding the inventory's `group_vars/vault.yml` when it exists), into a temporary directory it removes afterwards. It merges the cluster, the user and a context, all called `--name`, into the file kubectl writes (`--kubeconfig`, else the one kubectl picks from `$KUBECONFIG`, else `~/.kube/config`), with the server set to the inventory's first `gateway` host on 6443, else its first master. An existing file is copied to `<file>.bak` first and keeps its current context. A context of that name that leads to another server is replaced only after a yes (`--yes` gives it). Ansible reads the product's `ansible/ansible.cfg`. The vault password file is the `vaultPasswordFile` setting (below), else the workspace's `ansible/.vault_password` when it exists, else the `vault_password_file` that `ansible.cfg` names, which Ansible looks for in the product checkout.
 
+`ohmlab bootstrap` installs an instance's `ohmlab` chart as its self-managed Application then runs it, through `helm` (Helm 4). It acts on the workspace's context (`contextName`, below), never on whichever context is current, and shows it with its server before asking. The chart is the published one the instance's `ohmlab` entry pins in `core.yaml` (its `catalog` and `targetRevision`), else the entry's `chartPath` (`charts/ohmlab` by default) in the product checkout, or the directory `--chart` names. The release name and namespace come from the entry too (`ohmlab` in `argocd-system` by default). On an empty cluster it installs the Gateway API CRDs (experimental channel), then Argo CD alone, then the whole chart; on a cluster already bootstrapped it upgrades the release. The Argo CD admin password comes from `--admin-password-file` (`-` reads it from standard input, which then needs `--yes`) or `ARGOCD_ADMIN_PASSWORD`. It reaches Helm as a bcrypt hash in a file only you can read, removed afterwards. Without either, Argo CD generates one, which the command prints on a terminal only. `--dry-run` prints the plan and the helm commands, and changes nothing.
+
 ### The workspace file
 
 Run from an instance repository, the workstation commands take their settings from its `ohmlab.yaml`, the nearest one from the current directory up to the repository root. A flag wins over the environment variable `run.sh` read, which wins over the file, which wins over the default. Paths in the file are relative to it; the defaults are relative to the workspace (the file's directory, else the repository root).
@@ -69,7 +76,7 @@ Run from an instance repository, the workstation commands take their settings fr
 | `instance` | `--instance` | | the only folder there with an `instance.yaml` and no leading `_` |
 | `inventory` | `--inventory` | `ANSIBLE_INVENTORY` | `ansible/inventory` |
 | `vaultPasswordFile` | `--vault-password-file` | `ANSIBLE_VAULT_PASSWORD_FILE` | `ansible/.vault_password` when it exists, else Ansible's own, from the product's `ansible/ansible.cfg` |
-| `contextName` | `--name` (`ohmlab kubeconfig`) | `KUBE_CONTEXT_NAME` | `ohmlab` |
+| `contextName` | `--name` (`ohmlab kubeconfig`), `--context` (`ohmlab bootstrap`, `ohmlab argocd password`) | `KUBE_CONTEXT_NAME` | `ohmlab` |
 
 ```yaml
 # ohmlab.yaml at the root of an instance repository
