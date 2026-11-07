@@ -7,6 +7,7 @@
 # its endpoint's port, so a subchart that renames a label or a port fails here
 # rather than as a target that is never scraped. Then the shape of a cluster
 # that reads a remote Vault: VSO alone, its default connection on the hub.
+# Last, the catalog's Keycloak client allows only the callback Vault's UI sends.
 #
 #   test-vault-operator-chart.sh
 #
@@ -117,5 +118,14 @@ render "$work/open.yaml" --set gateway.enabled=true --set-json "$route"
 got=$(filters "$work/open.yaml" | paste -sd' ' -)
 [ "$got" = "$(jq -cS -n "[$given]") []" ] || fail "without sourceRange, the filters must stay as given, got '$got'"
 
-[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path; VSO alone for a remote Vault; routes admit gateway.sourceRange"
+# Vault's UI signs in through <host>/ui/vault/auth/<its oidc mount>/oidc/callback.
+# The Keycloak client allows that callback alone: a URI no flow sends only
+# widens where Keycloak redirects.
+render "$work/oidc.yaml" --set vault.externalConfig.oidcEnabled=true
+mount=$(yq 'select(.kind == "Vault") | .spec.externalConfig.auth[] | select(.type == "oidc") | .path' "$work/oidc.yaml")
+want="https://vault.core.\$(env:ROOT_DOMAIN)/ui/vault/auth/$mount/oidc/callback"
+got=$(yq '[.realms.system.clients[] | select(.clientId == "vault-core") | .redirectUris[]] | join(" ")' "$ROOT/argo-cd/apps/keycloak/values.yaml")
+[ "$got" = "$want" ] || fail "the Keycloak vault-core client must allow Vault's UI callback alone ($want), got '$got'"
+
+[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path; VSO alone for a remote Vault; routes admit gateway.sourceRange; Keycloak allows Vault's UI callback alone"
 exit "$failures"

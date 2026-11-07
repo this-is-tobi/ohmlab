@@ -860,7 +860,6 @@ realms:
       secret: "$(env:VAULT_CORE_CLIENT_SECRET)"
       redirectUris:
       - "https://vault.core.$(env:ROOT_DOMAIN)/ui/vault/auth/oidc/oidc/callback"
-      - "https://vault.core.$(env:ROOT_DOMAIN)/oidc/callback"
       webOrigins:
       - "https://vault.core.$(env:ROOT_DOMAIN)"
       protocol: openid-connect
