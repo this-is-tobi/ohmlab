@@ -24,7 +24,7 @@ jobs:
     with:
       GROUPS: >-
         {"cli": ["cli/*", "scripts/ci/cli-test-env*"],
-        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "charts/ohmlab/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-site-defaults*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-example-secrets*", "scripts/ci/check-example-pod-security*", "scripts/ci/check-example-clusters*", "scripts/ci/check-values-keys*", "scripts/ci/check-vault-access*", "scripts/ci/check-app-projects*", "scripts/ci/check-shared-clusters*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/test-vault-operator-chart*", "scripts/ci/test-prometheus-stack-chart*", "scripts/ci/test-vault-spokes*", "scripts/ci/test-trivy-operator-chart*", "scripts/ci/test-arc-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
+        "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "charts/ohmlab/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-site-defaults*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-example-secrets*", "scripts/ci/check-example-pod-security*", "scripts/ci/check-example-clusters*", "scripts/ci/check-values-keys*", "scripts/ci/check-vault-access*", "scripts/ci/check-app-projects*", "scripts/ci/check-shared-clusters*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/test-vault-operator-chart*", "scripts/ci/test-prometheus-stack-chart*", "scripts/ci/test-gitea-chart*","scripts/ci/test-vault-spokes*", "scripts/ci/test-trivy-operator-chart*", "scripts/ci/test-arc-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
         "controller": ["cli/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/cli-test-env*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
@@ -215,6 +215,8 @@ jobs:
         run: scripts/ci/test-vault-spokes.sh
       - name: Test that Grafana's database comes with Grafana
         run: scripts/ci/test-prometheus-stack-chart.sh
+      - name: Test the gitea chart's Valkey TLS
+        run: scripts/ci/test-gitea-chart.sh
       - name: Check that the controller's Vault policy is the one the tests run under
         run: scripts/ci/check-controller-policy.sh
       - name: Validate the VaultSeed objects each instance would deploy, and that a hub seeds what its remote apps read
