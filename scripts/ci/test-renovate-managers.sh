@@ -3,7 +3,8 @@
 # instance.yaml files: it must find the version of every `oci://` bundle and
 # nothing else, because a manager that silently matches nothing leaves the
 # instance on an old catalog for good. Also checks that the names Renovate
-# tracks are the ones cd.yml publishes. Needs jq, yq and node.
+# tracks are the ones cd.yml publishes, and that the Gateway API manager reads
+# the one version run.sh and the CLI both pin. Needs jq, yq and node.
 set -uo pipefail
 
 CONFIG="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/renovate.json"
@@ -123,6 +124,29 @@ if FILES=$files P=argo-cd/instances/mylab/values/core/ohmlab.yaml node -e 'const
   echo "FAIL the manager reads the values files"; fail=1
 else
   echo "ok   the manager leaves the values files alone"
+fi
+
+# run.sh and `ohmlab bootstrap` apply the same Gateway API bundle until run.sh
+# goes: the manager must read one version from each, and they must agree.
+gateway='.customManagers[] | select((.description // "") | startswith("Gateway API CRD bundle"))'
+versions=()
+for path in run.sh cli/internal/bootstrap/gatewayapi.go; do
+  if ! jq -c "$gateway | .managerFilePatterns" "$CONFIG" | P=$path node -e '
+      const patterns = JSON.parse(require("fs").readFileSync(0, "utf8"));
+      process.exit(patterns.some((p) => { const [, body, flags] = /^\/(.*)\/([a-z]*)$/.exec(p); return new RegExp(body, flags).test(process.env.P); }) ? 0 : 1)'; then
+    echo "FAIL the Gateway API manager does not read $path"; fail=1; continue
+  fi
+  found=$(jq -c "$gateway | .matchStrings" "$CONFIG" | F="$ROOT/$path" node -e '
+      const fs = require("fs");
+      const text = fs.existsSync(process.env.F) ? fs.readFileSync(process.env.F, "utf8") : "";
+      for (const re of JSON.parse(fs.readFileSync(0, "utf8")))
+        for (const m of text.matchAll(new RegExp(re, "g"))) console.log(m.groups.currentValue);')
+  if [ "$(grep -c . <<<"$found")" = 1 ]; then echo "ok   the Gateway API manager reads one version in $path"; versions+=("$found"); else
+    echo "FAIL the Gateway API manager reads '$found' in $path"; fail=1
+  fi
+done
+if [ "${#versions[@]}" = 2 ] && [ "${versions[0]}" = "${versions[1]}" ]; then echo "ok   run.sh and the CLI pin the same Gateway API version"; else
+  echo "FAIL run.sh and the CLI do not pin one Gateway API version (${versions[*]:-none})"; fail=1
 fi
 
 exit "$fail"

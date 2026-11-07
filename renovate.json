@@ -250,12 +250,14 @@
     },
     {
       "customType": "regex",
-      "description": "Gateway API CRD bundle applied by run.sh",
+      "description": "Gateway API CRD bundle applied at bootstrap (run.sh, ohmlab bootstrap)",
       "managerFilePatterns": [
-        "/^run\\.sh$/"
+        "/^run\\.sh$/",
+        "/^cli/internal/bootstrap/gatewayapi\\.go$/"
       ],
       "matchStrings": [
-        "GATEWAY_API_VERSION=\"(?<currentValue>v[0-9.]+)\""
+        "GATEWAY_API_VERSION=\"(?<currentValue>v[0-9.]+)\"",
+        "GatewayAPIVersion\\s*=\\s*\"(?<currentValue>v[0-9.]+)\""
       ],
       "depNameTemplate": "kubernetes-sigs/gateway-api",
       "datasourceTemplate": "github-releases"
