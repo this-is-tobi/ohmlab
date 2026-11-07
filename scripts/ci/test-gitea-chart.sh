@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Tests of the gitea chart's Valkey TLS, whose failures only a running cluster
-# would otherwise show: Valkey reloads a renewed certificate.
+# Tests of the gitea app whose failures only a running cluster would otherwise
+# show: Valkey reloads a renewed certificate and takes it from the issuer the
+# values name, Gitea verifies it, and the catalog's Keycloak client allows the
+# callback Gitea signs in with.
 #
 #   test-gitea-chart.sh
 #
@@ -75,5 +77,11 @@ check "only ca.crt of Valkey's Secret is projected" "gitea-valkey-tls ca.crt=ca.
   "$(q "$spec | .volumes[] | select(.name == \"valkey-ca\") | .secret.secretName + \" \" + ([.secret.items[] | .key + \"=\" + .path] | join(\",\"))")"
 check "a change of the URIs or the password restarts Valkey and Gitea" "StatefulSet/gitea-valkey Deployment/gitea" \
   "$(q "[$vss | .spec.rolloutRestartTargets[] | .kind + \"/\" + .name] | join(\" \")")"
+
+# Gitea sends <ROOT_URL>/user/oauth2/<its OAuth source's name>/callback, and
+# Keycloak matches redirect URIs case-sensitively.
+callback="https://git.\$(env:ROOT_DOMAIN)/user/oauth2/$(yq -r '.gitea.gitea.oauth[0].name' "$CHART/values.yaml")/callback"
+check "the Keycloak client allows Gitea's sign-in callback" "1" \
+  "$(want="$callback" yq '[.realms.instance.clients[] | select(.clientId == "gitea") | .redirectUris[] | select(. == strenv(want))] | length' "$ROOT/argo-cd/apps/keycloak/values.yaml")"
 
 exit "$failures"

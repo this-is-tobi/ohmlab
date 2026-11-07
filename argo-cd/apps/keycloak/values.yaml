@@ -996,8 +996,10 @@ realms:
       enabled: true
       clientAuthenticatorType: client-secret
       secret: "$(env:GITEA_CLIENT_SECRET)"
+      # Gitea's callback carries the name of its OAuth source (gitea.oauth in
+      # the gitea app), case included.
       redirectUris:
-      - "https://git.$(env:ROOT_DOMAIN)/user/oauth2/keycloak/callback"
+      - "https://git.$(env:ROOT_DOMAIN)/user/oauth2/Keycloak/callback"
       webOrigins:
       - "https://git.$(env:ROOT_DOMAIN)"
       protocol: openid-connect
