@@ -242,7 +242,7 @@ Optional catalog apps (Coder, Harbor, Outline, SonarQube, ...) ship with the sam
 
 ### In-cluster TLS
 
-Traffic between pods is meant to be TLS wherever it carries credentials or data. Today, every app's CNPG PostgreSQL cluster serves TLS and refuses plaintext clients (`hostnossl all all all reject` in its `pg_hba`), and every client connects with `sslmode=require`; gitea⇄valkey uses password auth over TLS; Vault and argocd-server serve TLS that traefik verifies upstream via BackendTLSPolicy (Vault against its own CA, Argo CD against its Let's Encrypt certificate); Teleport terminates TLS itself behind a Gateway API TLSRoute passthrough.
+Traffic between pods is meant to be TLS wherever it carries credentials or data. Today, every app's CNPG PostgreSQL cluster serves TLS and refuses plaintext clients (`hostnossl all all all reject` in its `pg_hba`), and every client connects with `sslmode=require`; Gitea verifies Valkey's certificate and authenticates with a password; Vault and argocd-server serve TLS that traefik verifies upstream via BackendTLSPolicy (Vault against its own CA, Argo CD against its Let's Encrypt certificate); Teleport terminates TLS itself behind a Gateway API TLSRoute passthrough.
 
 Two opt-in values give the cluster one internal CA for the rest, and the example instance turns both on:
 
@@ -265,7 +265,7 @@ spec:
     name: ohmlab-internal-ca
 ```
 
-The `gitea` app takes this issuer for Valkey's certificate with `valkeyCertificate.issuerRef: {kind: ClusterIssuer, name: ohmlab-internal-ca}`; otherwise a CA of Gitea's namespace issues it.
+The `gitea` app takes this issuer for Valkey's certificate with `valkeyCertificate.issuerRef: {kind: ClusterIssuer, name: ohmlab-internal-ca}`; otherwise a CA of Gitea's namespace issues it. Gitea reads that CA when it starts: after changing the issuer of a running Valkey, restart Gitea once Valkey serves the new certificate.
 
 `ohmlab audit tls` checks a running cluster against this ([cheat sheet](07-cheat-sheet.md#ohmlab-cli)): it probes every Service port through a port-forward and fails on a plaintext one that neither the rule (metrics, DNS) nor an exception of the instance's `ohmlab.yaml`, each with its reason, allows.
 

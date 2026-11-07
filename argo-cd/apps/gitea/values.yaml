@@ -52,6 +52,26 @@ gitea:
       limits:
         cpu: 500m
         memory: 512Mi
+  # Gitea verifies Valkey against the CA of Valkey's certificate, the only key
+  # of its Secret mounted here. SSL_CERT_DIR keeps the system's CAs and adds
+  # that directory (SSL_CERT_FILE would replace the public CAs Gitea's OIDC
+  # login needs). The init containers do not connect to Valkey. An instance
+  # that sets one of these lists replaces it: keep these entries.
+  deployment:
+    env:
+    - name: SSL_CERT_DIR
+      value: /etc/ssl/certs:/etc/valkey-ca
+  extraVolumes:
+  - name: valkey-ca
+    secret:
+      secretName: gitea-valkey-tls
+      items:
+      - key: ca.crt
+        path: ca.crt
+  extraContainerVolumeMounts:
+  - name: valkey-ca
+    mountPath: /etc/valkey-ca
+    readOnly: true
   serviceAccount:
     create: true
     automountServiceAccountToken: true
@@ -151,6 +171,8 @@ gitea:
 # Issuer of Valkey's serving certificate (templates/valkey-certificates.yaml).
 # Empty: a CA of this namespace. The internal CA (internalCA in the
 # cert-manager app) is {kind: ClusterIssuer, name: ohmlab-internal-ca}.
+# Gitea reads the CA of this certificate when it starts: restart Gitea after
+# changing the issuer of a running Valkey.
 valkeyCertificate:
   issuerRef: {}
 
@@ -332,6 +354,14 @@ vso:
       vaultAuthRef: gitea-vso-default
       refreshAfter: 1h
       hmacSecretData: true
+      # Valkey reads the password and Gitea the URIs only when they start
+      # (Gitea's init container writes the URIs into app.ini), so both restart
+      # when this Secret changes.
+      rolloutRestartTargets:
+      - kind: StatefulSet
+        name: gitea-valkey
+      - kind: Deployment
+        name: gitea
       destination:
         name: gitea-valkey-auth
         create: true
@@ -344,11 +374,11 @@ vso:
             password:
               text: '{{ get .Secrets "valkey" | dig "password" "" }}'
             cache-host:
-              text: 'rediss://:{{ get .Secrets "valkey" | dig "password" "" }}@gitea-valkey:6380/0?pool_size=100&idle_timeout=180s&skipverify=true&'
+              text: 'rediss://:{{ get .Secrets "valkey" | dig "password" "" }}@gitea-valkey:6380/0?pool_size=100&idle_timeout=180s'
             session-config:
-              text: 'rediss://:{{ get .Secrets "valkey" | dig "password" "" }}@gitea-valkey:6380/0?pool_size=100&idle_timeout=180s&skipverify=true&'
+              text: 'rediss://:{{ get .Secrets "valkey" | dig "password" "" }}@gitea-valkey:6380/0?pool_size=100&idle_timeout=180s'
             queue-conn:
-              text: 'rediss://:{{ get .Secrets "valkey" | dig "password" "" }}@gitea-valkey:6380/0?pool_size=100&idle_timeout=180s&skipverify=true&'
+              text: 'rediss://:{{ get .Secrets "valkey" | dig "password" "" }}@gitea-valkey:6380/0?pool_size=100&idle_timeout=180s'
     giteaAdmin:
       type: kv-v2
       vaultAuthRef: gitea-vso-default
