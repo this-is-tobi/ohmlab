@@ -82,13 +82,19 @@ func Commands(o Options, p Plan, passwordValues string) []Step {
 	if o.Chart.Local() {
 		steps = append(steps, Step{"Update the chart's dependencies", runner.Cmd{Name: "helm", Args: []string{"dependency", "update", o.Chart.Ref}, Grace: helmGrace}})
 	}
+	// The password is set from phase 1 on, so Argo CD never generates one of
+	// its own that would outlive it.
+	var password []string
+	if passwordValues != "" {
+		password = []string{"--values", passwordValues}
+	}
 	install := func(set ...string) runner.Cmd {
 		args := []string{"upgrade", "--install", o.Release.Name, o.Chart.Ref}
 		if !o.Chart.Local() {
 			args = append(args, "--version", o.Chart.Version)
 		}
 		args = append(args, "--namespace", o.Release.Namespace, "--create-namespace", "--values", o.Values)
-		args = append(append(args, set...), "--wait", "--timeout", "10m")
+		args = append(append(append(args, password...), set...), "--wait", "--timeout", "10m")
 		return runner.Cmd{Name: "helm", Args: append(args, o.Kube.args()...), Grace: helmGrace}
 	}
 	if p.Phase1 {
@@ -96,14 +102,9 @@ func Commands(o Options, p Plan, passwordValues string) []Step {
 			"--set", "rootManager.enabled=false", "--set", "projects.core.enabled=false", "--set", "projects.tenant.enabled=false",
 			"--set", "gateway.enabled=false", "--set", "vso.enabled=false")})
 	}
-	var set []string
-	if passwordValues != "" {
-		set = append(set, "--values", passwordValues)
-	}
 	// VSO arrives later, with the core apps. Forcing takes back the fields the
 	// self-managed Application has applied since an earlier bootstrap.
-	set = append(set, "--set", "vso.enabled=false", "--force-conflicts")
-	return append(steps, Step{"Phase 2: install the ohmlab chart", install(set...)})
+	return append(steps, Step{"Phase 2: install the ohmlab chart", install("--set", "vso.enabled=false", "--force-conflicts")})
 }
 
 // Summary is the chart, release, Gateway API and Argo CD part of a plan.
