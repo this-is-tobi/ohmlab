@@ -79,7 +79,7 @@ func TestEmptyClusterRunsEverything(t *testing.T) {
 	if err != nil || p != (bs.Plan{GatewayAPI: true, Phase1: true}) {
 		t.Fatalf("got %+v, %v; want both the Gateway API and phase 1", p, err)
 	}
-	if err := bs.Run(ctx, r, c, quiet(), local(url), p, ""); err != nil {
+	if err := bs.Run(ctx, r, c, quiet(), local(url), p, bs.AdminHash{}); err != nil {
 		t.Fatal(err)
 	}
 	if hits.Load() != 1 || len(c.Applied) != 2 {
@@ -103,7 +103,7 @@ func TestRerunSkipsWhatIsInstalled(t *testing.T) {
 	if err != nil || p != (bs.Plan{}) {
 		t.Fatalf("got %+v, %v; want nothing but phase 2", p, err)
 	}
-	if err := bs.Run(ctx, r, c, quiet(), o, p, ""); err != nil {
+	if err := bs.Run(ctx, r, c, quiet(), o, p, bs.AdminHash{}); err != nil {
 		t.Fatal(err)
 	}
 	if hits.Load() != 0 || len(c.Applied) != 0 {
@@ -132,6 +132,10 @@ func TestEveryHelmCommandTargetsTheCheckedContext(t *testing.T) {
 }
 
 func TestPasswordValuesAreRemoved(t *testing.T) {
+	admin, err := bs.HashAdminPassword("s3cret-pw")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, fail := range []bool{false, true} {
 		var values string
 		r := &runnertest.Fake{Handle: func(c runner.Cmd) error {
@@ -157,7 +161,7 @@ func TestPasswordValuesAreRemoved(t *testing.T) {
 			}
 			return nil
 		}}
-		err := bs.Run(context.Background(), r, installed(), quiet(), local(""), bs.Plan{}, "s3cret-pw")
+		err := bs.Run(context.Background(), r, installed(), quiet(), local(""), bs.Plan{}, admin)
 		if (err != nil) != fail {
 			t.Errorf("phase 2 failing %v: Run returned %v", fail, err)
 		}
@@ -218,7 +222,7 @@ func TestAFailedPhaseStopsTheRun(t *testing.T) {
 	o := local("")
 	o.Chart = bs.Chart{Ref: "oci://ghcr.io/example/charts/ohmlab", Version: "0.6.2"}
 	c := &bootstraptest.Cluster{CRDs: map[string]bool{bs.GatewayAPIMarker: true}}
-	err := bs.Run(context.Background(), r, c, quiet(), o, bs.Plan{Phase1: true}, "")
+	err := bs.Run(context.Background(), r, c, quiet(), o, bs.Plan{Phase1: true}, bs.AdminHash{})
 	var exit *runner.ExitError
 	if !errors.As(err, &exit) {
 		t.Errorf("got %v, want helm's ExitError", err)
@@ -252,7 +256,7 @@ func TestRunRefusesAnEmptyContext(t *testing.T) {
 	r := &runnertest.Fake{}
 	o := local("")
 	o.Kube = bs.Kube{}
-	err := bs.Run(context.Background(), r, installed(), quiet(), o, bs.Plan{}, "")
+	err := bs.Run(context.Background(), r, installed(), quiet(), o, bs.Plan{}, bs.AdminHash{})
 	if err == nil || !strings.Contains(err.Error(), "context") {
 		t.Errorf("got %v, want a refusal: helm reads an empty --kube-context as the current one", err)
 	}

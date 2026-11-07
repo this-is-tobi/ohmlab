@@ -3,7 +3,9 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,6 +17,7 @@ import (
 	"github.com/this-is-tobi/ohmlab/cli/internal/runner"
 	"github.com/this-is-tobi/ohmlab/cli/internal/runner/runnertest"
 	"github.com/this-is-tobi/ohmlab/cli/internal/ui"
+	"gopkg.in/yaml.v3"
 )
 
 const versionCheck = "helm version --template '{{.Version}}'"
@@ -63,9 +66,19 @@ func (c *connector) connect(kubeconfig, context string) (bs.Cluster, string, err
 
 func empty() *connector { return &connector{cluster: &bootstraptest.Cluster{}} }
 
-// installed is a cluster bootstrapped before, whose Argo CD generated pw-123.
+// installed is a cluster bootstrapped before, whose Argo CD generated pw-123
+// and still holds it.
 func installed() *connector {
-	return &connector{cluster: &bootstraptest.Cluster{CRDs: map[string]bool{bs.GatewayAPIMarker: true, bs.ArgoCDMarker: true}, Password: "pw-123"}}
+	return &connector{cluster: &bootstraptest.Cluster{CRDs: map[string]bool{bs.GatewayAPIMarker: true, bs.ArgoCDMarker: true}, Password: "pw-123", Current: hashOf("pw-123")}}
+}
+
+// hashOf is the admin password argocd-secret holds once pw is set.
+func hashOf(pw string) bs.AdminHash {
+	h, err := bs.HashAdminPassword(pw)
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 // helm4 is a helm that says it is Helm 4 and does everything else.
@@ -287,6 +300,115 @@ func TestBootstrapAimsEverythingAtTheCheckedCluster(t *testing.T) {
 		"kubectl --kubeconfig /k --context lab -n argocd-system delete secret argocd-initial-admin-secret",
 		"kubectl --kubeconfig /k --context lab -n argocd-system get applicationsets,applications",
 	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q:\n%s", want, out.String())
+		}
+	}
+}
+
+// phase2Admin is a Helm 4 that records the argo-cd.configs.secret values of
+// the password's values file phase 2 gets, read while it runs: the file is
+// gone afterwards.
+func phase2Admin(t *testing.T, got *map[string]string) *runnertest.Fake {
+	r := helm4()
+	handle := r.Handle
+	r.Handle = func(c runner.Cmd) error {
+		for i, a := range c.Args {
+			if !slices.Contains(c.Args, "--force-conflicts") || a != "--values" || i+1 == len(c.Args) || filepath.Base(c.Args[i+1]) != "admin-password.yaml" {
+				continue
+			}
+			data, err := os.ReadFile(c.Args[i+1])
+			if err != nil {
+				t.Error(err)
+				continue
+			}
+			var v struct {
+				ArgoCD struct {
+					Configs struct {
+						Secret map[string]string `yaml:"secret"`
+					} `yaml:"configs"`
+				} `yaml:"argo-cd"`
+			}
+			if err := yaml.Unmarshal(data, &v); err != nil {
+				t.Error(err)
+			}
+			*got = v.ArgoCD.Configs.Secret
+		}
+		return handle(c)
+	}
+	return r
+}
+
+// Helm drops the admin password it applied when a run sets none: a run
+// without one sets the current one again, mtime included.
+func TestARunWithoutAPasswordKeepsTheCurrentOne(t *testing.T) {
+	ws, _ := workspace(t, "")
+	c := installed()
+	c.cluster.Current = bs.AdminHash{Hash: "$2a$10$current", Mtime: "2026-11-08T10:00:00Z"}
+	var got map[string]string
+	var out bytes.Buffer
+	if err := run(context.Background(), phase2Admin(t, &got), c.connect, machine(&out, true), ws, os.Getenv, strings.NewReader(""), options{yes: true}); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	want := map[string]string{"argocdServerAdminPassword": "$2a$10$current", "argocdServerAdminPasswordMtime": "2026-11-08T10:00:00Z"}
+	if !maps.Equal(got, want) {
+		t.Errorf("phase 2 sets %v, want the current password %v", got, want)
+	}
+	if !strings.Contains(out.String(), "Admin password: unchanged") {
+		t.Errorf("output lacks the kept password:\n%s", out.String())
+	}
+	if strings.Contains(out.String(), "$2a$") {
+		t.Errorf("output carries the hash:\n%s", out.String())
+	}
+}
+
+// A new install has no password to keep: argocd-secret is not read.
+func TestANewInstallReadsNoCurrentPassword(t *testing.T) {
+	ws, _ := workspace(t, "")
+	c := &connector{cluster: &bootstraptest.Cluster{CRDs: map[string]bool{bs.GatewayAPIMarker: true},
+		Err: map[string]error{"CurrentAdminPassword": errors.New("read on a new install")}}}
+	var got map[string]string
+	var out bytes.Buffer
+	if err := run(context.Background(), phase2Admin(t, &got), c.connect, machine(&out, true), ws, os.Getenv, strings.NewReader(""), options{yes: true}); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	if got != nil {
+		t.Errorf("phase 2 sets %v, want no admin password", got)
+	}
+}
+
+// A run that cannot read the current password stops before Helm drops it.
+func TestARunStopsWhenTheCurrentPasswordIsUnreadable(t *testing.T) {
+	ws, _ := workspace(t, "")
+	c := installed()
+	c.cluster.Err = map[string]error{"CurrentAdminPassword": errors.New("forbidden")}
+	r := helm4()
+	var out bytes.Buffer
+	err := run(context.Background(), r, c.connect, machine(&out, true), ws, os.Getenv, strings.NewReader(""), options{yes: true})
+	if err == nil || !strings.Contains(err.Error(), "forbidden") || !strings.Contains(err.Error(), "--admin-password-file") {
+		t.Errorf("got %v, want the read error and how to give the password", err)
+	}
+	for _, l := range lines(r.Calls) {
+		if strings.HasPrefix(l, "helm upgrade") {
+			t.Errorf("ran %q", l)
+		}
+	}
+}
+
+// argocd-initial-admin-secret outlives a password set since: it is not
+// printed as the admin password then.
+func TestAStaleGeneratedPasswordIsNotPrinted(t *testing.T) {
+	ws, _ := workspace(t, "")
+	c := installed()
+	c.cluster.Current = hashOf("set-since")
+	var out bytes.Buffer
+	if err := run(context.Background(), helm4(), c.connect, term(&out, "", true), ws, os.Getenv, strings.NewReader(""), options{yes: true}); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "pw-123") {
+		t.Errorf("output prints the stale generated password:\n%s", out.String())
+	}
+	for _, want := range []string{"no longer accepts", "kubectl --context ohmlab -n argocd-system delete secret argocd-initial-admin-secret"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}

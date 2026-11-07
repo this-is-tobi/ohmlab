@@ -143,9 +143,9 @@ func CheckHelm(ctx context.Context, r runner.Runner) error {
 }
 
 // Run carries the plan out: the Gateway API CRDs when they are missing, then
-// the helm commands. The admin password's values file lives in a private
-// directory that is gone when Run returns.
-func Run(ctx context.Context, r runner.Runner, c Cluster, u *ui.UI, o Options, p Plan, password string) error {
+// the helm commands. The values file setting admin, when it holds a hash,
+// lives in a private directory that is gone when Run returns.
+func Run(ctx context.Context, r runner.Runner, c Cluster, u *ui.UI, o Options, p Plan, admin AdminHash) error {
 	if o.Kube.Context == "" {
 		return errors.New("no kube context to bootstrap: helm reads an empty --kube-context as the current one")
 	}
@@ -156,13 +156,13 @@ func Run(ctx context.Context, r runner.Runner, c Cluster, u *ui.UI, o Options, p
 		}
 	}
 	var passwordValues string
-	if password != "" {
+	if admin.Hash != "" {
 		dir, err := os.MkdirTemp("", "ohmlab-bootstrap-")
 		if err != nil {
 			return err
 		}
 		defer os.RemoveAll(dir)
-		if passwordValues, err = WriteAdminPasswordValues(dir, password); err != nil {
+		if passwordValues, err = WriteAdminPasswordValues(dir, admin); err != nil {
 			return err
 		}
 	}

@@ -37,6 +37,9 @@ type Cluster interface {
 	// InitialAdminPassword reads the password Argo CD generated, or
 	// ErrNoInitialPassword when its Secret does not exist.
 	InitialAdminPassword(ctx context.Context, namespace string) (string, error)
+	// CurrentAdminPassword reads the admin password argocd-secret holds, zero
+	// when there is none.
+	CurrentAdminPassword(ctx context.Context, namespace string) (AdminHash, error)
 }
 
 // ErrNoInitialPassword is a namespace without argocd-initial-admin-secret.
@@ -45,6 +48,7 @@ var ErrNoInitialPassword = errors.New("no argocd-initial-admin-secret")
 const (
 	fieldManager  = "ohmlab"
 	initialSecret = "argocd-initial-admin-secret"
+	argoCDSecret  = "argocd-secret"
 )
 
 type kubeCluster struct {
@@ -167,4 +171,15 @@ func (c *kubeCluster) InitialAdminPassword(ctx context.Context, namespace string
 		return "", fmt.Errorf("%s/%s holds no password", namespace, initialSecret)
 	}
 	return pw, nil
+}
+
+func (c *kubeCluster) CurrentAdminPassword(ctx context.Context, namespace string) (AdminHash, error) {
+	s, err := c.core.CoreV1().Secrets(namespace).Get(ctx, argoCDSecret, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return AdminHash{}, nil
+	}
+	if err != nil {
+		return AdminHash{}, fmt.Errorf("read %s/%s: %w", namespace, argoCDSecret, err)
+	}
+	return AdminHash{Hash: string(s.Data["admin.password"]), Mtime: string(s.Data["admin.passwordMtime"])}, nil
 }

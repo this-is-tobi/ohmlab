@@ -20,6 +20,8 @@ type Cluster struct {
 	Waited  []string
 	// Password is the generated admin password; empty, there is none.
 	Password string
+	// Current is the admin password argocd-secret holds.
+	Current bootstrap.AdminHash
 	// Namespaces are the ones InitialAdminPassword was asked about.
 	Namespaces []string
 	// Err fails a method, keyed by its name.
@@ -65,4 +67,11 @@ func (c *Cluster) InitialAdminPassword(_ context.Context, namespace string) (str
 		return "", fmt.Errorf("%w in %s", bootstrap.ErrNoInitialPassword, namespace)
 	}
 	return c.Password, nil
+}
+
+func (c *Cluster) CurrentAdminPassword(_ context.Context, _ string) (bootstrap.AdminHash, error) {
+	if err := c.Err["CurrentAdminPassword"]; err != nil {
+		return bootstrap.AdminHash{}, err
+	}
+	return c.Current, nil
 }

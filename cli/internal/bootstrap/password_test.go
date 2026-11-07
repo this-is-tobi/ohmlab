@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,7 +46,14 @@ func TestAdminPasswordSources(t *testing.T) {
 func TestAdminPasswordValuesHoldAVerifiableHash(t *testing.T) {
 	for _, pw := range []string{"s3cret", `with "quotes", $dollars and: colons`} {
 		dir := t.TempDir()
-		path, err := WriteAdminPasswordValues(dir, pw)
+		hashed, err := HashAdminPassword(pw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !hashed.Accepts(pw) || hashed.Accepts(pw+"x") {
+			t.Errorf("the hash of %q accepts it %v, and another %v", pw, hashed.Accepts(pw), hashed.Accepts(pw+"x"))
+		}
+		path, err := WriteAdminPasswordValues(dir, hashed)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -82,5 +90,32 @@ func TestAdminPasswordValuesHoldAVerifiableHash(t *testing.T) {
 		if !strings.HasPrefix(h, "$2a$10$") || bcrypt.CompareHashAndPassword([]byte(h), []byte(pw)) != nil {
 			t.Errorf("hash %q is not a cost 10 bcrypt of %q", h, pw)
 		}
+	}
+}
+
+// A kept password keeps its mtime too: Argo CD refuses the tokens issued
+// before it, and the chart would set it to now.
+func TestAdminPasswordValuesKeepTheMtime(t *testing.T) {
+	path, err := WriteAdminPasswordValues(t.TempDir(), AdminHash{Hash: "$2a$10$kept", Mtime: "2026-11-08T10:00:00Z"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		ArgoCD struct {
+			Configs struct {
+				Secret map[string]string `yaml:"secret"`
+			} `yaml:"configs"`
+		} `yaml:"argo-cd"`
+	}
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"argocdServerAdminPassword": "$2a$10$kept", "argocdServerAdminPasswordMtime": "2026-11-08T10:00:00Z"}
+	if got := v.ArgoCD.Configs.Secret; !maps.Equal(got, want) {
+		t.Errorf("secret values %v, want %v", got, want)
 	}
 }
