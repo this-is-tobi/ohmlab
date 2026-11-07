@@ -5,9 +5,9 @@
 # Gateway API CRDs, then Argo CD alone, then the whole chart, and
 # `ohmlab argocd password` prints the password Argo CD generated; a second run
 # with ARGOCD_ADMIN_PASSWORD skips phase 1 and sets a password Argo CD then
-# accepts; a run with a password on a cluster without Argo CD sets it from
-# phase 1, so Argo CD generates none. No password is printed, and none is
-# left on disk.
+# accepts, and a third without one keeps it; a run with a password on a
+# cluster without Argo CD sets it from phase 1, so Argo CD generates none. No
+# password is printed, and none is left on disk.
 #
 #   e2e-bootstrap.sh
 #
@@ -152,6 +152,12 @@ code=$(login "$pw")
 if [ "$code" = 200 ]; then pass "Argo CD accepts the password the second run set"; else fail "Argo CD answers $code to the password the second run set"; fi
 code=$(login "not-$pw" once)
 if [ "$code" = 401 ]; then pass "Argo CD refuses another password"; else fail "Argo CD answers $code to another password"; fi
+# A third run, without a password, keeps the one set: Helm would otherwise
+# drop the admin password it applied.
+if "$cli" bootstrap --yes >"$work/run2b.json" 2>&1; then pass "a run without a password exits 0"; else fail "a run without a password exits 0"; errors "$work/run2b.json"; fi
+if [ -n "$(k -n "$NS" get secret argocd-secret -o jsonpath='{.data.admin\.password}')" ]; then pass "argocd-secret keeps admin.password"; else fail "argocd-secret lost admin.password"; fi
+code=$(login "$pw")
+if [ "$code" = 200 ]; then pass "Argo CD still accepts the password set before"; else fail "Argo CD answers $code to the password set before a run without one"; fi
 
 # 5. A password on a cluster without Argo CD: set from phase 1 on, so Argo CD
 # generates none. Argo CD goes with its release, its CRDs and the password it
@@ -198,5 +204,5 @@ done
 if [ -n "$leaked" ]; then fail "a run's output holds a password"; else pass "no run's output holds a password"; fi
 if compgen -G "$work/tmp/ohmlab-bootstrap-*" >/dev/null; then fail "the password's values file outlived a run"; else pass "the password's values files are gone"; fi
 
-[ "$failures" -eq 0 ] && echo "ok   ohmlab bootstrap on an empty kind cluster, the current context a decoy: dry run, two phases, the generated password, a given one, one from phase 1"
+[ "$failures" -eq 0 ] && echo "ok   ohmlab bootstrap on an empty kind cluster, the current context a decoy: dry run, two phases, the generated password, a given one kept, one from phase 1"
 exit "$failures"

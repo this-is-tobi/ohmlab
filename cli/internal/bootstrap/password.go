@@ -51,18 +51,34 @@ func AdminPassword(file string, getenv func(string) string, stdin io.Reader) (pa
 	return password, source, nil
 }
 
-// WriteAdminPasswordValues writes into dir the Helm values that set the admin
-// password's bcrypt hash, in a new file only its owner can read, and returns
-// its path. The hash goes through a file because a --set value shows in the
-// process list for the whole helm run.
-func WriteAdminPasswordValues(dir, password string) (string, error) {
+// AdminHash is an admin password as argocd-secret holds it: its bcrypt hash,
+// and when it was set (empty: the chart sets now).
+type AdminHash struct{ Hash, Mtime string }
+
+// HashAdminPassword hashes a given admin password.
+func HashAdminPassword(password string) (AdminHash, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), passwordCost)
 	if err != nil {
-		return "", fmt.Errorf("hash the admin password: %w", err)
+		return AdminHash{}, fmt.Errorf("hash the admin password: %w", err)
 	}
-	data, err := yaml.Marshal(map[string]any{"argo-cd": map[string]any{"configs": map[string]any{"secret": map[string]any{
-		"argocdServerAdminPassword": string(hash),
-	}}}})
+	return AdminHash{Hash: string(hash)}, nil
+}
+
+// Accepts reports whether password is the one h hashes.
+func (h AdminHash) Accepts(password string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(h.Hash), []byte(password)) == nil
+}
+
+// WriteAdminPasswordValues writes into dir the Helm values that set the admin
+// password's hash, and its mtime when known, in a new file only its owner can
+// read, and returns its path. The hash goes through a file because a --set
+// value shows in the process list for the whole helm run.
+func WriteAdminPasswordValues(dir string, h AdminHash) (string, error) {
+	secret := map[string]any{"argocdServerAdminPassword": h.Hash}
+	if h.Mtime != "" {
+		secret["argocdServerAdminPasswordMtime"] = h.Mtime
+	}
+	data, err := yaml.Marshal(map[string]any{"argo-cd": map[string]any{"configs": map[string]any{"secret": secret}}})
 	if err != nil {
 		return "", err
 	}

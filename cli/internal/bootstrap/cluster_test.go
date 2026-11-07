@@ -220,3 +220,31 @@ users:
 		t.Errorf("got %q, %v; want lab's server, not the current context's or $KUBECONFIG's", server, err)
 	}
 }
+
+func TestCurrentAdminPassword(t *testing.T) {
+	c, ctx := cluster(t), context.Background()
+	const ns = "argocd-current"
+	if h, err := c.CurrentAdminPassword(ctx, ns); err != nil || h != (AdminHash{}) {
+		t.Errorf("got %+v, %v; want nothing without argocd-secret", h, err)
+	}
+	core := kubernetes.NewForConfigOrDie(restCfg).CoreV1()
+	if _, err := core.Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "argocd-secret"}, Data: map[string][]byte{"server.secretkey": []byte("k")}}
+	if _, err := core.Secrets(ns).Create(ctx, secret, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := c.CurrentAdminPassword(ctx, ns); err != nil || h != (AdminHash{}) {
+		t.Errorf("got %+v, %v; want nothing from an argocd-secret without admin.password", h, err)
+	}
+	secret.Data["admin.password"] = []byte("$2a$10$current")
+	secret.Data["admin.passwordMtime"] = []byte("2026-11-08T10:00:00Z")
+	if _, err := core.Secrets(ns).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	want := AdminHash{Hash: "$2a$10$current", Mtime: "2026-11-08T10:00:00Z"}
+	if h, err := c.CurrentAdminPassword(ctx, ns); err != nil || h != want {
+		t.Errorf("got %+v, %v; want %+v", h, err, want)
+	}
+}
