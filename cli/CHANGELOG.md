@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.6.0](https://github.com/this-is-tobi/ohmlab/compare/v0.5.1...v0.6.0) (2026-11-07)
+
+
+### Features
+
+* **cli:** fetch the gateway api bundle at run.sh's pinned version ([6831d76](https://github.com/this-is-tobi/ohmlab/commit/6831d76dd55a7c94e54cbdb6ae32c1fc6206cc4f))
+* **cli:** ohmlab argocd password ([301a5d1](https://github.com/this-is-tobi/ohmlab/commit/301a5d1511d067280ce9351727d7ec4bed9ed1b3))
+* **cli:** ohmlab bootstrap ([9d982b1](https://github.com/this-is-tobi/ohmlab/commit/9d982b1c02e452ac71f1a8918b322cf84f968448))
+* **cli:** resolve an instance's bootstrap chart and release ([50f189a](https://github.com/this-is-tobi/ohmlab/commit/50f189a0f6a5ff949d191a7bef4bbed573672147))
+* **cli:** the argo cd admin password of a bootstrap ([983b39b](https://github.com/this-is-tobi/ohmlab/commit/983b39bc9f3239383148bb5d842b57d1cb5f9baa))
+* **cli:** the bootstrap engine ([6d6af5e](https://github.com/this-is-tobi/ohmlab/commit/6d6af5efb9b5e2b373fdd8ed720701e87691463f))
+* **cli:** the cluster side of a bootstrap ([053a574](https://github.com/this-is-tobi/ohmlab/commit/053a57415c46f6bea23455f90b96b1655341fbcd))
+
+
+### Bug Fixes
+
+* **cli:** aim bootstrap's checks and hints at the context it confirmed ([b550e05](https://github.com/this-is-tobi/ohmlab/commit/b550e05ffc2c6a3df1893f3c10255d19ee66f830))
+* **cli:** give an interrupted helm time to mark its release failed ([cee4e3f](https://github.com/this-is-tobi/ohmlab/commit/cee4e3ffdc3d77b06b03bfca6cce5e49ef6dc9ca))
+* **cli:** keep the admin password when a bootstrap is given none ([3b9e8d5](https://github.com/this-is-tobi/ohmlab/commit/3b9e8d5b4e102d3f797dd673923f1ed13c8f2782))
+* **cli:** set a given admin password from bootstrap's first phase ([6585fc3](https://github.com/this-is-tobi/ohmlab/commit/6585fc30cbe61616c295d85904b0f3d9d52f874f))
+
 ## [0.5.1](https://github.com/this-is-tobi/ohmlab/compare/v0.5.0...v0.5.1) (2026-11-06)
 
 
