@@ -265,6 +265,8 @@ spec:
     name: ohmlab-internal-ca
 ```
 
+The `gitea` app takes this issuer for Valkey's certificate with `valkeyCertificate.issuerRef: {kind: ClusterIssuer, name: ohmlab-internal-ca}`; otherwise a CA of Gitea's namespace issues it.
+
 `ohmlab audit tls` checks a running cluster against this ([cheat sheet](07-cheat-sheet.md#ohmlab-cli)): it probes every Service port through a port-forward and fails on a plaintext one that neither the rule (metrics, DNS) nor an exception of the instance's `ohmlab.yaml`, each with its reason, allows.
 
 ### Secrets

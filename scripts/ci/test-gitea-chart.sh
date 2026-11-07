@@ -29,12 +29,12 @@ check() {
   fi
 }
 
-# render: the chart with the example instance's values into $work/render.yaml,
-# left empty when it does not render.
+# render [<helm args>...]: the chart with the example instance's values into
+# $work/render.yaml, left empty when it does not render.
 render() {
-  if ! helm template gitea "$CHART" --namespace gitea "${args[@]}" >"$work/render.yaml" 2>"$work/err"; then
+  if ! helm template gitea "$CHART" --namespace gitea "${args[@]}" "$@" >"$work/render.yaml" 2>"$work/err"; then
     : >"$work/render.yaml"
-    check "the chart renders" "" "$(grep -m1 Error "$work/err" | cut -c1-200)"
+    check "the chart renders${*:+ with $*}" "" "$(grep -m1 Error "$work/err" | cut -c1-200)"
   fi
 }
 
@@ -46,5 +46,17 @@ check "Valkey reloads a renewed certificate" "1" \
   "$(q '[select(.kind == "ConfigMap" and .metadata.name == "gitea-valkey") | .data["valkey.conf"] | split("\n") | .[] | select(. == "tls-auto-reload-interval 10")] | length')"
 check "a change of Valkey's config rolls its pod" "tls-auto-reload" \
   "$(q 'select(.kind == "StatefulSet" and .metadata.name == "gitea-valkey") | .spec.template.metadata.annotations["ohmlab.fr/config-revision"]')"
+
+issuer='select(.kind == "Certificate" and .metadata.name == "gitea-valkey-tls") | .spec.issuerRef.kind + "/" + .spec.issuerRef.name'
+pki='[select(.apiVersion == "cert-manager.io/v1") | .kind + "/" + .metadata.name] | sort | join(" ")'
+names='select(.kind == "Certificate" and .metadata.name == "gitea-valkey-tls") | (.spec.dnsNames + .spec.ipAddresses + .spec.usages) | join(",")'
+check "by default a CA of the namespace issues Valkey's certificate" "Issuer/gitea-valkey-ca" "$(q "$issuer")"
+check "by default the namespace CA renders" \
+  "Certificate/gitea-valkey-ca Certificate/gitea-valkey-tls Issuer/gitea-valkey-ca Issuer/gitea-valkey-selfsigned" "$(q "$pki")"
+default_names=$(q "$names")
+render --set valkeyCertificate.issuerRef.kind=ClusterIssuer --set valkeyCertificate.issuerRef.name=ohmlab-internal-ca
+check "an issuerRef issues Valkey's certificate" "ClusterIssuer/ohmlab-internal-ca" "$(q "$issuer")"
+check "with an issuerRef no namespace CA renders" "Certificate/gitea-valkey-tls" "$(q "$pki")"
+check "the certificate keeps its names and usages" "$default_names" "$(q "$names")"
 
 exit "$failures"

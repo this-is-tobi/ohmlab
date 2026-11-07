@@ -1,8 +1,8 @@
-# Namespace-local PKI for valkey (session store / cache / queue). Server-side
-# TLS only: gitea's redis client cannot present client certs or pin a custom
-# CA through its connection URI, so valkey runs with authClients=false and
-# gitea connects with rediss://...&skipverify=true — encrypted transport,
-# server identity unverified. Full mutual auth is a mesh/WireGuard concern.
+# Valkey's serving certificate (Gitea's cache, sessions and queue), from
+# valkeyCertificate.issuerRef or else from a CA of this namespace. Server TLS
+# only: Gitea's Redis URI cannot carry a client certificate, so Valkey runs
+# with authClients off; the URIs skip verifying it (skipverify).
+{{- if not .Values.valkeyCertificate.issuerRef }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -34,6 +34,7 @@ spec:
   ca:
     secretName: gitea-valkey-ca
 ---
+{{- end }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -57,5 +58,9 @@ spec:
   ipAddresses:
   - 127.0.0.1
   issuerRef:
+  {{- with .Values.valkeyCertificate.issuerRef }}
+    {{- toYaml . | nindent 4 }}
+  {{- else }}
     name: gitea-valkey-ca
     kind: Issuer
+  {{- end }}
