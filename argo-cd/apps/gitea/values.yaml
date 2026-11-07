@@ -148,6 +148,12 @@ gitea:
   valkey:
     enabled: false
 
+# Issuer of Valkey's serving certificate (templates/valkey-certificates.yaml).
+# Empty: a CA of this namespace. The internal CA (internalCA in the
+# cert-manager app) is {kind: ClusterIssuer, name: ohmlab-internal-ca}.
+valkeyCertificate:
+  issuerRef: {}
+
 valkey:
   fullnameOverride: gitea-valkey
   architecture: standalone
