@@ -601,7 +601,7 @@ jobs:
           cache-dependency-path: cli/go.sum
       # bootstrap needs Helm 4; the runner's own may be older.
       - uses: azure/setup-helm@v5
-      - uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa  # v1.15.1
+      - uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376  # v1.15.2
         with:
           cluster_name: ohmlab-bootstrap
       - name: Bootstrap the empty cluster
