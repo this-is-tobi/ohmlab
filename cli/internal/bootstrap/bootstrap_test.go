@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	bs "github.com/this-is-tobi/ohmlab/cli/internal/bootstrap"
 	"github.com/this-is-tobi/ohmlab/cli/internal/bootstrap/bootstraptest"
@@ -224,5 +225,13 @@ func TestAFailedPhaseStopsTheRun(t *testing.T) {
 	}
 	if len(r.Calls) != 1 {
 		t.Errorf("ran %q, want phase 1 alone", lines(r.Calls))
+	}
+}
+
+func TestHelmGetsTimeToStop(t *testing.T) {
+	for _, s := range bs.Commands(local(""), bs.Plan{GatewayAPI: true, Phase1: true}, "/t/admin-password.yaml") {
+		if s.Cmd.Grace != 30*time.Second {
+			t.Errorf("%s: grace %s, want 30s for helm to mark a release it stops as failed", s.Title, s.Cmd.Grace)
+		}
 	}
 }
