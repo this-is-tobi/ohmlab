@@ -265,7 +265,7 @@ spec:
     name: ohmlab-internal-ca
 ```
 
-The `gitea` app takes this issuer for Valkey's certificate with `valkeyCertificate.issuerRef: {kind: ClusterIssuer, name: ohmlab-internal-ca}`; otherwise a CA of Gitea's namespace issues it. Gitea reads that CA when it starts: after changing the issuer of a running Valkey, restart Gitea once Valkey serves the new certificate.
+The `gitea` app takes this issuer for Valkey's certificate with `valkeyCertificate.issuerRef: {kind: ClusterIssuer, name: ohmlab-internal-ca}`; otherwise a CA of Gitea's namespace issues it. Gitea reads that CA when it starts: after changing the issuer of a running Valkey, restart Gitea once Valkey serves the new certificate. The CA reaches Gitea through three lists of the app's values, `gitea.deployment.env` (`SSL_CERT_DIR`), `gitea.extraVolumes` and `gitea.extraContainerVolumeMounts`: an instance that sets one of them replaces the catalog's entries and must keep them, or Gitea refuses Valkey's certificate when it starts. Mounts still set through the chart's deprecated `gitea.extraVolumeMounts` no longer reach Gitea's container, which reads only `extraContainerVolumeMounts` once it is set: move them there.
 
 `ohmlab audit tls` checks a running cluster against this ([cheat sheet](07-cheat-sheet.md#ohmlab-cli)): it probes every Service port through a port-forward and fails on a plaintext one that neither the rule (metrics, DNS) nor an exception of the instance's `ohmlab.yaml`, each with its reason, allows.
 
