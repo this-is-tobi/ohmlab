@@ -26,6 +26,7 @@ jobs:
         {"cli": ["cli/*", "scripts/ci/cli-test-env*"],
         "charts": ["argo-cd/apps/*", "argo-cd/instances/*", "charts/ohmlab/*", "scripts/ci/test-prometheus-rules*", "scripts/ci/check-dashboards*", "scripts/ci/test-kyverno-policies*", "scripts/ci/check-no-legacy-kyverno*", "scripts/ci/test-instance-manager*", "scripts/ci/test-names*", "scripts/ci/test-site-defaults*", "scripts/ci/test-root-manager*", "scripts/ci/check-vso-isolation*", "scripts/ci/check-example-secrets*", "scripts/ci/check-example-pod-security*", "scripts/ci/check-example-clusters*", "scripts/ci/check-values-keys*", "scripts/ci/check-vault-access*", "scripts/ci/check-app-projects*", "scripts/ci/check-shared-clusters*", "scripts/ci/check-image-pins*", "scripts/ci/test-vault-identity*", "scripts/ci/test-ohmlab-controller-chart*", "scripts/ci/test-vault-operator-chart*", "scripts/ci/test-prometheus-stack-chart*", "scripts/ci/test-gitea-chart*","scripts/ci/test-vault-spokes*", "scripts/ci/test-trivy-operator-chart*", "scripts/ci/test-arc-chart*", "scripts/ci/check-controller-policy*", "scripts/ci/check-vault-seeds*", "scripts/ci/test-instances-dir*", "scripts/ci/render-instance*", "scripts/ci/test-render-instance*", "scripts/ci/compare-instance-renders*", "scripts/ci/test-compare-instance-renders*", "scripts/ci/render-example*", "scripts/build-catalog*", "scripts/lib/*", "scripts/ci/test-catalog-bundle*"],
         "controller": ["cli/*", "argo-cd/apps/ohmlab-controller/*", "scripts/ci/e2e-ohmlab-controller*", "scripts/ci/fixtures/*", "scripts/ci/cli-test-env*"],
+        "bootstrap": ["cli/*", "charts/ohmlab/*", "argo-cd/instances/_example/*", "scripts/ci/e2e-bootstrap*"],
         "ansible": ["ansible/*"],
         "shell": ["run.sh", "scripts/*"],
         "sonarqube": ["argo-cd/apps/sonarqube/*"],
@@ -586,6 +587,26 @@ jobs:
         IMAGE=ghcr.io/this-is-tobi/ohmlab/controller:ci-${{ github.sha }}
         scripts/ci/e2e-ohmlab-controller.sh ${{ matrix.mode }}
 
+  # The first command an adopter runs, on an empty cluster: the dry run, the
+  # two phases, the generated password and a given one.
+  e2e-bootstrap:
+    needs: classify
+    if: ${{ fromJSON(needs.classify.outputs.groups).bootstrap || fromJSON(needs.classify.outputs.groups).ci }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      # bootstrap needs Helm 4; the runner's own may be older.
+      - uses: azure/setup-helm@v5
+      - uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa  # v1.15.1
+        with:
+          cluster_name: ohmlab-bootstrap
+      - name: Bootstrap the empty cluster
+        run: E2E_EXISTING_CLUSTER=1 KIND_CLUSTER=ohmlab-bootstrap scripts/ci/e2e-bootstrap.sh
+
   scan-image:
     needs: build-image
     uses: this-is-tobi/github-workflows/.github/workflows/scan-trivy.yml@v0
@@ -637,6 +658,7 @@ jobs:
       - build-controller-image
       - scan-controller-image
       - e2e-controller
+      - e2e-bootstrap
       - validate-instance
       - validate-homelab
       - validate-examples
