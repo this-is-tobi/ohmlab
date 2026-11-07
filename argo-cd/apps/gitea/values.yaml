@@ -165,6 +165,17 @@ valkey:
     enabled: true
     existingSecret: gitea-valkey-tls
     authClients: false
+  # Valkey reads its certificate only when it starts: this reloads a renewed
+  # one (Valkey 9.1 and later). The interval stays under the probes' failure
+  # windows: they check the served certificate against the CA file of the
+  # same Secret, so a re-issue by another CA does not restart Valkey.
+  config:
+    extraConfig:
+    - tls-auto-reload-interval 10
+  # The chart has no config checksum, so a config change applies only on
+  # restart: bump this with any change under config to roll the pod.
+  podAnnotations:
+    ohmlab.fr/config-revision: tls-auto-reload
   service:
     port: 6379
   # Merged over the chart default (fsGroup 1000); the chart's container
