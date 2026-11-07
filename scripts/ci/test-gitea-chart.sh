@@ -55,6 +55,8 @@ names='select(.kind == "Certificate" and .metadata.name == "gitea-valkey-tls") |
 check "by default a CA of the namespace issues Valkey's certificate" "Issuer/gitea-valkey-ca" "$(q "$issuer")"
 check "by default the namespace CA renders" \
   "Certificate/gitea-valkey-ca Certificate/gitea-valkey-tls Issuer/gitea-valkey-ca Issuer/gitea-valkey-selfsigned" "$(q "$pki")"
+check "the namespace CA keeps its key when it renews" "Never" \
+  "$(q 'select(.kind == "Certificate" and .metadata.name == "gitea-valkey-ca") | .spec.privateKey.rotationPolicy')"
 default_names=$(q "$names")
 render --set valkeyCertificate.issuerRef.kind=ClusterIssuer --set valkeyCertificate.issuerRef.name=ohmlab-internal-ca
 check "an issuerRef issues Valkey's certificate" "ClusterIssuer/ohmlab-internal-ca" "$(q "$issuer")"

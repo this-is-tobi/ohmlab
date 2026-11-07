@@ -22,6 +22,9 @@ spec:
   privateKey:
     algorithm: ECDSA
     size: 256
+    # A renewed CA with the same key still verifies the certificates it
+    # signed, and Gitea keeps the CA it read when it started.
+    rotationPolicy: Never
   issuerRef:
     name: gitea-valkey-selfsigned
     kind: Issuer
