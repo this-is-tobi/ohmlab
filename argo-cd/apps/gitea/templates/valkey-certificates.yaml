@@ -1,7 +1,7 @@
 # Valkey's serving certificate (Gitea's cache, sessions and queue), from
 # valkeyCertificate.issuerRef or else from a CA of this namespace. Server TLS
 # only: Gitea's Redis URI cannot carry a client certificate, so Valkey runs
-# with authClients off; the URIs skip verifying it (skipverify).
+# with authClients off. Gitea verifies it against the CA in the same Secret.
 {{- if not .Values.valkeyCertificate.issuerRef }}
 apiVersion: cert-manager.io/v1
 kind: Issuer

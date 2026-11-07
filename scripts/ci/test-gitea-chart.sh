@@ -59,4 +59,21 @@ check "an issuerRef issues Valkey's certificate" "ClusterIssuer/ohmlab-internal-
 check "with an issuerRef no namespace CA renders" "Certificate/gitea-valkey-tls" "$(q "$pki")"
 check "the certificate keeps its names and usages" "$default_names" "$(q "$names")"
 
+vss='select(.kind == "VaultStaticSecret" and .metadata.name == "gitea-vso-gitea-valkey-auth")'
+spec='select(.kind == "Deployment" and .metadata.name == "gitea") | .spec.template.spec'
+main="$spec | .containers[] | select(.name == \"gitea\")"
+render
+check "Gitea's Valkey URIs verify the server" "0" \
+  "$(q "[$vss | .spec.destination.transformation.templates[].text | select(test(\"skipverify\"))] | length")"
+check "they stay on TLS" "3" \
+  "$(q "[$vss | .spec.destination.transformation.templates[].text | select(test(\"^rediss://\"))] | length")"
+check "Gitea adds the CA's directory to the system's" "/etc/ssl/certs:/etc/valkey-ca" \
+  "$(q "$main | .env[] | select(.name == \"SSL_CERT_DIR\") | .value")"
+check "Gitea mounts that CA read-only" "/etc/valkey-ca true" \
+  "$(q "$main | .volumeMounts[] | select(.name == \"valkey-ca\") | .mountPath + \" \" + (.readOnly | tostring)")"
+check "only ca.crt of Valkey's Secret is projected" "gitea-valkey-tls ca.crt=ca.crt" \
+  "$(q "$spec | .volumes[] | select(.name == \"valkey-ca\") | .secret.secretName + \" \" + ([.secret.items[] | .key + \"=\" + .path] | join(\",\"))")"
+check "a change of the URIs or the password restarts Valkey and Gitea" "StatefulSet/gitea-valkey Deployment/gitea" \
+  "$(q "[$vss | .spec.rolloutRestartTargets[] | .kind + \"/\" + .name] | join(\" \")")"
+
 exit "$failures"
