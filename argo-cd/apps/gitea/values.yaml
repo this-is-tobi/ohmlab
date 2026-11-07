@@ -53,10 +53,12 @@ gitea:
         cpu: 500m
         memory: 512Mi
   # Gitea verifies Valkey against the CA of Valkey's certificate, the only key
-  # of its Secret mounted here. SSL_CERT_DIR keeps the system's CAs and adds
-  # that directory (SSL_CERT_FILE would replace the public CAs Gitea's OIDC
-  # login needs). The init containers do not connect to Valkey. An instance
-  # that sets one of these lists replaces it: keep these entries.
+  # of its Secret mounted here. SSL_CERT_DIR adds that directory to Go's
+  # system CAs, with /etc/ssl/certs listed since it replaces Go's default
+  # directories. The init containers do not connect to Valkey. An instance
+  # that sets one of these lists replaces it and must keep these entries; the
+  # deprecated extraVolumeMounts no longer reaches Gitea's container once
+  # extraContainerVolumeMounts is set.
   deployment:
     env:
     - name: SSL_CERT_DIR
