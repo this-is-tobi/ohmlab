@@ -21,6 +21,10 @@ const ArgoCDMarker = "applications.argoproj.io"
 
 var httpClient = &http.Client{Timeout: 2 * time.Minute}
 
+// helmGrace is how long an interrupted helm has to mark the release it was
+// installing as failed: a release left pending refuses the next run.
+const helmGrace = 30 * time.Second
+
 // Kube is where Helm acts: the context the CLI checked, never whichever one
 // is current.
 type Kube struct{ Kubeconfig, Context string }
@@ -76,7 +80,7 @@ type Step struct {
 func Commands(o Options, p Plan, passwordValues string) []Step {
 	var steps []Step
 	if o.Chart.Local() {
-		steps = append(steps, Step{"Update the chart's dependencies", runner.Cmd{Name: "helm", Args: []string{"dependency", "update", o.Chart.Ref}}})
+		steps = append(steps, Step{"Update the chart's dependencies", runner.Cmd{Name: "helm", Args: []string{"dependency", "update", o.Chart.Ref}, Grace: helmGrace}})
 	}
 	install := func(set ...string) runner.Cmd {
 		args := []string{"upgrade", "--install", o.Release.Name, o.Chart.Ref}
@@ -85,7 +89,7 @@ func Commands(o Options, p Plan, passwordValues string) []Step {
 		}
 		args = append(args, "--namespace", o.Release.Namespace, "--create-namespace", "--values", o.Values)
 		args = append(append(args, set...), "--wait", "--timeout", "10m")
-		return runner.Cmd{Name: "helm", Args: append(args, o.Kube.args()...)}
+		return runner.Cmd{Name: "helm", Args: append(args, o.Kube.args()...), Grace: helmGrace}
 	}
 	if p.Phase1 {
 		steps = append(steps, Step{"Phase 1: install Argo CD alone", install(

@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -97,5 +100,29 @@ func TestExecDoesNotWaitForAChildHoldingTheOutput(t *testing.T) {
 	}
 	if out.String() != "done\n" {
 		t.Errorf("stdout %q", out.String())
+	}
+}
+
+func TestExecInterruptsAToolGivenGrace(t *testing.T) {
+	marker := filepath.Join(t.TempDir(), "stopped")
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- runner.Exec{}.Run(ctx, runner.Cmd{Name: "sh", Args: []string{"-c",
+			`trap 'kill $!; echo stopped > "$0"; exit 3' INT TERM; sleep 30 & wait`, marker}, Grace: 5 * time.Second})
+	}()
+	time.Sleep(300 * time.Millisecond) // the shell installs its trap
+	cancel()
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run did not return after the cancel")
+	}
+	if b, rerr := os.ReadFile(marker); rerr != nil || strings.TrimSpace(string(b)) != "stopped" {
+		t.Errorf("the tool was not let stop by itself: %v %q", rerr, b)
+	}
+	if err == nil || !strings.Contains(err.Error(), "sh was interrupted") {
+		t.Errorf("got %v, want an error saying sh was interrupted", err)
 	}
 }

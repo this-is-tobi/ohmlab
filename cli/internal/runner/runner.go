@@ -25,6 +25,9 @@ type Cmd struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
+	// Grace is how long the tool has to stop after an interrupt when the run
+	// is cancelled. Zero kills it at once.
+	Grace time.Duration
 }
 
 // String is the command line as a shell reads it, the environment first:
@@ -87,11 +90,21 @@ func (Exec) Run(ctx context.Context, c Cmd) error {
 		cmd.Stderr = io.MultiWriter(c.Stderr, tail)
 	}
 	cmd.WaitDelay = waitDelay
+	if c.Grace > 0 {
+		// An interrupt lets the tool clean up (helm marks a release it stops
+		// as failed rather than leaving it pending); then it is killed.
+		cmd.Cancel = func() error { return cmd.Process.Signal(os.Interrupt) }
+		cmd.WaitDelay = max(waitDelay, c.Grace)
+	}
 	err := cmd.Run()
 	var exit *exec.ExitError
 	switch {
 	case errors.As(err, &exit):
-		return &ExitError{Name: c.Name, Code: exit.ExitCode(), Stderr: string(tail.b)}
+		e := &ExitError{Name: c.Name, Code: exit.ExitCode(), Stderr: string(tail.b)}
+		if ctx.Err() != nil {
+			return fmt.Errorf("%s was interrupted: %w", c.Name, e)
+		}
+		return e
 	case errors.Is(err, exec.ErrWaitDelay):
 		// The tool succeeded; only a child of its kept the output open.
 		return nil
