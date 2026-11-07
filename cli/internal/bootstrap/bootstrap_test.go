@@ -235,3 +235,15 @@ func TestHelmGetsTimeToStop(t *testing.T) {
 		}
 	}
 }
+
+func TestPhase1SetsTheGivenPassword(t *testing.T) {
+	var phase1 string
+	for _, s := range bs.Commands(local(""), bs.Plan{Phase1: true}, "/t/admin-password.yaml") {
+		if slices.Contains(s.Cmd.Args, "rootManager.enabled=false") {
+			phase1 = s.Cmd.String()
+		}
+	}
+	if !strings.Contains(phase1, "--values /i/values/core/ohmlab.yaml --values /t/admin-password.yaml --set rootManager.enabled=false") {
+		t.Errorf("phase 1 is %q, want the password's values after the instance's: Argo CD then generates no password of its own", phase1)
+	}
+}
