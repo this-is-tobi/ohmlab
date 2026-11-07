@@ -146,6 +146,9 @@ func CheckHelm(ctx context.Context, r runner.Runner) error {
 // the helm commands. The admin password's values file lives in a private
 // directory that is gone when Run returns.
 func Run(ctx context.Context, r runner.Runner, c Cluster, u *ui.UI, o Options, p Plan, password string) error {
+	if o.Kube.Context == "" {
+		return errors.New("no kube context to bootstrap: helm reads an empty --kube-context as the current one")
+	}
 	if p.GatewayAPI {
 		step := u.Step("Install the Gateway API CRDs (" + GatewayAPIVersion + ", experimental channel)")
 		if err := step.Done(installGatewayAPI(ctx, c, o.GatewayAPIURL)); err != nil {

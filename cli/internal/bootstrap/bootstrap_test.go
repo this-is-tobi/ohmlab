@@ -247,3 +247,16 @@ func TestPhase1SetsTheGivenPassword(t *testing.T) {
 		t.Errorf("phase 1 is %q, want the password's values after the instance's: Argo CD then generates no password of its own", phase1)
 	}
 }
+
+func TestRunRefusesAnEmptyContext(t *testing.T) {
+	r := &runnertest.Fake{}
+	o := local("")
+	o.Kube = bs.Kube{}
+	err := bs.Run(context.Background(), r, installed(), quiet(), o, bs.Plan{}, "")
+	if err == nil || !strings.Contains(err.Error(), "context") {
+		t.Errorf("got %v, want a refusal: helm reads an empty --kube-context as the current one", err)
+	}
+	if len(r.Calls) != 0 {
+		t.Errorf("ran %q", lines(r.Calls))
+	}
+}

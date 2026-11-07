@@ -168,6 +168,16 @@ func run(ctx context.Context, r runner.Runner, connect func(kubeconfig, context 
 	}
 
 	ns := opts.Release.Namespace
+	// kubectl prints a command for the bootstrapped cluster, whichever one is
+	// current where it is pasted.
+	kubectl := func(args ...string) string {
+		var a []string
+		if o.kubeconfig != "" {
+			a = append(a, "--kubeconfig", o.kubeconfig)
+		}
+		a = append(a, "--context", s.ContextName, "-n", ns)
+		return runner.Cmd{Name: "kubectl", Args: append(a, args...)}.String()
+	}
 	if password == "" {
 		generated, err := cluster.InitialAdminPassword(ctx, ns)
 		switch {
@@ -177,11 +187,11 @@ func run(ctx context.Context, r runner.Runner, connect func(kubeconfig, context 
 			u.Warn("read the generated admin password: %v", err)
 		case u.Human():
 			u.Info("Argo CD: user admin, password %s", generated)
-			u.Info("Store it, then delete the Secret once you have changed it: kubectl -n %s delete secret argocd-initial-admin-secret", ns)
+			u.Info("Store it, then delete the Secret once you have changed it: %s", kubectl("delete", "secret", "argocd-initial-admin-secret"))
 		default:
 			u.Info("Argo CD generated the admin password in %s/argocd-initial-admin-secret: print it with ohmlab argocd password", ns)
 		}
 	}
-	u.Info("The root manager ApplicationSet now reconciles the instances of its repository: kubectl -n %s get applicationsets,applications", ns)
+	u.Info("The root manager ApplicationSet now reconciles the instances of its repository: %s", kubectl("get", "applicationsets,applications"))
 	return nil
 }

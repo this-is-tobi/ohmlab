@@ -193,3 +193,30 @@ users:
 		t.Errorf("got %q, %v; want the context's server", server, err)
 	}
 }
+
+// A context named on purpose wins over the current one and over $KUBECONFIG:
+// the current context of a workstation can be any cluster.
+func TestConnectTakesTheNamedContextNotTheCurrentOne(t *testing.T) {
+	dir := t.TempDir()
+	decoy := `apiVersion: v1
+kind: Config
+current-context: decoy
+clusters:
+- name: decoy
+  cluster: {server: "https://decoy.example:6443"}
+contexts:
+- name: decoy
+  context: {cluster: decoy, user: u}
+users:
+- name: u
+  user: {token: t}
+`
+	write(t, filepath.Join(dir, "env"), decoy)
+	t.Setenv("KUBECONFIG", filepath.Join(dir, "env"))
+	path := filepath.Join(dir, "given")
+	write(t, path, strings.Replace(strings.Replace(decoy, "contexts:\n", "contexts:\n- name: lab\n  context: {cluster: lab, user: u}\n", 1),
+		"clusters:\n", "clusters:\n- name: lab\n  cluster: {server: \"https://lab.example:6443\"}\n", 1))
+	if _, server, err := Connect(path, "lab"); err != nil || server != "https://lab.example:6443" {
+		t.Errorf("got %q, %v; want lab's server, not the current context's or $KUBECONFIG's", server, err)
+	}
+}

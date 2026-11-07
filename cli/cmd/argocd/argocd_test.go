@@ -25,14 +25,17 @@ func workspace(t *testing.T, content string) string {
 	return dir
 }
 
-// connector hands out one fake cluster and records the contexts asked for.
+// connector hands out one fake cluster and records the kubeconfigs and
+// contexts asked for.
 type connector struct {
-	cluster *bootstraptest.Cluster
-	asked   []string
+	cluster     *bootstraptest.Cluster
+	asked       []string
+	kubeconfigs []string
 }
 
-func (c *connector) connect(_, context string) (bs.Cluster, string, error) {
+func (c *connector) connect(kubeconfig, context string) (bs.Cluster, string, error) {
 	c.asked = append(c.asked, context)
+	c.kubeconfigs = append(c.kubeconfigs, kubeconfig)
 	return c.cluster, "https://kind:6443", nil
 }
 
@@ -92,5 +95,18 @@ func TestPasswordNamespace(t *testing.T) {
 	}
 	if !slices.Equal(c.cluster.Namespaces, []string{"other"}) {
 		t.Errorf("asked %v, want other", c.cluster.Namespaces)
+	}
+}
+
+func TestPasswordUsesTheGivenKubeconfig(t *testing.T) {
+	var out bytes.Buffer
+	c := &connector{cluster: &bootstraptest.Cluster{Password: "pw-123"}}
+	o := defaults()
+	o.kubeconfig = "/k"
+	if err := runPassword(context.Background(), c.connect, &out, workspace(t, ""), os.Getenv, o); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(c.kubeconfigs, []string{"/k"}) {
+		t.Errorf("connected with %v, want /k", c.kubeconfigs)
 	}
 }

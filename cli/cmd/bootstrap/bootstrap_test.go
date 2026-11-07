@@ -47,14 +47,17 @@ func workspace(t *testing.T, extra string) (ws, product string) {
 	return ws, product
 }
 
-// connector hands out one fake cluster and records the contexts asked for.
+// connector hands out one fake cluster and records the kubeconfigs and
+// contexts asked for.
 type connector struct {
-	cluster *bootstraptest.Cluster
-	asked   []string
+	cluster     *bootstraptest.Cluster
+	asked       []string
+	kubeconfigs []string
 }
 
-func (c *connector) connect(_, context string) (bs.Cluster, string, error) {
+func (c *connector) connect(kubeconfig, context string) (bs.Cluster, string, error) {
 	c.asked = append(c.asked, context)
+	c.kubeconfigs = append(c.kubeconfigs, kubeconfig)
 	return c.cluster, "https://kind:6443", nil
 }
 
@@ -190,7 +193,7 @@ func TestBootstrapPrintsTheGeneratedPasswordOnATerminal(t *testing.T) {
 	if err := run(context.Background(), r, installed().connect, term(&out, "", true), ws, os.Getenv, strings.NewReader(""), options{yes: true}); err != nil {
 		t.Fatalf("%v\n%s", err, out.String())
 	}
-	for _, want := range []string{"user admin, password pw-123", "kubectl -n argocd-system delete secret argocd-initial-admin-secret"} {
+	for _, want := range []string{"user admin, password pw-123", "kubectl --context ohmlab -n argocd-system delete secret argocd-initial-admin-secret"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}
@@ -253,5 +256,39 @@ func TestBootstrapWarnsWithoutAnOhmlabEntry(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "lab has no ohmlab app in core.yaml") {
 		t.Errorf("no warning about the missing ohmlab app:\n%s", out.String())
+	}
+}
+
+// Helm, the CLI's own reads and the commands it prints all aim at the
+// checked cluster: a pasted hint must not act on the current context.
+func TestBootstrapAimsEverythingAtTheCheckedCluster(t *testing.T) {
+	ws, _ := workspace(t, "contextName: lab\n")
+	var out bytes.Buffer
+	r, c := helm4(), installed()
+	if err := run(context.Background(), r, c.connect, term(&out, "", true), ws, os.Getenv, strings.NewReader(""), options{yes: true, kubeconfig: "/k"}); err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	if !slices.Equal(c.kubeconfigs, []string{"/k"}) || !slices.Equal(c.asked, []string{"lab"}) {
+		t.Errorf("connected with %v to %v, want /k and lab", c.kubeconfigs, c.asked)
+	}
+	upgrades := 0
+	for _, l := range lines(r.Calls) {
+		if strings.HasPrefix(l, "helm upgrade") {
+			upgrades++
+			if !strings.HasSuffix(l, " --kube-context lab --kubeconfig /k") {
+				t.Errorf("%q does not aim at lab through /k", l)
+			}
+		}
+	}
+	if upgrades == 0 {
+		t.Error("no helm upgrade ran")
+	}
+	for _, want := range []string{
+		"kubectl --kubeconfig /k --context lab -n argocd-system delete secret argocd-initial-admin-secret",
+		"kubectl --kubeconfig /k --context lab -n argocd-system get applicationsets,applications",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q:\n%s", want, out.String())
+		}
 	}
 }
