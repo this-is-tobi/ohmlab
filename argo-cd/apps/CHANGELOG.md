@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.16.0...catalog-v0.17.0) (2026-11-07)
+
+
+### Features
+
+* **gitea:** issue Valkey's certificate from a chosen issuer ([1839164](https://github.com/this-is-tobi/ohmlab/commit/1839164e2a310c895a5d75da2d21f3556149f17f))
+* **gitea:** verify Valkey's certificate ([7eb5bcd](https://github.com/this-is-tobi/ohmlab/commit/7eb5bcd292df5ccb1dbeb509ab064435ce80209b))
+
+
+### Bug Fixes
+
+* **deps:** update helm release teleport-cluster to v18.11.9 ([8f47eb7](https://github.com/this-is-tobi/ohmlab/commit/8f47eb7adf5fc56a9776f68d65016ca9a09b3c49))
+* **deps:** update kube-prometheus-stack docker tag to v92.22.0 ([2dffa97](https://github.com/this-is-tobi/ohmlab/commit/2dffa974a6c157e34f238e27e1d6fe1f7e041d19))
+* **gitea:** keep the namespace CA's key when it renews ([7e4dd0a](https://github.com/this-is-tobi/ohmlab/commit/7e4dd0a62be42a1b18d6baf002c9fc0a72920391))
+* **gitea:** reload Valkey's certificate when it renews ([da20eca](https://github.com/this-is-tobi/ohmlab/commit/da20ecae4fba63708952c57ac1e273dbe7be712a))
+* **keycloak:** allow the callback Gitea signs in with ([8d41e42](https://github.com/this-is-tobi/ohmlab/commit/8d41e4208761960811ae8c8cf666a7828f85ee87))
+
 ## [0.16.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.15.0...catalog-v0.16.0) (2026-11-06)
 
 
