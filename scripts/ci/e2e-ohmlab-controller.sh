@@ -3,7 +3,9 @@
 # server with Kubernetes auth: the chart installs, the controller logs in as its
 # own ServiceAccount under the policy the platform grants it, objects become
 # Ready, drift is corrected, a resync writes nothing, rotation happens once,
-# deletion policies behave, and a rollout never runs the target twice.
+# deletion policies behave, and a rollout never runs the target twice. Beside
+# it, against cert-manager, the certificates target rolls a workload onto its
+# renewed certificate, and may touch nothing else.
 #
 #   e2e-ohmlab-controller.sh <split|single>
 #
@@ -13,12 +15,15 @@
 #   VAULT_IMAGE    the Vault image, preloaded when possible (default:
 #                  mirror.gcr.io/hashicorp/vault at the VAULT_VERSION of
 #                  cli/Dockerfile)
+#   CERT_MANAGER_VERSION
+#                  the cert-manager chart (default: the catalog's, from
+#                  argo-cd/apps/cert-manager/Chart.yaml)
 #   KIND_CLUSTER   the kind cluster to use; it is created when it does not exist
 #   KEEP           set to keep the cluster afterwards
 #   E2E_EXISTING_CLUSTER
 #                  set when the cluster already exists and already holds the
 #                  controller image (CI): nothing is created, loaded or deleted
-# Needs kind, kubectl, helm, jq and docker.
+# Needs kind, kubectl, helm, jq, yq, openssl and docker.
 set -euo pipefail
 
 MODE="${1:?usage: e2e-ohmlab-controller.sh <split|single>}"
@@ -36,6 +41,9 @@ SA=ohmlab-controller-vault
 POLICY="$ROOT/cli/internal/seed/testdata/controller-policy.hcl"
 POLICY_DELETE="$ROOT/cli/internal/seed/testdata/controller-policy-allow-delete.hcl"
 VAULT_TOKEN_ROOT=root
+CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-$(yq '.dependencies[] | select(.name == "cert-manager") | .version' "$ROOT/argo-cd/apps/cert-manager/Chart.yaml")}"
+NS_CERTS=e2e-certs
+BUSYBOX_IMAGE=mirror.gcr.io/library/busybox:1.37.0
 
 k() { kubectl --context "$CTX" "$@"; }
 vexec() { k -n "$NS_VAULT" exec deploy/vault -- env VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN="$VAULT_TOKEN_ROOT" vault "$@"; }
@@ -46,6 +54,8 @@ fail() { echo "FAIL: $*" >&2; dump; exit 1; }
 dump() {
   k -n "$NS_CTL" get pods,deploy,leases 2>&1 | head -20 || true
   k -n "$NS_VAULT" get vaultseeds -o wide 2>&1 || true
+  k -n "$NS_CERTS" get certificates,deploy -o wide 2>&1 || true
+  k -n "$NS_CERTS" get events --sort-by=.lastTimestamp 2>&1 | tail -10 || true
   k -n "$NS_CTL" logs -l app.kubernetes.io/name=ohmlab-controller --tail=40 2>&1 || true
 }
 cleanup() { [ -n "${KEEP:-}" ] || [ -n "${E2E_EXISTING_CLUSTER:-}" ] || kind delete cluster --name "$CLUSTER" >/dev/null 2>&1 || true; }
@@ -125,6 +135,49 @@ vexec write auth/kubernetes/role/ohmlab-controller-vault \
   bound_service_account_names="$SA" bound_service_account_namespaces="$NS_CTL" \
   policies=ohmlab-controller-vault ttl=15m audience=vault >/dev/null
 
+step "cert-manager, and a workload that reads its certificate only at start"
+helm --kube-context "$CTX" upgrade --install cert-manager cert-manager --repo https://charts.jetstack.io \
+  --version "$CERT_MANAGER_VERSION" -n cert-manager --create-namespace --set crds.enabled=true --wait --timeout 5m >/dev/null
+k create namespace "$NS_CERTS" --dry-run=client -o yaml | k apply -f - >/dev/null
+workload() { # <name> <mount the certificate: yes|no>
+  cat <<YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: $1, namespace: $NS_CERTS}
+spec:
+  selector: {matchLabels: {app: $1}}
+  template:
+    metadata: {labels: {app: $1}}
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+      - name: app
+        image: $BUSYBOX_IMAGE
+        command: [sleep, "3600"]
+$( [ "$2" = yes ] && printf '        volumeMounts: [{name: tls, mountPath: /tls}]\n      volumes: [{name: tls, secret: {secretName: app-tls}}]' )
+YAML
+}
+{
+  cat <<YAML
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata: {name: selfsigned, namespace: $NS_CERTS}
+spec: {selfSigned: {}}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: {name: app-tls, namespace: $NS_CERTS}
+spec:
+  secretName: app-tls
+  dnsNames: [app.$NS_CERTS.svc]
+  issuerRef: {kind: Issuer, name: selfsigned}
+---
+YAML
+  workload app yes
+  echo ---
+  workload bystander no
+} | k apply -f - >/dev/null
+
 step "install the chart ($MODE)"
 # The chart refuses an image that is not pinned by digest. The e2e runs one it
 # just built, which the node knows by name only: hence the knob, and the Never
@@ -132,11 +185,14 @@ step "install the chart ($MODE)"
 args=(--set "image=$IMAGE" --set unsafeAllowUnpinnedImage=true --set imagePullPolicy=Never
   --set targets.vault.enabled=true --set resync=15s --set monitoring.enabled=false
   --set "targets.vault.backend.address=http://vault.$NS_VAULT.svc:8200" --set targets.vault.backend.caSecret=
-  --set targets.vault.allowDelete=true)
-[ "$MODE" = single ] && args+=(--set "deployments.all={vault}")
+  --set targets.vault.allowDelete=true
+  --set targets.certificates.enabled=true
+  --set-json "targets.certificates.restarts=[{\"namespace\":\"$NS_CERTS\",\"certificate\":\"app-tls\",\"workloads\":[{\"kind\":\"Deployment\",\"name\":\"app\"}]}]")
+[ "$MODE" = single ] && args+=(--set "deployments.all={certificates,vault}")
 helm --kube-context "$CTX" upgrade --install ohmlab-controller "$ROOT/argo-cd/apps/ohmlab-controller" -n "$NS_CTL" "${args[@]}" >/dev/null
 DEPLOY=ohmlab-controller-vault
-[ "$MODE" = single ] && DEPLOY=ohmlab-controller-all
+CERTS_DEPLOY=ohmlab-controller-certificates
+[ "$MODE" = single ] && DEPLOY=ohmlab-controller-all && CERTS_DEPLOY=ohmlab-controller-all
 SA_EXPECT=$DEPLOY
 if [ "$MODE" = single ]; then
   # The Vault role is bound to the ServiceAccount of the deployment.
@@ -144,6 +200,46 @@ if [ "$MODE" = single ]; then
     bound_service_account_namespaces="$NS_CTL" policies=ohmlab-controller-vault ttl=15m audience=vault >/dev/null
 fi
 k -n "$NS_CTL" rollout status "deploy/$DEPLOY" --timeout=120s >/dev/null || fail "the controller did not become ready"
+k -n "$NS_CTL" rollout status "deploy/$CERTS_DEPLOY" --timeout=120s >/dev/null || fail "the certificates target did not become ready"
+
+step "first sight rolls the listed workload"
+revision_of() { k -n "$NS_CERTS" get deploy "$1" -o jsonpath='{.spec.template.metadata.annotations.ohmlab\.fr/certificate-revision}'; }
+carries() { [ "$(revision_of "$1")" = "$2" ]; }
+generation() { k -n "$NS_CERTS" get deploy "$1" -o jsonpath='{.metadata.generation}'; }
+eventually 120 "app to carry revision 1" carries app 1
+[ -z "$(revision_of bystander)" ] || fail "bystander carries a revision"
+
+step "the controller may touch only what it lists"
+can() { k auth can-i "$@" -n "$NS_CERTS" --as="system:serviceaccount:$NS_CTL:$CERTS_DEPLOY" >/dev/null 2>&1; }
+can patch deployment/app || fail "the target may not patch the workload it lists"
+! can patch deployment/bystander || fail "the target may patch a workload it does not list"
+! can list deployments || fail "the target may list Deployments"
+! can get secrets || fail "the target may read Secrets"
+
+step "a renewal rolls the workload onto the new certificate"
+secret_serial() { k -n "$NS_CERTS" get secret app-tls -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -serial; }
+# The certificate a running pod of the workload mounts, not one terminating.
+pod_serial() {
+  local pod
+  pod=$(k -n "$NS_CERTS" get pods -l app=app -o json | jq -r '[.items[] | select(.metadata.deletionTimestamp == null and .status.phase == "Running")] | sort_by(.metadata.creationTimestamp) | last | .metadata.name')
+  k -n "$NS_CERTS" exec "$pod" -- cat /tls/tls.crt | openssl x509 -noout -serial
+}
+serial_before=$(secret_serial)
+# What `cmctl renew` does: ask cert-manager to issue again.
+k -n "$NS_CERTS" patch certificate app-tls --subresource=status --type=json -p "[{\"op\":\"add\",\"path\":\"/status/conditions/-\",\"value\":{\"type\":\"Issuing\",\"status\":\"True\",\"reason\":\"ManuallyTriggered\",\"message\":\"e2e renewal\",\"lastTransitionTime\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}]" >/dev/null
+revision_is() { [ "$(k -n "$NS_CERTS" get certificate app-tls -o jsonpath='{.status.revision}')" = "$1" ]; }
+eventually 120 "the Certificate to reach revision 2" revision_is 2
+eventually 60 "app to carry revision 2" carries app 2
+k -n "$NS_CERTS" rollout status deploy/app --timeout=120s >/dev/null || fail "app did not roll"
+serial_after=$(secret_serial)
+[ "$serial_after" != "$serial_before" ] || fail "cert-manager did not issue a new certificate"
+pod_has_new() { [ "$(pod_serial)" = "$serial_after" ]; }
+eventually 60 "the new pod to serve the renewed certificate" pod_has_new
+
+step "a resync rolls nothing"
+gen=$(generation app)
+sleep 50
+[ "$(generation app)" = "$gen" ] || fail "a resync rolled app again"
 
 step "objects become Ready under the controller's policy"
 k apply -f "$ROOT/scripts/ci/fixtures/ohmlab-controller-e2e.yaml" >/dev/null
@@ -232,8 +328,11 @@ lease_holder() { k -n "$NS_CTL" get lease ohmlab-controller-vault -o jsonpath='{
 new_leader() { local h; h=$(lease_holder); [ -n "$h" ] && [ "$h" != "$holder_before" ]; }
 holder_before=$(lease_holder)
 v1=$(kvversion keycloak)
+app_gen=$(generation app)
 k -n "$NS_CTL" rollout restart "deploy/$DEPLOY" >/dev/null
+[ "$CERTS_DEPLOY" = "$DEPLOY" ] || k -n "$NS_CTL" rollout restart "deploy/$CERTS_DEPLOY" >/dev/null
 k -n "$NS_CTL" rollout status "deploy/$DEPLOY" --timeout=120s >/dev/null
+k -n "$NS_CTL" rollout status "deploy/$CERTS_DEPLOY" --timeout=120s >/dev/null
 # The outgoing pod releases the Lease before the new one takes it: wait for a holder.
 eventually 60 "the Lease to change hands" new_leader
 holder_after=$(lease_holder)
@@ -252,6 +351,21 @@ has_success_metric() {
 }
 eventually 60 "the success metric" has_success_metric
 k -n "$NS_CTL" get --raw "/api/v1/namespaces/$NS_CTL/pods/$pod:8081/proxy/readyz" >/dev/null || fail "readyz"
+# The certificates target's leader, after its own rollout: its counters start
+# at zero, and it has nothing to roll.
+# Its Lease may still be changing hands: read the holder at each poll.
+cmetrics() {
+  local holder
+  holder=$(k -n "$NS_CTL" get lease ohmlab-controller-certificates -o jsonpath='{.spec.holderIdentity}')
+  [ -n "$holder" ] || return 1
+  k -n "$NS_CTL" get --raw "/api/v1/namespaces/$NS_CTL/pods/${holder%%_*}:8080/proxy/metrics"
+}
+certificate_ready() { local m; m=$(cmetrics) || return 1; grep -q '^ohmlab_object_ready{.*name="app-tls".*target="certificates"} 1$' <<<"$m"; }
+eventually 60 "the Certificate to be reported ready" certificate_ready
+if grep '^ohmlab_workload_restarts_total{.*name="app"' <<<"$(cmetrics)" | grep -qv ' 0$'; then
+  fail "the new process rolled app again"
+fi
+[ "$(generation app)" = "$app_gen" ] || fail "the rollout rolled app again"
 
 echo
 echo "e2e ($MODE): ok"
