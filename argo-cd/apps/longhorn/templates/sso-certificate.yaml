@@ -1,0 +1,62 @@
+{{- /*
+The oauth2-proxy's serving certificate with sso.httpScheme https, from
+ssoCertificate.issuerRef, for its Service's names. The proxy then serves https
+only, and reads the certificate once at start: a renewal needs a restart.
+Keep in sync across the apps that render it (cilium, longhorn).
+*/}}
+{{- with index .Subcharts "sso" }}
+{{- $v := .Values }}
+{{- $scheme := toString $v.httpScheme }}
+{{- if not (has $scheme (list "http" "https")) }}
+{{- fail (printf "sso.httpScheme: http or https, not %s" $scheme) }}
+{{- end }}
+{{- if eq $scheme "https" }}
+{{- if ($v.alphaConfig | default dict).enabled }}
+{{- fail "sso.alphaConfig.enabled: the app serves TLS through the legacy flags, which the alpha config replaces" }}
+{{- end }}
+{{- if not (and (kindIs "map" $v.extraArgs) (index ($v.extraArgs | default dict) "tls-cert-file") (index ($v.extraArgs | default dict) "tls-key-file")) }}
+{{- fail "sso.extraArgs: a map with the app's tls-cert-file and tls-key-file; an instance list, or a map without them, drops them" }}
+{{- end }}
+{{- $volume := false }}
+{{- range $v.extraVolumes }}{{ if eq (toString .name) "tls" }}{{ $volume = true }}{{ end }}{{ end }}
+{{- if not $volume }}
+{{- fail "sso.extraVolumes needs the app's tls entry, the certificate's Secret; an instance that sets the list replaces it" }}
+{{- end }}
+{{- $mount := false }}
+{{- range $v.extraVolumeMounts }}{{ if and (eq (toString .name) "tls") (eq (toString .mountPath) "/etc/oauth2-proxy/tls") }}{{ $mount = true }}{{ end }}{{ end }}
+{{- if not $mount }}
+{{- fail "sso.extraVolumeMounts needs the app's tls entry at /etc/oauth2-proxy/tls; an instance that sets the list replaces it" }}
+{{- end }}
+{{- $svc := include "oauth2-proxy.fullname" . }}
+{{- $ns := include "oauth2-proxy.namespace" . }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $svc }}-tls
+  namespace: {{ $ns }}
+  annotations:
+    # No earlier sync wave: these apps sync before cert-manager, and a wave
+    # would hold the whole app on it. The proxy restarts until it is issued
+    # (its volume is optional). cert-manager's CRDs may not exist yet on a
+    # fresh cluster.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  secretName: {{ $svc }}-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+  - digital signature
+  - server auth
+  dnsNames:
+  - {{ $svc }}
+  - {{ $svc }}.{{ $ns }}
+  - {{ $svc }}.{{ $ns }}.svc
+  - {{ $svc }}.{{ $ns }}.svc.cluster.local
+  issuerRef:
+    {{- toYaml $.Values.ssoCertificate.issuerRef | nindent 4 }}
+{{- end }}
+{{- end }}

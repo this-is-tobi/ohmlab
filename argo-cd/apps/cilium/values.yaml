@@ -103,6 +103,24 @@ sso:
   # Set false to render the chart without oauth2-proxy (bootstrap).
   enabled: true
   fullnameOverride: hubble-oauth2-proxy
+  # TLS with httpScheme https (with service.portNumber 443 and
+  # service.appProtocol https): the proxy then serves https only, from the
+  # certificate the app issues (templates/sso-certificate.yaml). It reads the
+  # certificate once at start, so restart it after each renewal. Inert while
+  # http. Keep these out of config.configFile, which instances replace whole;
+  # an instance that sets extraVolumes or extraVolumeMounts replaces these.
+  extraArgs:
+    tls-cert-file: '{{ if eq .Values.httpScheme "https" }}/etc/oauth2-proxy/tls/tls.crt{{ end }}'
+    tls-key-file: '{{ if eq .Values.httpScheme "https" }}/etc/oauth2-proxy/tls/tls.key{{ end }}'
+  extraVolumes:
+  - name: tls
+    secret:
+      secretName: '{{ include "oauth2-proxy.fullname" . }}-tls'
+      optional: true
+  extraVolumeMounts:
+  - name: tls
+    mountPath: /etc/oauth2-proxy/tls
+    readOnly: true
   config:
     existingSecret: hubble-oauth2-proxy-creds
     configFile: |-
@@ -363,3 +381,15 @@ cilium:
     serviceMonitor:
       enabled: true
       trustCRDsExist: true
+
+# The oauth2-proxy's serving certificate with sso.httpScheme https
+# (templates/sso-certificate.yaml), and the CA the gateway verifies it with
+# (templates/sso-backendtlspolicy.yaml): a trust bundle ConfigMap in this
+# namespace (Gateway API's portable form), or empty for the ca.crt of the
+# certificate's own Secret (a gateway that reads Secrets, as Traefik does).
+ssoCertificate:
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: ohmlab-internal-ca
+  caConfigMap: ohmlab-internal-ca
