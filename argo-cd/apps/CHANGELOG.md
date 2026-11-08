@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.18.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.17.0...catalog-v0.18.0) (2026-11-08)
+
+
+### Features
+
+* **deps:** update kube-prometheus-stack docker tag to v93 ([eb63cca](https://github.com/this-is-tobi/ohmlab/commit/eb63cca1ce49b0192302ac8616480e3b4dbe062b))
+
+
+### Bug Fixes
+
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.6.0 ([720ad46](https://github.com/this-is-tobi/ohmlab/commit/720ad468e3bc9c5f68d02cba6eb105ca4ad31599))
+* **deps:** update helm release argo-cd to v10.15.0 ([61dddbf](https://github.com/this-is-tobi/ohmlab/commit/61dddbf8ad1792ed10e0ae184f8336f578fce1da))
+* **keycloak:** drop the vault-core callback no flow sends ([45ce904](https://github.com/this-is-tobi/ohmlab/commit/45ce904a4e1ac71ae1a09ce15afaf6b5c47a611f))
+
+
+### Reverts
+
+* **prometheus-stack:** go back to kube-prometheus-stack 92.22.0 ([ac27521](https://github.com/this-is-tobi/ohmlab/commit/ac2752133ab1fe442b6b51048192d93b39e8e03c))
+
 ## [0.17.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.16.0...catalog-v0.17.0) (2026-11-07)
 
 
