@@ -12,8 +12,9 @@
 ---
 # Gateway API HTTPS-upstream validation of both RustFS listeners, once a route
 # reaches the Service: only a route using the policy gives it a status, which
-# Argo CD waits for. One policy for both ports, since Traefik marks a second one
-# on the same Service Conflicted.
+# Argo CD waits for. One targetRef without a sectionName covers every port:
+# Traefik lists a policy once per targetRef naming the Service, so a second
+# targetRef, or a second policy, on the same Service conflicts with the first.
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
@@ -27,11 +28,6 @@ spec:
   - group: ""
     kind: Service
     name: {{ $svc }}
-    sectionName: endpoint
-  - group: ""
-    kind: Service
-    name: {{ $svc }}
-    sectionName: console
   validation:
     caCertificateRefs:
     {{- if .Values.certificate.caConfigMap }}
