@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.6.3...chart-v0.7.0) (2026-11-08)
+
+
+### Features
+
+* **ohmlab:** let core apps sync validating admission policies ([255fc83](https://github.com/this-is-tobi/ohmlab/commit/255fc83e3221c1b33ce17b298dd1acf935753426))
+
+
+### Bug Fixes
+
+* **deps:** update helm release argo-cd to v10.17.0 ([698aa04](https://github.com/this-is-tobi/ohmlab/commit/698aa0441fc890f1c963acb75b74614eaab65e77))
+
 ## [0.6.3](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.6.2...chart-v0.6.3) (2026-11-08)
 
 
