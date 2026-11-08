@@ -46,6 +46,21 @@ ohmlab bootstrap [instance]
 # Print the admin password Argo CD generated at the bootstrap, and nothing
 # else, so it pipes.
 ohmlab argocd password
+
+# Run the product's playbook on the inventory's hosts (every tag but those
+# that need care). Arguments after -- go to ansible-playbook. --dry-run prints
+# the commands, and runs nothing.
+ohmlab provision [--tags gateway,k3s] [--update] [-- --limit <host>]
+
+# Remove k3s from every node (asks for the word yes), or upgrade the packages
+# of every host, one at a time.
+ohmlab provision destroy
+ohmlab provision upgrade-os
+
+# Optional Sops helpers: decrypt every *.enc.yaml under argo-cd/ to
+# *.dec.yaml, or encrypt them back, never truncating a good file.
+ohmlab sops decrypt
+ohmlab sops encrypt
 ```
 
 `ohmlab check` uses the in-cluster ServiceAccount when available and falls
@@ -65,11 +80,15 @@ audit:
 
 An exception that allows nothing any more, such as one whose port speaks TLS now, is reported as stale. The command needs to list Services and EndpointSlices, to read `kube-system/cilium-config` (it reports whether Cilium encrypts the traffic between nodes) and to create `pods/portforward`.
 
-`ohmlab kubeconfig` fetches `/etc/rancher/k3s/k3s.yaml` from the first master with `ansible --become` (adding the inventory's `group_vars/vault.yml` when it exists), into a temporary directory it removes afterwards. It merges the cluster, the user and a context, all called `--name`, into the file kubectl writes (`--kubeconfig`, else the one kubectl picks from `$KUBECONFIG`, else `~/.kube/config`), with the server set to the inventory's first `gateway` host on 6443, else its first master. An existing file is copied to `<file>.bak` first and keeps its current context. A context of that name that leads to another server is replaced only after a yes (`--yes` gives it). Ansible reads the product's `ansible/ansible.cfg`. The vault password file is the `vaultPasswordFile` setting (below), else the workspace's `ansible/.vault_password` when it exists, else the `vault_password_file` that `ansible.cfg` names, which Ansible looks for in the product checkout.
+`ohmlab kubeconfig` fetches `/etc/rancher/k3s/k3s.yaml` from the first master with `ansible --become` (adding the inventory's `group_vars/vault.yml` when it exists), into a temporary directory it removes afterwards. It merges the cluster, the user and a context, all called `--name`, into the file kubectl writes (`--kubeconfig`, else the one kubectl picks from `$KUBECONFIG`, else `~/.kube/config`), with the server set to the inventory's first `gateway` host on 6443, else its first master. An existing file is copied to `<file>.bak` first and keeps its current context. A context of that name that leads to another server is replaced only after a yes (`--yes` gives it). Ansible reads the product's `ansible/ansible.cfg`. The vault password file is the `vaultPasswordFile` setting (below), else the workspace's `ansible/.vault_password`. Ansible gets it through `ANSIBLE_VAULT_PASSWORD_FILE`, in place of the one `ansible.cfg` names.
 
 `ohmlab bootstrap` installs an instance's `ohmlab` chart as its self-managed Application then runs it, through `helm` (Helm 4). It acts on the workspace's context (`contextName`, below), never on whichever context is current, and shows it with its server before asking. The chart is the published one the instance's `ohmlab` entry pins in `core.yaml` (its `catalog` and `targetRevision`), else the entry's `chartPath` (`charts/ohmlab` by default) in the product checkout, or the directory `--chart` names. The release name and namespace come from the entry too (`ohmlab` in `argocd-system` by default). On an empty cluster it installs the Gateway API CRDs (experimental channel), then Argo CD alone, then the whole chart; on a cluster already bootstrapped it upgrades the release. The Argo CD admin password comes from `--admin-password-file` (`-` reads it from standard input, which then needs `--yes`) or `ARGOCD_ADMIN_PASSWORD`. It reaches Helm as a bcrypt hash in a file only you can read, removed afterwards, from the first phase on, so Argo CD generates none. Without either, an installed Argo CD keeps the password it holds (Helm would otherwise drop it), and a new one generates one, which the command prints on a terminal only. `--dry-run` prints the plan and the helm commands, and changes nothing.
 
 `ohmlab argocd password` prints the password Argo CD generated, from `argocd-initial-admin-secret` in the bootstrap release's namespace (`--namespace`, `argocd-system` by default), and nothing else, so it pipes. It uses the workspace's context too. Argo CD keeps that Secret until it is deleted, which is due once the password is changed.
+
+`ohmlab provision` runs the product's playbook (`ansible/install.yml` of the product checkout, or `--playbook`) on the hosts of the workspace's inventory, with the product's `ansible/ansible.cfg` and the workspace's vault password file, and asks first (`--yes` answers). `--tags` picks the plays (`all` by default, which leaves out the ones tagged `never`; `never` selects them all, `k3s-destroy` included, so it asks for the word `yes` too), `--update` installs the playbook's collections first, and the arguments after `--` go to `ansible-playbook` as they are (`--limit`, `--check`, `-v`). One play runs on the workstation: `k3s-users`, which creates the inventory's `adminUsers` on the cluster. It gets a kubeconfig holding only the workspace's context (`contextName`, below), never whichever context is current, in a temporary directory removed afterwards. Without that context, it gets none and reaches no cluster: fetch it with `ohmlab kubeconfig`, then run `ohmlab provision --tags k3s-users`. `ohmlab provision destroy` runs `k3s-destroy`, which removes k3s, its data and `/var/lib/rancher` from every node, once you type `yes`. `ohmlab provision upgrade-os` runs `os-upgrade`: the packages of every host, one host at a time, rebooting those that need it. `--dry-run` prints the commands and runs nothing.
+
+`ohmlab sops decrypt` and `ohmlab sops encrypt`, for instances that commit Sops-encrypted manifests, convert every `*.enc.yaml` under the workspace's `argo-cd/` (`--dir` for another place) to `*.dec.yaml`, and back. sops writes to a hidden temporary file that replaces the target only once it succeeded, so a missing key never truncates a good file, and an empty `*.dec.yaml` is never encrypted. `.gitignore` must cover `*.dec.yaml`: a decrypted file that git does not ignore gets a warning.
 
 ### The workspace file
 
@@ -81,8 +100,8 @@ Run from an instance repository, the workstation commands take their settings fr
 | `instances` | `--instances` | | `argo-cd/instances` |
 | `instance` | `--instance` | | the only folder there with an `instance.yaml` and no leading `_` |
 | `inventory` | `--inventory` | `ANSIBLE_INVENTORY` | `ansible/inventory` |
-| `vaultPasswordFile` | `--vault-password-file` | `ANSIBLE_VAULT_PASSWORD_FILE` | `ansible/.vault_password` when it exists, else Ansible's own, from the product's `ansible/ansible.cfg` |
-| `contextName` | `--name` (`ohmlab kubeconfig`), `--context` (`ohmlab bootstrap`, `ohmlab argocd password`) | `KUBE_CONTEXT_NAME` | `ohmlab` |
+| `vaultPasswordFile` | `--vault-password-file` | `ANSIBLE_VAULT_PASSWORD_FILE` | `ansible/.vault_password` when it exists (`ohmlab kubeconfig` and `ohmlab provision` need one) |
+| `contextName` | `--name` (`ohmlab kubeconfig`), `--context` (`ohmlab bootstrap`, `ohmlab argocd password`, `ohmlab provision`) | `KUBE_CONTEXT_NAME` | `ohmlab` |
 
 ```yaml
 # ohmlab.yaml at the root of an instance repository
