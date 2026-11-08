@@ -154,6 +154,22 @@ if [ "$(named_grants "$both")" != "$(named_grants "$grouped")" ]; then
   fail "certificates: grouping changed the grants:"
   diff <(named_grants "$both") <(named_grants "$grouped") >&2 || true
 fi
+# The API server refuses the target any change but its annotation: RBAC grants
+# patch on a workload by name, not on a field.
+vap() { yq -N -o=json -I=0 'select(.kind == "ValidatingAdmissionPolicy")' <<<"$1"; }
+vapb() { yq -N -o=json -I=0 'select(.kind == "ValidatingAdmissionPolicyBinding")' <<<"$1"; }
+p=$(vap "$both")
+[ -n "$p" ] || fail "certificates: no ValidatingAdmissionPolicy"
+jq -e '.spec.failurePolicy == "Fail"
+       and .spec.matchConstraints.resourceRules == [{"apiGroups": ["apps"], "apiVersions": ["*"], "operations": ["UPDATE"], "resources": ["daemonsets", "deployments", "statefulsets"]}]
+       and ([.spec.matchConditions[].expression] == ["request.userInfo.username == \"system:serviceaccount:ohmlab-system:ohmlab-controller-certificates\""])
+       and (.spec.validations | length) > 0' <<<"$p" >/dev/null || fail "certificates: the policy must match the target's ServiceAccount on workload updates, and fail closed: $p"
+jq -e --argjson p "$p" '.spec.policyName == $p.metadata.name and .spec.validationActions == ["Deny"]' <<<"$(vapb "$both")" >/dev/null \
+  || fail "certificates: the binding must deny through the policy"
+[ "$(yq -N 'select(.kind == "ValidatingAdmissionPolicy") | .spec.matchConditions[0].expression' <<<"$grouped")" = 'request.userInfo.username == "system:serviceaccount:ohmlab-system:ohmlab-controller-all"' ] \
+  || fail "certificates: grouped, the policy must name the shared ServiceAccount"
+[ -z "$(vap "$out")$(vapb "$out")" ] || fail "vault alone renders an admission policy"
+# Duplicates and unknown keys fail the render, not the process.
 cexpect_fail() { # <message fragment> <restarts json>
   local out; out=$(render "${BASE[@]}" --set targets.certificates.enabled=true --set-json "targets.certificates.restarts=$2")
   grep -qF "$1" <<<"$out" || fail "certificates: want an error mentioning '$1', got: $(head -c 200 <<<"$out")"
@@ -162,6 +178,10 @@ cexpect_fail 'targets.certificates.restarts lists nothing' '[]'
 cexpect_fail 'targets.certificates.restarts[0] needs namespace and certificate' '[{"certificate":"a","workloads":[{"kind":"Deployment","name":"a"}]}]'
 cexpect_fail 'lists no workload' '[{"namespace":"a","certificate":"a","workloads":[]}]'
 cexpect_fail 'kind "Pod" is not one of DaemonSet, Deployment, StatefulSet' '[{"namespace":"a","certificate":"a","workloads":[{"kind":"Pod","name":"a"}]}]'
+cexpect_fail 'a/a is listed twice' '[{"namespace":"a","certificate":"a","workloads":[{"kind":"Deployment","name":"x"}]},{"namespace":"a","certificate":"a","workloads":[{"kind":"Deployment","name":"y"}]}]'
+cexpect_fail 'Deployment a/x is listed under a/a and a/b' '[{"namespace":"a","certificate":"a","workloads":[{"kind":"Deployment","name":"x"}]},{"namespace":"a","certificate":"b","workloads":[{"kind":"Deployment","name":"x"}]}]'
+cexpect_fail 'targets.certificates.restarts[0] has unknown keys: [secret]' '[{"namespace":"a","certificate":"a","secret":"s","workloads":[{"kind":"Deployment","name":"x"}]}]'
+cexpect_fail 'workloads[0] has unknown keys: [namespace]' '[{"namespace":"a","certificate":"a","workloads":[{"kind":"Deployment","name":"x","namespace":"b"}]}]'
 
 [ "$failures" -eq 0 ] && echo "ok: ohmlab-controller chart"
 exit "$failures"

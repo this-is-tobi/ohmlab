@@ -115,6 +115,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 	revision, found, err := unstructured.NestedInt64(cert.Object, "status", "revision")
+	if err != nil {
+		log.FromContext(ctx).Info("status.revision is not an integer: the Certificate is treated as not issued", "error", err.Error())
+	}
 	if err != nil || !found {
 		// Not issued yet: the status update that sets the revision wakes this up.
 		ready.Set(0)

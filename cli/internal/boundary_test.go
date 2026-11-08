@@ -8,7 +8,8 @@ import (
 
 // The targets share a process in some topologies, so the code of one must not
 // be able to reach the credentials of another: the other targets' packages may
-// not import anything of Vault's, and Vault's may not import theirs. The module path is stable (it is the module's, see go.mod).
+// not import anything of Vault's, and Vault's may not import theirs. The
+// module path is stable (it is the module's, see go.mod).
 const module = "github.com/this-is-tobi/ohmlab/cli/"
 
 var vaultSide = []string{

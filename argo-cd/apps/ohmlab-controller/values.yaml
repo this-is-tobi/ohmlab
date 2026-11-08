@@ -65,9 +65,9 @@ targets:
     # certificate their pods loaded. A workload lives in its Certificate's
     # namespace and is listed under one Certificate only. The controller may
     # get and patch exactly these workloads, and read the Certificates of
-    # these namespaces. A patch can change anything in a workload (its
-    # Secrets, its ServiceAccount, its image), so each listed namespace is
-    # trusted to the controller: keep privileged ones out where you can.
+    # these namespaces. A ValidatingAdmissionPolicy keeps those patches to the
+    # one annotation (Kubernetes 1.30 or later; the core AppProject must allow
+    # the kind).
     restarts: []
     # - namespace: gitea
     #   certificate: gitea-tls
@@ -102,7 +102,8 @@ monitoring:
   # the Prometheus Operator CRDs (prometheus-stack); the dashboards always.
   enabled: true
   # Series per scrape; the controller exposes controller-runtime's metrics and
-  # the ohmlab_* ones. Re-measure when a target is added.
+  # the ohmlab_* ones, about 350 per process for one target (vault or
+  # certificates). Re-measure when a target is added.
   sampleLimit: 1500
   prometheusRule:
     enabled: true

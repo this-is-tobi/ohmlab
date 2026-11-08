@@ -55,7 +55,7 @@ tests:
     - exp_labels: {severity: warning, target: vault}
       exp_annotations:
         summary: A target has not reconciled successfully for more than three resyncs
-        description: "The backend is probably unreachable or refusing the controller's login. See ohmlab_backend_requests_total by result."
+        description: "The backend is probably unreachable or refusing the controller's login (for the certificates target, the Kubernetes API). See ohmlab_backend_requests_total by result."
 # Backend errors for 10m fire; a lost race (conflict) never does.
 - interval: 1m
   input_series:
@@ -70,7 +70,7 @@ tests:
     - exp_labels: {severity: warning, target: vault}
       exp_annotations:
         summary: Requests from the ohmlab controller to a backend fail
-        description: "Errors that are neither a lost compare-and-set nor a refused policy: the backend is down, sealed or unreachable."
+        description: "Errors that are neither a lost compare-and-set nor a refused policy: the backend is down, sealed or unreachable. For the certificates target, read the controller's log: the API server, or its admission policy, refused a workload update."
 - interval: 1m
   input_series:
   - series: 'ohmlab_backend_requests_total{target="vault", op="write", result="conflict"}'
@@ -91,7 +91,7 @@ tests:
     - exp_labels: {severity: warning, target: vault}
       exp_annotations:
         summary: A backend refuses the ohmlab controller
-        description: "The policy of the controller's role does not allow something an object declares, for example a path outside platforms/+/+/*."
+        description: "The policy of the controller's role does not allow something an object declares, for example a path outside platforms/+/+/*. For the certificates target, its RBAC does not cover a listed workload."
 # A sustained write rate is a loop; a few writes are not.
 - interval: 1m
   input_series:
