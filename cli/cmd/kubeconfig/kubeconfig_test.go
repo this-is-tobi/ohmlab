@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -184,47 +185,50 @@ func TestNoVaultPasswordFile(t *testing.T) {
 // TestInterruptLeavesNoCopy.
 const helperArgs = "OHMLAB_KUBECONFIG_TEST_ARGS"
 
-// Ctrl-C while Ansible runs still removes the fetched key's directory.
+// Ctrl-C, or a hangup when the terminal goes, while Ansible runs still
+// removes the fetched key's directory.
 func TestInterruptLeavesNoCopy(t *testing.T) {
 	if args := os.Getenv(helperArgs); args != "" {
 		Cmd.SetArgs(strings.Split(args, "\n"))
 		_ = Cmd.Execute()
 		os.Exit(0)
 	}
-	product, inventory, target := setup(t)
-	bin, tmp := t.TempDir(), t.TempDir()
-	// A fake ansible: writes the fetched file where it is told, then hangs.
-	fake := "#!/bin/sh\nfor a; do case \"$a\" in *dest=*) d=${a#*dest=}; printf x > \"${d%% *}\";; esac; done\nexec sleep 30\n"
-	if err := os.WriteFile(filepath.Join(bin, "ansible"), []byte(fake), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	child := exec.Command(os.Args[0], "-test.run=^TestInterruptLeavesNoCopy$")
-	child.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "TMPDIR="+tmp,
-		helperArgs+"="+strings.Join([]string{"--product", product, "--inventory", inventory, "--kubeconfig", target, "--name", "lab"}, "\n"))
-	if err := child.Start(); err != nil {
-		t.Fatal(err)
-	}
-	defer child.Process.Kill()
+	for _, sig := range []os.Signal{os.Interrupt, syscall.SIGHUP} {
+		product, inventory, target := setup(t)
+		bin, tmp := t.TempDir(), t.TempDir()
+		// A fake ansible: writes the fetched file where it is told, then hangs.
+		fake := "#!/bin/sh\nfor a; do case \"$a\" in *dest=*) d=${a#*dest=}; printf x > \"${d%% *}\";; esac; done\nexec sleep 30\n"
+		if err := os.WriteFile(filepath.Join(bin, "ansible"), []byte(fake), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		child := exec.Command(os.Args[0], "-test.run=^TestInterruptLeavesNoCopy$")
+		child.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "TMPDIR="+tmp,
+			helperArgs+"="+strings.Join([]string{"--product", product, "--inventory", inventory, "--kubeconfig", target, "--name", "lab"}, "\n"))
+		if err := child.Start(); err != nil {
+			t.Fatal(err)
+		}
+		defer child.Process.Kill()
 
-	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
-		if found, _ := filepath.Glob(filepath.Join(tmp, "ohmlab-kubeconfig-*", "k3s.yaml")); len(found) > 0 {
-			break
+		for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+			if found, _ := filepath.Glob(filepath.Join(tmp, "ohmlab-kubeconfig-*", "k3s.yaml")); len(found) > 0 {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("%v: the fake ansible never wrote the file", sig)
+			}
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("the fake ansible never wrote the file")
+		if err := child.Process.Signal(sig); err != nil {
+			t.Fatal(err)
 		}
-	}
-	if err := child.Process.Signal(os.Interrupt); err != nil {
-		t.Fatal(err)
-	}
-	done := make(chan error, 1)
-	go func() { done <- child.Wait() }()
-	select {
-	case <-done:
-	case <-time.After(15 * time.Second):
-		t.Fatal("the command did not stop on the interrupt")
-	}
-	if left, _ := filepath.Glob(filepath.Join(tmp, "ohmlab-kubeconfig-*")); len(left) > 0 {
-		t.Errorf("left behind: %v", left)
+		done := make(chan error, 1)
+		go func() { done <- child.Wait() }()
+		select {
+		case <-done:
+		case <-time.After(15 * time.Second):
+			t.Fatalf("%v: the command did not stop", sig)
+		}
+		if left, _ := filepath.Glob(filepath.Join(tmp, "ohmlab-kubeconfig-*")); len(left) > 0 {
+			t.Errorf("%v: left behind: %v", sig, left)
+		}
 	}
 }
