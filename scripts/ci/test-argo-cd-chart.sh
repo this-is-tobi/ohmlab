@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Tests of the argo-cd app (the tenant Argo CD) whose failures only a running
 # cluster would otherwise show: its Redis runs the exporter the ServiceMonitor
-# scrapes, and with TLS on it serves a certificate that names the Service the
-# components dial and verify, from the issuer the values name, and reloads it
-# when it renews.
+# scrapes, and with TLS on, the default, it serves a certificate that names the
+# Service the components dial and verify, from the issuer the values name, and
+# reloads it when it renews.
 #
 #   test-argo-cd-chart.sh
 #
@@ -58,11 +58,7 @@ reload="$spec | .containers[] | select(.name == \"tls-reload\")"
 names="argo-cd-argocd-redis,argo-cd-argocd-redis.argo-cd,argo-cd-argocd-redis.argo-cd.svc,argo-cd-argocd-redis.argo-cd.svc.cluster.local"
 # redis_args <kind> <name> <container>: the --redis-* arguments of one container.
 redis_args() { q "select(.kind == \"$1\" and .metadata.name == \"$2\") | .spec.template.spec.containers[] | select(.name == \"$3\") | [.args[]? | select(test(\"^--redis-\"))] | join(\" \")"; }
-check "by default Redis has no certificate" "" "$(q "$pki")"
-check "by default the reload sidecar idles" "tls-reload 0" \
-  "$(q "$reload | .name + \" \" + ([.args[] | select(test(\"CONFIG SET\"))] | length | tostring)")"
-render --set argo-cd.redis.tls.enabled=true
-check "with TLS a CA of the namespace issues Redis's certificate" \
+check "by default a CA of the namespace issues Redis's certificate" \
   "Certificate/argocd-redis-ca Certificate/argocd-redis-tls Issuer/argocd-redis-ca Issuer/argocd-redis-selfsigned" "$(q "$pki")"
 check "the namespace CA keeps its key when it renews" "Never" \
   "$(q 'select(.kind == "Certificate" and .metadata.name == "argocd-redis-ca") | .spec.privateKey.rotationPolicy')"
@@ -86,6 +82,10 @@ check "the sidecar takes the password from its environment" "argocd-redis/auth" 
   "$(q "$reload | .env[] | select(.name == \"REDISCLI_AUTH\") | .valueFrom.secretKeyRef.name + \"/\" + .valueFrom.secretKeyRef.key")"
 check "the sidecar has limits and runs restricted" "true true ALL" \
   "$(q "$reload | ((.resources.limits.cpu != null and .resources.limits.memory != null) | tostring) + \" \" + (.securityContext.readOnlyRootFilesystem | tostring) + \" \" + (.securityContext.capabilities.drop | join(\",\"))")"
+render --set argo-cd.redis.tls.enabled=false
+check "with TLS off Redis has no certificate" "" "$(q "$pki")"
+check "with TLS off the reload sidecar idles" "tls-reload 0" \
+  "$(q "$reload | .name + \" \" + ([.args[] | select(test(\"CONFIG SET\"))] | length | tostring)")"
 render --set argo-cd.redis.tls.enabled=true --set redisCertificate.issuerRef.kind=ClusterIssuer --set redisCertificate.issuerRef.name=ohmlab-internal-ca
 check "an issuerRef issues it" "ClusterIssuer/ohmlab-internal-ca" "$(q "$cert | .spec.issuerRef.kind + \"/\" + .spec.issuerRef.name")"
 check "with an issuerRef no namespace CA renders" "Certificate/argocd-redis-tls" "$(q "$pki")"
