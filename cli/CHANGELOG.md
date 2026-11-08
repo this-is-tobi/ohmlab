@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0](https://github.com/this-is-tobi/ohmlab/compare/v0.6.0...v0.7.0) (2026-11-08)
+
+
+### Features
+
+* **cli:** add ohmlab provision ([0dedafa](https://github.com/this-is-tobi/ohmlab/commit/0dedafaa24fe92ffff7a235b05bbed7b385830ab))
+* **cli:** add ohmlab sops ([3c12b0d](https://github.com/this-is-tobi/ohmlab/commit/3c12b0df1399b08946c580c4c95b107c74d8f2e7))
+* **cli:** ask for a typed word before a step that cannot be undone ([9508e3f](https://github.com/this-is-tobi/ohmlab/commit/9508e3f32df1f4d0f54144b777049eb24c58528a))
+* **cli:** build the provision commands and a kubeconfig holding one context ([553b138](https://github.com/this-is-tobi/ohmlab/commit/553b13814a1b3bde4f26ebccfd17aa9788ac7d12))
+* **controller:** configure the certificates target ([e9cf6e2](https://github.com/this-is-tobi/ohmlab/commit/e9cf6e2504d2d5b95ea6328b508f5eee5ed769b9))
+* **controller:** roll workloads when their certificate is issued again ([9332415](https://github.com/this-is-tobi/ohmlab/commit/9332415f10cc608bd9aa6d672247b04121179b39))
+
+
+### Bug Fixes
+
+* **cli:** give ansible the vault password file through its environment ([075ce0d](https://github.com/this-is-tobi/ohmlab/commit/075ce0d0a6d62d03673dc8920b4610e1db00184f))
+* **cli:** remove the fetched kubeconfig on a hangup too ([b7e8749](https://github.com/this-is-tobi/ohmlab/commit/b7e87493bbd88c14eec0827bd0dd43f2b7223c2c))
+
 ## [0.6.0](https://github.com/this-is-tobi/ohmlab/compare/v0.5.1...v0.6.0) (2026-11-07)
 
 
