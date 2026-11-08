@@ -53,6 +53,7 @@ check "the exporter has limits" "true" \
 # Its /scrape?target= would dial any target with Redis's password.
 check "the exporter scrapes only its own Redis" "true" \
   "$(q "$spec | .containers[] | select(.name == \"metrics\") | .env[] | select(.name == \"REDIS_EXPORTER_DISABLE_SCRAPE_ENDPOINT\") | .value")"
+check "the Redis pod mounts no service account token" "false" "$(q "$spec | .automountServiceAccountToken")"
 
 cert='select(.kind == "Certificate" and .metadata.name == "argocd-redis-tls")'
 # The Redis objects only: the server has a certificate of its own.

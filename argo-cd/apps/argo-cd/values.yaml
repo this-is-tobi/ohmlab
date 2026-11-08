@@ -69,6 +69,8 @@ argo-cd:
     podDisruptionBudget:
       maxUnavailable: 1
   redis:
+    # Redis, its exporter and the reload sidecar never call the Kubernetes API.
+    automountServiceAccountToken: false
     resources:
       requests:
         cpu: 50m
