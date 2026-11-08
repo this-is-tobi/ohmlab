@@ -144,3 +144,32 @@ func TestConfirmWithoutTerminalIsAnError(t *testing.T) {
 		t.Errorf("got %v, want an error naming --yes", err)
 	}
 }
+
+func TestConfirmWord(t *testing.T) {
+	const question = "This removes k3s from every node. Type yes to go on"
+	for in, want := range map[string]bool{"yes\n": true, "  yes  \n": true, "y\n": false, "YES\n": false, "": false} {
+		var errOut bytes.Buffer
+		u := New(Options{Out: io.Discard, Err: &errOut, In: strings.NewReader(in), Mode: Human})
+		got, err := u.ConfirmWord(question, "yes")
+		if err != nil || got != want {
+			t.Errorf("answer %q: %v, %v; want %v", in, got, err, want)
+		}
+		if !strings.Contains(errOut.String(), question) {
+			t.Errorf("answer %q: the question is not on stderr: %q", in, errOut.String())
+		}
+	}
+
+	var out, errOut bytes.Buffer
+	u := New(Options{Out: &out, Err: &errOut, In: strings.NewReader(""), Mode: Human, Yes: true})
+	if got, err := u.ConfirmWord(question, "yes"); err != nil || !got {
+		t.Errorf("with yes: got %v, %v; want true", got, err)
+	}
+	if out.Len()+errOut.Len() != 0 {
+		t.Errorf("with yes: wrote %q and %q", out.String(), errOut.String())
+	}
+
+	u = New(Options{Out: io.Discard, Err: io.Discard, Mode: JSON})
+	if _, err := u.ConfirmWord(question, "yes"); err == nil || !strings.Contains(err.Error(), "pass --yes") {
+		t.Errorf("without a terminal: got %v, want an error naming --yes", err)
+	}
+}
