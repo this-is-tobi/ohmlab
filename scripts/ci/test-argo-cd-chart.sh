@@ -50,6 +50,9 @@ check "the metrics Service's target port is a port of the Redis pod" "metrics" \
   "$(q "$spec | .containers[].ports[]? | select(.name == \"metrics\") | .name")"
 check "the exporter has limits" "true" \
   "$(q "$spec | .containers[] | select(.name == \"metrics\") | (.resources.limits.cpu != null and .resources.limits.memory != null) | tostring")"
+# Its /scrape?target= would dial any target with Redis's password.
+check "the exporter scrapes only its own Redis" "true" \
+  "$(q "$spec | .containers[] | select(.name == \"metrics\") | .env[] | select(.name == \"REDIS_EXPORTER_DISABLE_SCRAPE_ENDPOINT\") | .value")"
 
 cert='select(.kind == "Certificate" and .metadata.name == "argocd-redis-tls")'
 # The Redis objects only: the server has a certificate of its own.
