@@ -69,8 +69,9 @@ sts='select(.kind == "StatefulSet" and .metadata.name == "keycloak") | .spec.tem
 monitor='select(.kind == "ServiceMonitor" and .metadata.name == "keycloak") | .spec.endpoints[0]'
 names="keycloak,keycloak.keycloak-system,keycloak.keycloak-system.svc,keycloak.keycloak-system.svc.cluster.local"
 tls=(--set keycloak.tls.enabled=true --set keycloak.keycloak.httpsEnabled=true --set keycloakConfigCli.env.KEYCLOAK_URL=https://keycloak:8443)
-# The example leaves the gateway off.
-gw=(--set gateway.enabled=true)
+# The gateway with a route to Keycloak's https port (the example leaves the gateway off).
+gw=(--set gateway.enabled=true --set 'gateway.routes[0].name=keycloak'
+  --set 'gateway.routes[0].rules[0].backendService=keycloak' --set 'gateway.routes[0].rules[0].backendPort=8443')
 # ports <service>: the named ports of a Service.
 ports() { q "select(.kind == \"Service\" and .metadata.name == \"$1\") | [.spec.ports[] | .name + \"/\" + (.port | tostring)] | join(\" \")"; }
 # from <variable>: where keycloak-config-cli takes a variable from, once per definition.
@@ -124,6 +125,9 @@ check "an issuer and a CA ConfigMap replace the internal CA's" "ClusterIssuer/ot
 
 render "${tls[@]}"
 check "without the gateway, no policy" "Certificate/keycloak-tls" "$(q "$objs")"
+
+render "${tls[@]}" "${gw[@]}" --set 'gateway.routes[0].rules[0].backendPort=8080'
+check "with the route on http, no policy: Argo CD would wait for its status" "Certificate/keycloak-tls" "$(q "$objs")"
 
 render "${tls[@]}" --set keycloakConfigCli.env.KEYCLOAK_URL=https://keycloak.keycloak-system.svc:8443
 check "keycloak-config-cli may reach Keycloak by another of its certificate's names" \
