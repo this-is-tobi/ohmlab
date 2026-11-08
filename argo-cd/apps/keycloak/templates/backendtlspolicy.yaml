@@ -1,9 +1,19 @@
 {{- if and .Values.gateway.enabled .Values.keycloak.enabled .Values.keycloak.tls.enabled }}
-{{- $fullname := include "keycloak.fullname" (index .Subcharts "keycloak") }}
+{{- $sub := index .Subcharts "keycloak" }}
+{{- $fullname := include "keycloak.fullname" $sub }}
+{{- $https := false }}
+{{- range .Values.gateway.routes }}
+{{- range .rules }}
+{{- if and (eq (toString .backendService) $fullname) (eq (toString .backendPort) (toString $sub.Values.service.httpsPort)) }}
+{{- $https = true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $https }}
 ---
-# Gateway API HTTPS-upstream validation of Keycloak's https port only: a route
-# on its http port stays plain while an instance switches. Without the CA
-# ConfigMap in this namespace, Traefik drops the route.
+# Gateway API HTTPS-upstream validation of Keycloak's https port, once a route
+# reaches it: only a route using the policy gives it a status, which Argo CD
+# waits for. Without the CA ConfigMap in this namespace, Traefik drops the route.
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
@@ -21,4 +31,5 @@ spec:
       name: {{ .Values.certificate.caConfigMap }}
     # SNI sent to and validated against Keycloak's certificate.
     hostname: {{ $fullname }}.{{ .Release.Namespace }}.svc
+{{- end }}
 {{- end }}
