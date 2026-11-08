@@ -78,9 +78,14 @@ argo-cd:
       serviceMonitor:
         enabled: true
     # The metrics Service and ServiceMonitor above scrape this sidecar: without
-    # it they have no port.
+    # it they have no port. Its /scrape?target= endpoint would dial any target
+    # with Redis's password, and the chart opens the metrics port to every
+    # namespace: only /metrics, of this Redis, is served.
     exporter:
       enabled: true
+      env:
+      - name: REDIS_EXPORTER_DISABLE_SCRAPE_ENDPOINT
+        value: "true"
       resources:
         requests:
           cpu: 10m
