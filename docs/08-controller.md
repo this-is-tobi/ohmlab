@@ -1,6 +1,6 @@
 # The ohmlab controller
 
-The controller keeps the platform's backends configured from Kubernetes objects. It runs continuously, so a value that was deleted or edited by hand is corrected without waiting for a sync, and every object reports its own status. Today it configures Vault; Harbor and SonarQube follow.
+The controller keeps the platform's backends configured from Kubernetes objects. It runs continuously, so a value that was deleted or edited by hand is corrected without waiting for a sync, and every object reports its own status. Today it configures Vault, and restarts the workloads that read their certificate only when they start; Harbor and SonarQube follow.
 
 It does not deploy anything. Argo CD does that, starting from the `ohmlab` bootstrap chart ([03-installation.md](03-installation.md)). The controller is one of the apps the instance's `core.yaml` lists, and the objects it reads are rendered by the charts that own the configuration, for example `vault-operator`.
 
@@ -107,6 +107,35 @@ Deleting an object never blocks by default and never touches Vault. With `deleti
 
 Events are emitted when an object enters a failing state and when the controller writes, adopts, rotates or deletes. They name keys and counts, never values.
 
+## Certificate restarts
+
+Some servers read their certificate only when they start (Gitea and oauth2-proxy among the catalog's apps). After cert-manager renews their Certificate they keep serving the old one, which then expires. The `certificates` target rolls them when that happens. Enable it and list each Certificate with the workloads that mount it, in the instance values of `ohmlab-controller`:
+
+```yaml
+targets:
+  certificates:
+    enabled: true
+    restarts:
+    - namespace: gitea
+      certificate: gitea-tls
+      workloads:
+      - {kind: Deployment, name: gitea}
+```
+
+The controller watches the listed Certificates. Each time one is issued again, cert-manager increments its `status.revision`, and the controller sets the pod-template annotation `ohmlab.fr/certificate-revision` of each of its workloads to that revision with a server-side apply. The change rolls the workload the way `kubectl rollout restart` does, and the new pods mount the renewed Secret.
+
+- **First sight.** A workload that does not carry the current revision yet is rolled, including when the target first starts: the controller cannot know which certificate the running pods loaded. Enabling the target therefore restarts each listed workload once.
+- **Drift.** The controller owns that one annotation (field manager `ohmlab-controller-certificates`) and nothing else. Argo CD's sync keeps it, as it keeps the annotation `kubectl rollout restart` writes. An annotation removed or edited by hand is put back at the next resync, which rolls the workload again.
+- **Shape.** A workload is a `Deployment`, `StatefulSet` or `DaemonSet` in its Certificate's namespace (a Secret mounts nowhere else), listed under one Certificate only. A workload whose update strategy is `OnDelete` gets the annotation but replaces its pods only when they are deleted; the controller says so with a Warning event.
+- **What it may touch.** The chart renders the RBAC from the same list: the target reads Certificates in the listed namespaces, and gets and patches each listed workload by name. It cannot list workloads or read Secrets itself. A patch can still change any field of a listed workload, though: mount any Secret of its namespace, run it as another ServiceAccount there, change its image. Whoever controls the controller therefore controls the listed workloads and, through them, their namespaces. List workloads only in namespaces you would trust the controller with, and keep privileged ones such as `kube-system` out where you can.
+
+Each roll is a `Restarted` event on the Certificate and a count in `ohmlab_workload_restarts_total`. A missing workload is a `WorkloadNotFound` event, and the Certificate's `ohmlab_object_ready` stays 0. To try it, ask cert-manager to issue a Certificate again, as `cmctl renew` does:
+
+```sh
+kubectl -n gitea patch certificate gitea-tls --subresource=status --type=json -p \
+  "[{\"op\":\"add\",\"path\":\"/status/conditions/-\",\"value\":{\"type\":\"Issuing\",\"status\":\"True\",\"reason\":\"ManuallyTriggered\",\"message\":\"manual renewal\",\"lastTransitionTime\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}]"
+```
+
 ## Topologies
 
 The unit is the **target**; a Deployment is only packaging. By default each enabled target gets its own Deployment, ServiceAccount, RBAC, Vault role and network egress (`split`). The chart's `deployments` map groups targets into shared processes, for example `{all: [vault, harbor, sonarqube]}`, or `{vault: [vault], apps: [harbor, sonarqube]}` to keep Vault alone. Every enabled target must appear exactly once.
@@ -129,13 +158,13 @@ A shared process is not a security boundary. What is isolated and what is not:
 - **Objects say what, never where or as whom.** Backend addresses and credentials live in the controller's configuration, so no object can point the controller at another endpoint.
 - **Namespaces.** A target reconciles only the namespaces its chart lists. Objects anywhere else are ignored. Only Argo CD and cluster administrators can write in them.
 - **Vault.** The Vault target logs in under a role bound to its ServiceAccount, with a projected ServiceAccount token whose audience is `vault` (`targets.vault.backend.auth.audience`) rather than the pod's API token: the JWT Vault receives is not a Kubernetes API credential, and lives ten minutes. The role accepts only that audience (`ohmlab.controller.audience` in `vault-operator`), so no other token of the ServiceAccount logs in. Vault grants a 15-minute token, which the controller replaces before it expires. Its policy covers KV data and metadata under `platforms/+/+/*` of the system mount and of the instance's, and nothing else: no identity, policies, auth methods, mounts or tokens. Deleting needs the extra grant described above.
-- **Kubernetes.** Roles in the watched namespaces (not ClusterRoles), a Role for its own Leases, and one ClusterRole that reads its own CRDs by name. No access to Secrets.
+- **Kubernetes.** Roles in the watched namespaces (not ClusterRoles), a Role for its own Leases, and one ClusterRole that reads its own CRDs by name. The `certificates` target has no CRD and no ClusterRole: it reads Certificates in the namespaces it lists, and gets and patches its listed workloads by name. No access to Secrets, although a patch of a listed workload can reach its namespace's Secrets through the workload ([Certificate restarts](#certificate-restarts)).
 - **Pod.** Restricted Pod Security (non-root numeric user, read-only root filesystem, no capabilities, `RuntimeDefault` seccomp), a distroless image with no shell, signed with SLSA provenance (Kyverno's `verify-images` policy covers it), a default-deny network policy when the instance turns on the chart's `networkPolicy` (off by default), with the egress to the API server, DNS and Vault written in `extraEgress`.
 - **No secret material** in an object's spec (templates only), status, events, logs or metric labels. Status holds key names and KV versions.
 
 ## Operating
 
-Metrics, alerts and a dashboard come with the chart. The PodMonitor and the alert rules render only where the Prometheus Operator CRDs exist (`prometheus-stack`), so the app syncs without them and gains them at Argo CD's next reconciliation once they are installed. The alerts: `OhmlabControllerDown`, `OhmlabObjectNotReady`, `OhmlabReconcileStale` (three resyncs without a completed reconcile), `OhmlabBackendErrors`, `OhmlabBackendForbidden`, `OhmlabWriteLoop` (a sustained rate of data writes, which means something else rewrites the path), `OhmlabCRDRevisionMismatch`.
+Metrics, alerts and a dashboard come with the chart. The PodMonitor and the alert rules render only where the Prometheus Operator CRDs exist (`prometheus-stack`), so the app syncs without them and gains them at Argo CD's next reconciliation once they are installed. The alerts: `OhmlabControllerDown`, `OhmlabObjectNotReady`, `OhmlabReconcileStale` (three resyncs without a completed reconcile), `OhmlabBackendErrors`, `OhmlabBackendForbidden`, `OhmlabWriteLoop` (a sustained rate of data writes, which means something else rewrites the path), `OhmlabRestartLoop` (a workload rolled more than twice in an hour), `OhmlabCRDRevisionMismatch`.
 
 ```sh
 kubectl get vaultseeds -A                       # path, Ready, reason
@@ -147,6 +176,7 @@ kubectl -n vault-operator-system describe vaultseed production-core-keycloak
 - **`OhmlabCRDRevisionMismatch`.** The CRDs come from the catalog and the image from its pin, and they were released apart. Bring the lagging one up to the same release.
 - **The `VaultSeed` objects do not appear on a new cluster.** `vault-operator` renders them only once the kind exists, which the `ohmlab-controller` application installs. Argo CD renders `vault-operator` again at its next reconciliation once the CRD is there (within about three minutes with the default `timeout.reconciliation`), with no refresh needed. If they are still missing after that, check that the `ohmlab-controller` application has synced. With progressive sync on (`progressiveSync.enabled` in `instance.yaml`), they appear with the next commit or a manual sync of `vault-operator`: the ApplicationSet controller syncs an app again only when its revision changes.
 - **The `vault-operator` sync stays `Running`.** Argo CD waits for every object it applies to be Healthy, and a `VaultSeed` is Healthy once the controller has reconciled it (`Ready`, or `ObserveOnly` in observe-only mode; `Stalled` is Degraded and fails the sync). The objects are the app's last sync wave, so everything else has been applied already: read the waiting object's conditions, and check that the controller runs.
+- **`OhmlabRestartLoop`.** Something undoes the workload's `ohmlab.fr/certificate-revision` annotation, or cert-manager issues its Certificate again and again. The workload's `managedFields` name the other writer; the Certificate's events and cert-manager's logs show repeated issuances.
 - **A path was changed by hand.** The controller sees it at the next resync, not at once. Keys the objects declare as references are put back, and a declared key that was deleted comes back (with a new value if it is generated). Any other value you changed stays.
 
 ## Checking objects before merge
