@@ -59,6 +59,8 @@ cert='select(.kind == "Certificate" and .metadata.name == "argocd-redis-tls")'
 pki='[select(.apiVersion == "cert-manager.io/v1" and (.metadata.name | test("^argocd-redis"))) | .kind + "/" + .metadata.name] | sort | join(" ")'
 reload="$spec | .containers[] | select(.name == \"tls-reload\")"
 names="argo-cd-argocd-redis,argo-cd-argocd-redis.argo-cd,argo-cd-argocd-redis.argo-cd.svc,argo-cd-argocd-redis.argo-cd.svc.cluster.local"
+# The Secret and key of Redis's password, in the redis container then the sidecar.
+pw='[.containers[] | select(.name == "redis") | .env[] | select(.name == "REDIS_PASSWORD") | .valueFrom.secretKeyRef | .name + "/" + .key] + [.containers[] | select(.name == "tls-reload") | .env[] | select(.name == "REDISCLI_AUTH") | .valueFrom.secretKeyRef | .name + "/" + .key] | join(" ")'
 # redis_args <kind> <name> <container>: the --redis-* arguments of one container.
 redis_args() { q "select(.kind == \"$1\" and .metadata.name == \"$2\") | .spec.template.spec.containers[] | select(.name == \"$3\") | [.args[]? | select(test(\"^--redis-\"))] | join(\" \")"; }
 check "by default a CA of the namespace issues Redis's certificate" \
@@ -76,19 +78,27 @@ done
 check "the ApplicationSet controller, which does not use Redis, is unchanged" "applicationset-controller:" \
   "$(q 'select(.kind == "Deployment" and .metadata.name == "argo-cd-argocd-applicationset-controller") | .spec.template.spec.containers[] | select(.name == "applicationset-controller") | .name + ":" + ([.args[]? | select(test("^--redis-"))] | join(" "))')"
 check "the sidecar reloads the certificate Redis serves" "1" \
-  "$(q "[$reload | .args[] | select(test(\"CONFIG SET tls-cert-file /app/config/redis-tls/tls.crt tls-key-file /app/config/redis-tls/tls.key\"))] | length")"
+  "$(q "[$reload | .args[] | select(test(\"redis-cli --tls --insecure -p 6379 CONFIG SET tls-cert-file /app/config/redis-tls/tls.crt tls-key-file /app/config/redis-tls/tls.key\"))] | length")"
+check "the reload script parses" "0" "$(sh -n -c "$(q "$reload | .args[0]")" 2>/dev/null; echo $?)"
 # redis-cli exits 0 on an error reply: only the reply tells a refused reload.
 check "a reload Redis refuses is reported" "1" "$(q "[$reload | .args[] | select(contains(\"= OK ]\"))] | length")"
 check "the sidecar runs Redis's image" "true" \
   "$(q "[$spec | .containers[] | select(.name == \"redis\" or .name == \"tls-reload\") | .image] | (length == 2 and .[0] == .[1]) | tostring")"
-check "the sidecar takes the password from its environment" "argocd-redis/auth" \
-  "$(q "$reload | .env[] | select(.name == \"REDISCLI_AUTH\") | .valueFrom.secretKeyRef.name + \"/\" + .valueFrom.secretKeyRef.key")"
+# The sidecar copies the subchart's choice of Secret: a divergence would keep
+# the whole Redis pod from starting.
+check "the sidecar takes Redis's password from its environment" "argocd-redis/auth argocd-redis/auth" "$(q "$spec | $pw")"
 check "the sidecar has limits and runs restricted" "true true ALL" \
   "$(q "$reload | ((.resources.limits.cpu != null and .resources.limits.memory != null) | tostring) + \" \" + (.securityContext.readOnlyRootFilesystem | tostring) + \" \" + (.securityContext.capabilities.drop | join(\",\"))")"
 render --set argo-cd.redis.tls.enabled=false
 check "with TLS off Redis has no certificate" "" "$(q "$pki")"
 check "with TLS off the reload sidecar idles" "tls-reload 0" \
   "$(q "$reload | .name + \" \" + ([.args[] | select(test(\"CONFIG SET\"))] | length | tostring)")"
+check "the idle script parses" "0" "$(sh -n -c "$(q "$reload | .args[0]")" 2>/dev/null; echo $?)"
+render --set argo-cd.redis.existingSecret=my-redis --set argo-cd.redisSecretInit.enabled=false
+check "with the instance's own Secret, the sidecar takes the same password" "my-redis/auth my-redis/auth" "$(q "$spec | $pw")"
+render --set argo-cd.redis.containerPorts.redis=6380
+check "the sidecar reloads on Redis's port" "1" \
+  "$(q "[$reload | .args[] | select(test(\"redis-cli --tls --insecure -p 6380 CONFIG SET\"))] | length")"
 render --set argo-cd.redis.tls.enabled=true --set redisCertificate.issuerRef.kind=ClusterIssuer --set redisCertificate.issuerRef.name=ohmlab-internal-ca
 check "an issuerRef issues it" "ClusterIssuer/ohmlab-internal-ca" "$(q "$cert | .spec.issuerRef.kind + \"/\" + .spec.issuerRef.name")"
 check "with an issuerRef no namespace CA renders" "Certificate/argocd-redis-tls" "$(q "$pki")"
