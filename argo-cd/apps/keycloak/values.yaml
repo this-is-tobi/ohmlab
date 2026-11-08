@@ -540,8 +540,8 @@ keycloakConfigCli:
     # Pinned (multi-arch) — was latest-26; bump alongside Keycloak upgrades.
     tag: 6.5.1-26
   env:
-    # https://keycloak:8443 with keycloak.tls.enabled, which the render asks
-    # for: this chart's values cannot see that switch.
+    # An https URL (https://keycloak:8443) with keycloak.tls.enabled, which the
+    # render asks for: this chart's values cannot see that switch.
     KEYCLOAK_URL: "http://keycloak:8080"
     KEYCLOAK_USER: admin
     IMPORT_FILES_LOCATIONS: "/config/*.json"

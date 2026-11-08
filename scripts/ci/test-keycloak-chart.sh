@@ -33,9 +33,10 @@ check() {
 }
 
 # render [<helm args>...]: the chart with the example instance's values into
-# $work/render.yaml, left empty when it does not render.
+# $work/render.yaml, left empty when it does not render. RELEASE names the
+# release (keycloak by default).
 render() {
-  if ! helm template keycloak "$CHART" --namespace keycloak-system "${args[@]}" "$@" >"$work/render.yaml" 2>"$work/err"; then
+  if ! helm template "${RELEASE:-keycloak}" "$CHART" --namespace keycloak-system "${args[@]}" "$@" >"$work/render.yaml" 2>"$work/err"; then
     : >"$work/render.yaml"
     check "the chart renders${*:+ with $*}" "" "$(grep -m1 Error "$work/err" | cut -c1-200)"
   fi
@@ -62,7 +63,7 @@ objs='[select((.kind == "Certificate" or .kind == "BackendTLSPolicy") and (.meta
 cert='select(.kind == "Certificate" and .metadata.name == "keycloak-tls")'
 policy='select(.kind == "BackendTLSPolicy" and .metadata.name == "keycloak")'
 conn='select(.kind == "ConfigMap" and .metadata.name == "keycloak-config-cli-tls") | .data'
-job='select(.kind == "Job" and .metadata.name == "keycloak-config-cli") | .spec.template.spec'
+job='select(.kind == "Job" and (.metadata.name | test("keycloak-config-cli$"))) | .spec.template.spec'
 kcc="$job | .containers[0]"
 sts='select(.kind == "StatefulSet" and .metadata.name == "keycloak") | .spec.template.spec'
 monitor='select(.kind == "ServiceMonitor" and .metadata.name == "keycloak") | .spec.endpoints[0]'
@@ -124,10 +125,18 @@ check "an issuer and a CA ConfigMap replace the internal CA's" "ClusterIssuer/ot
 render "${tls[@]}"
 check "without the gateway, no policy" "Certificate/keycloak-tls" "$(q "$objs")"
 
+render "${tls[@]}" --set keycloakConfigCli.env.KEYCLOAK_URL=https://keycloak.keycloak-system.svc:8443
+check "keycloak-config-cli may reach Keycloak by another of its certificate's names" \
+  "https://keycloak.keycloak-system.svc:8443" "$(url)"
+
+# An instance's checks render each chart under a release name of their own.
+RELEASE=check render "${tls[@]}"
+check "the instance's URL renders under another release name" "https://keycloak:8443" "$(url)"
+
 fails "TLS without the HTTPS port fails" "go together" --set keycloak.tls.enabled=true
 fails "the HTTPS port without TLS fails" "go together" --set keycloak.keycloak.httpsEnabled=true
 fails "HTTP closed without TLS fails" "no listener" --set keycloak.keycloak.httpEnabled=false
-fails "TLS with keycloak-config-cli on http fails" "set keycloakConfigCli.env.KEYCLOAK_URL to https://keycloak:8443" \
+fails "TLS with keycloak-config-cli on http fails" "set keycloakConfigCli.env.KEYCLOAK_URL to an https URL such as https://keycloak:8443" \
   --set keycloak.tls.enabled=true --set keycloak.keycloak.httpsEnabled=true
 # With the issuer the chart itself requires, which it checks first.
 fails "the chart's own certificate beside the app's fails" "keycloak.tls.certManager" "${tls[@]}" \
