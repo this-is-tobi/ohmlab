@@ -22,6 +22,12 @@ networkPolicy:
   extraIngress: []
   extraEgress: []
 
+# The issuer of Redis's certificate when argo-cd.redis.tls.enabled is on.
+# Empty: a CA of this namespace issues it. To use the internal CA:
+# {kind: ClusterIssuer, name: ohmlab-internal-ca}.
+redisCertificate:
+  issuerRef: {}
+
 argo-cd:
   configs:
     secret:
@@ -82,6 +88,60 @@ argo-cd:
         limits:
           cpu: 100m
           memory: 64Mi
+    # On: Redis serves TLS only, and the server, repo-server and application
+    # controller (the ApplicationSet controller does not use Redis) verify it
+    # against the ca.crt of this Secret, which templates/redis-certificate.yaml
+    # issues (see redisCertificate). They read that CA when they start: after a
+    # change of issuer on a running install, restart them once Redis serves the
+    # new certificate. The single node Redis only, not redis-ha.
+    tls:
+      enabled: false
+      secretName: argocd-redis-tls
+    # Redis reads its certificate only when it starts, and has no reload
+    # setting: CONFIG SET of the same paths makes it read them again, with no
+    # restart and no log line, and a failed reload keeps the old certificate.
+    # This sidecar does that every minute while TLS is on, and idles otherwise,
+    # as a values list cannot add it only then. --insecure: it dials Redis on
+    # loopback, a name the certificate does not hold, as the chart's probes and
+    # exporter do. redis-cli exits 0 on an error reply, so the reply itself
+    # tells a refused reload. An instance that sets this list replaces it: keep
+    # tls-reload.
+    extraContainers:
+    - name: tls-reload
+      image: '{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}'
+      imagePullPolicy: '{{ default .Values.global.image.imagePullPolicy .Values.redis.image.imagePullPolicy }}'
+      command: [/bin/sh, -c]
+      args:
+      - >-
+        trap 'exit 0' TERM;
+        {{ if .Values.redis.tls.enabled }}while :; do sleep 60 & wait $!;
+        r=$(redis-cli --tls --insecure -p {{ .Values.redis.containerPorts.redis }}
+        CONFIG SET tls-cert-file /app/config/redis-tls/{{ .Values.redis.tls.certFile }}
+        tls-key-file /app/config/redis-tls/{{ .Values.redis.tls.keyFile }} 2>&1);
+        [ "$r" = OK ] || echo "could not reload the TLS certificate: $r" >&2;
+        done{{ else }}while :; do sleep 3600 & wait $!; done{{ end }}
+      env:
+      - name: REDISCLI_AUTH
+        valueFrom:
+          secretKeyRef:
+            name: '{{ if and .Values.redis.existingSecret (not .Values.redisSecretInit.enabled) }}{{ .Values.redis.existingSecret }}{{ else }}argocd-redis{{ end }}'
+            key: auth
+      resources:
+        requests:
+          cpu: 5m
+          memory: 8Mi
+        limits:
+          cpu: 50m
+          memory: 32Mi
+      securityContext:
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+          - ALL
   # PreSync hook Job seeding the redis password, re-run on every sync;
   # require-resource-limits flags it without these.
   redisSecretInit:

@@ -1,0 +1,71 @@
+# Redis's serving certificate when the subchart's Redis serves TLS, from
+# redisCertificate.issuerRef or else from a CA of this namespace. Server TLS
+# only: the server, repo-server and application controller verify it against
+# the Secret's ca.crt; the probes, exporter and reload sidecar connect over
+# loopback without verifying. The subchart's own helpers say when and under
+# which name, so this follows the Redis it renders.
+{{- $argocd := index .Subcharts "argo-cd" }}
+{{- if include "argo-cd.redis.tlsEnabled" $argocd }}
+{{- $redis := include "argo-cd.redis.fullname" $argocd }}
+{{- if not .Values.redisCertificate.issuerRef }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: argocd-redis-selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-redis-ca
+spec:
+  isCA: true
+  commonName: argocd-redis-ca
+  secretName: argocd-redis-ca
+  duration: 87600h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    # A renewed CA with the same key still verifies the certificates it
+    # signed, and the components keep the CA they read when they started.
+    rotationPolicy: Never
+  issuerRef:
+    name: argocd-redis-selfsigned
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: argocd-redis-ca
+spec:
+  ca:
+    secretName: argocd-redis-ca
+---
+{{- end }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-redis-tls
+spec:
+  secretName: {{ $argocd.Values.redis.tls.secretName }}
+  duration: 2160h
+  renewBefore: 360h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+  - server auth
+  dnsNames:
+  - {{ $redis }}
+  - {{ $redis }}.{{ .Release.Namespace }}
+  - {{ $redis }}.{{ .Release.Namespace }}.svc
+  - {{ $redis }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+  {{- with .Values.redisCertificate.issuerRef }}
+    {{- toYaml . | nindent 4 }}
+  {{- else }}
+    name: argocd-redis-ca
+    kind: Issuer
+  {{- end }}
+{{- end }}
