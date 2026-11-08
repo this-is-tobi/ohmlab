@@ -152,6 +152,24 @@ func (u *UI) Confirm(question string) (bool, error) {
 	return false, nil
 }
 
+// ConfirmWord asks before a step that cannot be undone: only the word
+// itself, typed, is a yes. Yes answers it without asking; with no terminal to
+// ask on, it is an error rather than a guess.
+func (u *UI) ConfirmWord(question, word string) (bool, error) {
+	if u.o.Yes {
+		return true, nil
+	}
+	if u.o.Mode != Human {
+		return false, fmt.Errorf("%s: no terminal to ask on, pass --yes to answer yes", question)
+	}
+	fmt.Fprintf(u.o.Err, "%s: ", question)
+	line, err := u.in.ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return false, err
+	}
+	return strings.TrimSpace(line) == word, nil
+}
+
 const (
 	red    = "31"
 	green  = "32"
