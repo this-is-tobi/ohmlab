@@ -34,9 +34,10 @@ context; a context of that name leading to another server is replaced only
 after a yes. Needs ansible, and the product's ansible/ansible.cfg (--product).`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		// An interrupt cancels the run rather than killing the process, so
-		// the fetched key's temporary directory is still removed.
-		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+		// An interrupt, or a hangup when the terminal goes, cancels the run
+		// rather than killing the process, so the fetched key's temporary
+		// directory is still removed.
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 		defer stop()
 		cwd, err := os.Getwd()
 		if err != nil {
