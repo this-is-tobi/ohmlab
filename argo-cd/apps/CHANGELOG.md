@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.19.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.18.0...catalog-v0.19.0) (2026-11-08)
+
+
+### Features
+
+* **argo-cd:** serve the tenant Argo CD's Redis over TLS by default ([df0bfb6](https://github.com/this-is-tobi/ohmlab/commit/df0bfb64e8bac7bca28b2b4c66a5162e0896eb74))
+* **argo-cd:** serve the tenant Argo CD's Redis over TLS, as an option ([4d136b5](https://github.com/this-is-tobi/ohmlab/commit/4d136b5dc5bd11e075182483a8b6820e67bf683b))
+* **cilium,longhorn:** serve the oauth2-proxies over TLS from the internal CA ([245490f](https://github.com/this-is-tobi/ohmlab/commit/245490ff9f0de7dc35cd7e7b880b977d7ede97d9))
+* **gitea:** serve Gitea over TLS from the internal CA ([6f69d34](https://github.com/this-is-tobi/ohmlab/commit/6f69d34e361a2101804d293d9ee2b9a27e1e96b3))
+* **keycloak:** serve Keycloak over TLS from the internal CA, as an option ([f7fc0ba](https://github.com/this-is-tobi/ohmlab/commit/f7fc0ba1b2ab8d096709510be4d4f9da82e54fa8))
+* **mattermost:** cap the ephemeral storage of its emptyDir volumes ([7431cb4](https://github.com/this-is-tobi/ohmlab/commit/7431cb4596ff68ca38a4064884a1de71b15631ba))
+* **ohmlab-controller:** keep the certificates target's patches to its annotation ([5bc1308](https://github.com/this-is-tobi/ohmlab/commit/5bc130860a27b5870846fbac3b9965471562a69d))
+* **ohmlab-controller:** package the certificates target ([c9fb2c3](https://github.com/this-is-tobi/ohmlab/commit/c9fb2c31b2b72bdb8e398199eb16a8d06b213425))
+* **prometheus-stack:** serve Grafana over TLS from the internal CA ([192442e](https://github.com/this-is-tobi/ohmlab/commit/192442e15480d787f7fe45ad1773272a9d2b426a))
+* **rustfs:** serve RustFS over TLS from the internal CA ([1d56e69](https://github.com/this-is-tobi/ohmlab/commit/1d56e6918159c17004624c28c4588a89008e91ad))
+* **trust-manager:** publish each CA only where the instance lists it ([c594d4e](https://github.com/this-is-tobi/ohmlab/commit/c594d4ee9c0b3ba2e082d5346cad7a53a84b0956))
+
+
+### Bug Fixes
+
+* **argo-cd:** mount no service account token in the tenant Redis pod ([0648794](https://github.com/this-is-tobi/ohmlab/commit/0648794d12aa6505835193516f000f27c7178024))
+* **argo-cd:** run the Redis exporter its ServiceMonitor scrapes ([27226a6](https://github.com/this-is-tobi/ohmlab/commit/27226a6bc6efcecd93bb6bace8e8a86a8abb622f))
+* **argo-cd:** turn off the Redis exporter's /scrape endpoint ([b07679e](https://github.com/this-is-tobi/ohmlab/commit/b07679eb97113b7c493048626c02d49e6bca006e))
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.7.0 ([1a00362](https://github.com/this-is-tobi/ohmlab/commit/1a00362df7e2a50246276427a423eee871e1c317))
+* **deps:** update helm release argo-cd to v10.17.0 ([698aa04](https://github.com/this-is-tobi/ohmlab/commit/698aa0441fc890f1c963acb75b74614eaab65e77))
+* **keycloak:** accept any https URL for keycloak-config-cli with TLS on ([4588306](https://github.com/this-is-tobi/ohmlab/commit/4588306accf45ad9d98a059506481e291ac09714))
+* **keycloak:** add the gateway's policy with the route that uses it ([3ab8e93](https://github.com/this-is-tobi/ohmlab/commit/3ab8e93e1357676cda7b1becb12bd4b32e9bdf00))
+* **rustfs:** cover both RustFS ports with one policy targetRef ([8b80f0c](https://github.com/this-is-tobi/ohmlab/commit/8b80f0c1f64a551c9fb0f3ed73047112c3b19745))
+
 ## [0.18.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.17.0...catalog-v0.18.0) (2026-11-08)
 
 
