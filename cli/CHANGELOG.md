@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/this-is-tobi/ohmlab/compare/v0.7.0...v0.8.0) (2026-11-08)
+
+
+### Features
+
+* **ohmlab-controller:** keep the certificates target's patches to its annotation ([5bc1308](https://github.com/this-is-tobi/ohmlab/commit/5bc130860a27b5870846fbac3b9965471562a69d))
+
 ## [0.7.0](https://github.com/this-is-tobi/ohmlab/compare/v0.6.0...v0.7.0) (2026-11-08)
 
 
