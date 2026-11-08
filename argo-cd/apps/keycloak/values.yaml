@@ -16,6 +16,17 @@ networkPolicy:
   extraIngress: []
   extraEgress: []
 
+# Keycloak's certificate with keycloak.tls.enabled (templates/certificate.yaml):
+# its issuer, and the ConfigMap (key ca.crt) of that issuer's CA, which the
+# gateway verifies Keycloak against. trust-manager publishes the internal CA's
+# in its target namespaces.
+certificate:
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: ohmlab-internal-ca
+  caConfigMap: ohmlab-internal-ca
+
 keycloak:
   enabled: true
   replicaCount: 1
@@ -27,6 +38,14 @@ keycloak:
     hostname: ""
     production: true
     proxyHeaders: xforwarded
+    # With tls.enabled below, both or neither: HTTPS on 8443 with the
+    # certificate templates/certificate.yaml issues. httpEnabled: false closes
+    # 8080 once the gateway's route uses 8443 (docs/05-services.md).
+    httpsEnabled: false
+    httpEnabled: true
+  tls:
+    enabled: false
+    existingSecret: keycloak-tls
   cache:
     stack: ispn
   database:
@@ -76,6 +95,10 @@ keycloak:
     enabled: true
     serviceMonitor:
       enabled: true
+      # With TLS, the management port serves HTTPS too and the chart scrapes
+      # https; metrics need no verification, as Vault's.
+      tlsConfig:
+        insecureSkipVerify: true
   persistence:
     enabled: true
   extraEnv:
@@ -517,6 +540,8 @@ keycloakConfigCli:
     # Pinned (multi-arch) — was latest-26; bump alongside Keycloak upgrades.
     tag: 6.5.1-26
   env:
+    # https://keycloak:8443 with keycloak.tls.enabled, which the render asks
+    # for: this chart's values cannot see that switch.
     KEYCLOAK_URL: "http://keycloak:8080"
     KEYCLOAK_USER: admin
     IMPORT_FILES_LOCATIONS: "/config/*.json"
@@ -534,7 +559,36 @@ keycloakConfigCli:
     LOGGING_LEVEL_ROOT: INFO
   existingSecret: keycloak-admin
   existingSecretKey: password
+  # With keycloak.tls.enabled, the truststore of Keycloak's certificate
+  # (templates/keycloak-config-cli-tls.yaml), which this chart's values cannot
+  # see; inert without it. An instance that sets extraEnv, extraVolumes or
+  # extraVolumeMounts replaces these lists and must keep their
+  # KEYCLOAK_TLS_* and keycloak-tls entries.
+  extraVolumes: |
+    - name: keycloak-tls
+      secret:
+        secretName: keycloak-tls
+        optional: true
+        items:
+        - key: truststore.p12
+          path: truststore.p12
+  extraVolumeMounts: |
+    - name: keycloak-tls
+      mountPath: /etc/keycloak-tls
+      readOnly: true
   extraEnv:
+  - name: KEYCLOAK_TLS_TRUSTSTOREPATH
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config-cli-tls
+        key: KEYCLOAK_TLS_TRUSTSTOREPATH
+        optional: true
+  - name: KEYCLOAK_TLS_TRUSTSTOREPASSWORD
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config-cli-tls
+        key: KEYCLOAK_TLS_TRUSTSTOREPASSWORD
+        optional: true
   - name: ROOT_DOMAIN
     valueFrom:
       secretKeyRef:
