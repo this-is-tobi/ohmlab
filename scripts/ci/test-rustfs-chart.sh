@@ -80,8 +80,10 @@ check "the Certificate's fields" "rustfs-tls 2160h 360h ECDSA/256 digital signat
   "$(q "$cert | .spec.secretName + \" \" + .spec.duration + \" \" + .spec.renewBefore + \" \" + .spec.privateKey.algorithm + \"/\" + (.spec.privateKey.size | tostring) + \" \" + (.spec.usages | join(\",\")) + \" \" + .spec.issuerRef.kind + \"/\" + .spec.issuerRef.name")"
 check "the Certificate names the Service" "rustfs-svc,rustfs-svc.rustfs,rustfs-svc.rustfs.svc,rustfs-svc.rustfs.svc.cluster.local" \
   "$(q "$cert | .spec.dnsNames | join(\",\")")"
-check "the policy's fields with routes to both ports" "rustfs-svc Service/rustfs-svc endpoint,console ConfigMap/ohmlab-internal-ca rustfs-svc.rustfs.svc" \
-  "$(q "$policy | .metadata.name + \" \" + .spec.targetRefs[0].kind + \"/\" + .spec.targetRefs[0].name + \" \" + ([.spec.targetRefs[].sectionName] | join(\",\")) + \" \" + .spec.validation.caCertificateRefs[0].kind + \"/\" + .spec.validation.caCertificateRefs[0].name + \" \" + .spec.validation.hostname")"
+# One targetRef for every port: Traefik lists a policy once per targetRef naming
+# the Service, so a second one on the same Service conflicts with the first.
+check "the policy's fields with routes to both ports: one targetRef, every port" "rustfs-svc 1 Service/rustfs-svc/none ConfigMap/ohmlab-internal-ca rustfs-svc.rustfs.svc" \
+  "$(q "$policy | .metadata.name + \" \" + (.spec.targetRefs | length | tostring) + \" \" + .spec.targetRefs[0].kind + \"/\" + .spec.targetRefs[0].name + \"/\" + (.spec.targetRefs[0].sectionName // \"none\") + \" \" + .spec.validation.caCertificateRefs[0].kind + \"/\" + .spec.validation.caCertificateRefs[0].name + \" \" + .spec.validation.hostname")"
 check "both kinds sync in their waves, without a dry run on a fresh cluster" \
   "-1 SkipDryRunOnMissingResource=true|1 SkipDryRunOnMissingResource=true" "$(q "$cert | $waves")|$(q "$policy | $waves")"
 check "the chart serves both listeners from the certificate" "/opt/tls HTTPS" \
@@ -94,7 +96,7 @@ render "${tls[@]}" --set gateway.enabled=false
 check "no policy with the gateway off" "1 0" "$(q "[$cert] | length") $(q "[$policy] | length")"
 routes rustfs-svc 9001
 render "${tls[@]}" -f "$work/routes.yaml"
-check "one route is enough for both targetRefs" "endpoint,console" "$(q "$policy | [.spec.targetRefs[].sectionName] | join(\",\")")"
+check "one route is enough for the policy" "1" "$(q "[$policy] | length")"
 routes other-svc 9000 9001
 render "${tls[@]}" -f "$work/routes.yaml"
 check "no policy with the routes on another Service" "0" "$(q "[$policy] | length")"
