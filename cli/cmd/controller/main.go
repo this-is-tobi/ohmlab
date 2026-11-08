@@ -22,6 +22,7 @@ import (
 
 	v1alpha1 "github.com/this-is-tobi/ohmlab/cli/api/v1alpha1"
 	"github.com/this-is-tobi/ohmlab/cli/internal/buildinfo"
+	"github.com/this-is-tobi/ohmlab/cli/internal/controller/certificates"
 	"github.com/this-is-tobi/ohmlab/cli/internal/controller/config"
 	"github.com/this-is-tobi/ohmlab/cli/internal/controller/metrics"
 	ctrlruntime "github.com/this-is-tobi/ohmlab/cli/internal/controller/runtime"
@@ -39,7 +40,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	var (
 		configPath  = fs.String("config", "/etc/ohmlab/controller.yaml", "path to the configuration file")
-		targets     = fs.String("target", "", "comma-separated targets this process runs: vault")
+		targets     = fs.String("target", "", "comma-separated targets this process runs: vault, certificates")
 		metricsAddr = fs.String("metrics-addr", ":8080", "address of the metrics endpoint")
 		probeAddr   = fs.String("probe-addr", ":8081", "address of the probe endpoint")
 		logLevel    = fs.String("log-level", "info", "log level: debug, info, warn, error")
@@ -93,6 +94,12 @@ func serve(ctx context.Context, configPath string, targets []string, metricsAddr
 		switch name {
 		case config.TargetVault:
 			t, err := vaultseed.NewTarget(cfg.Vault, resync, m)
+			if err != nil {
+				return err
+			}
+			built = append(built, t)
+		case config.TargetCertificates:
+			t, err := certificates.NewTarget(cfg.Certificates, resync, m)
 			if err != nil {
 				return err
 			}

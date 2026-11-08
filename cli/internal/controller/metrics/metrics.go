@@ -19,6 +19,9 @@ type Metrics struct {
 	Rotations       *prometheus.CounterVec
 	Adopted         *prometheus.CounterVec
 	CRDMismatch     *prometheus.GaugeVec
+	// WorkloadRestarts counts the rolls of each workload onto a renewed
+	// certificate (the certificates target).
+	WorkloadRestarts *prometheus.CounterVec
 
 	mu      sync.Mutex
 	planned map[string]map[string]int // "target/kind/ns/name" -> action -> count
@@ -62,8 +65,12 @@ func New(reg prometheus.Registerer) *Metrics {
 		Name: "ohmlab_crd_revision_mismatch",
 		Help: "1 when the installed CRD was generated at another API revision than the one this controller was built with.",
 	}, []string{"target", "kind"})
+	m.WorkloadRestarts = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "ohmlab_workload_restarts_total",
+		Help: "Rolls of a workload onto a certificate that was issued again.",
+	}, []string{"target", "namespace", "kind", "name"})
 	reg.MustRegister(m.LastSuccess, m.ObjectReady, m.BackendRequests, m.BackendDuration, m.BackendWrites,
-		m.PlannedChanges, m.Rotations, m.Adopted, m.CRDMismatch)
+		m.PlannedChanges, m.Rotations, m.Adopted, m.CRDMismatch, m.WorkloadRestarts)
 	return m
 }
 

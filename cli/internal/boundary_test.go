@@ -7,9 +7,8 @@ import (
 )
 
 // The targets share a process in some topologies, so the code of one must not
-// be able to reach the credentials of another: the Harbor and SonarQube
-// packages may not import anything of Vault's, and Vault's may not import
-// theirs. The module path is stable (it is the module's, see go.mod).
+// be able to reach the credentials of another: the other targets' packages may
+// not import anything of Vault's, and Vault's may not import theirs. The module path is stable (it is the module's, see go.mod).
 const module = "github.com/this-is-tobi/ohmlab/cli/"
 
 var vaultSide = []string{
@@ -17,7 +16,7 @@ var vaultSide = []string{
 	"internal/controller/vaultseed",
 }
 
-var otherSide = []string{"internal/harbor", "internal/sonarqube"}
+var otherSide = []string{"internal/harbor", "internal/sonarqube", "internal/controller/certificates"}
 
 func deps(t *testing.T, pkg string) []string {
 	t.Helper()
@@ -41,11 +40,11 @@ func imports(t *testing.T, from []string, forbidden []string) {
 	}
 }
 
-func TestHarborAndSonarqubeNeverImportVault(t *testing.T) {
+func TestOtherTargetsNeverImportVault(t *testing.T) {
 	imports(t, otherSide, vaultSide)
 }
 
-func TestVaultNeverImportsHarborOrSonarqube(t *testing.T) {
+func TestVaultNeverImportsTheOtherTargets(t *testing.T) {
 	imports(t, vaultSide, otherSide)
 }
 
