@@ -249,6 +249,8 @@ Two opt-in values give the cluster one internal CA for the rest, and the example
 - `internalCA.enabled` in the `cert-manager` app: a self-signed root in cert-manager's namespace (10 years, renewed a year early with the same key) and the ClusterIssuer `ohmlab-internal-ca` on it.
 - `internalCaBundle.enabled` in the `trust-manager` app, which needs the first: the root as the ConfigMap `ohmlab-internal-ca` (key `ca.crt`) in every namespace listed in `trust-manager.app.targetNamespaces`, the only ones trust-manager may write to. It reads the root from an anchor certificate in its own namespace, so it never reads cert-manager's keys.
 
+Each bundle reaches every target namespace unless its `namespaces` lists some of them (`internalCaBundle.namespaces`, `vaultCaBundle.namespaces`): list only the namespaces whose clients read it. trust-manager can create, change and delete every ConfigMap of a target namespace, so add a namespace only where a client needs the CA.
+
 An app gets its serving certificate from the issuer (cert-manager's 90-day default applies), and its clients trust the ConfigMap:
 
 ```yaml
