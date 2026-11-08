@@ -26,6 +26,13 @@ rustfs:
   secret:
     existingSecret: rustfs-admin
 
+  # TLS on both listeners (S3 API and console) with tls.enabled, from the
+  # certificate the app issues into this Secret (templates/certificate.yaml).
+  # RustFS reloads it on renewal. Standalone mode only: the certificate names
+  # the Service, not the pods of a distributed set.
+  tls:
+    existingSecret: rustfs-tls
+
   config:
     rustfs:
       address: ":9000"
@@ -161,3 +168,15 @@ vso:
 monitoring:
   prometheusRule:
     enabled: true
+
+# RustFS's serving certificate with rustfs.tls.enabled (templates/certificate.yaml),
+# and the CA the gateway verifies it with (templates/backendtlspolicy.yaml): a
+# trust bundle ConfigMap in this namespace (Gateway API's portable form), or
+# empty for the ca.crt of the certificate's own Secret (a gateway that reads
+# Secrets, as Traefik does).
+certificate:
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: ohmlab-internal-ca
+  caConfigMap: ohmlab-internal-ca

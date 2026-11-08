@@ -295,6 +295,8 @@ kube-prometheus-stack:
 
 The app issues the certificate into the Secret of the `tls` mount (`grafanaCertificate.issuerRef`, `grafanaCertificate.caConfigMap`), and Grafana reloads it every `certs_watch_interval`. The sidecars reload the dashboards and datasources through localhost, so they skip verification, and so does the scrape. The route stays on the Service's port 80. An instance that sets `extraSecretMounts` or a sidecar's `env` replaces the catalog's and must keep these entries.
 
+The `rustfs` app serves the S3 API and the console over TLS with `rustfs.tls.enabled: true`, in standalone mode: one certificate (`rustfs-tls`, `certificate.issuerRef`, `certificate.caConfigMap`) serves both listeners, RustFS reloads it on renewal, and one BackendTLSPolicy covers both ports once a route reaches either. The routes keep their ports. The rollout stops the old pod before the new one starts, since the data volume is ReadWriteOnce, so S3 and the console are down for a minute or two. Clients that go through the gateway see no change; an in-cluster client that reaches the Service directly needs the CA (`AWS_CA_BUNDLE` for the AWS SDKs, `SSL_CERT_FILE` for Go, `NODE_EXTRA_CA_CERTS` for Node).
+
 `ohmlab audit tls` checks a running cluster against this ([cheat sheet](07-cheat-sheet.md#ohmlab-cli)): it probes every Service port through a port-forward and fails on a plaintext one that neither the rule (metrics, DNS) nor an exception of the instance's `ohmlab.yaml`, each with its reason, allows.
 
 ### Secrets
