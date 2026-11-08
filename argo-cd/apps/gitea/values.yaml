@@ -59,6 +59,8 @@ gitea:
   # that sets one of these lists replaces it and must keep these entries; the
   # deprecated extraVolumeMounts no longer reaches Gitea's container once
   # extraContainerVolumeMounts is set.
+  # gitea-tls is Gitea's serving certificate (templates/certificate.yaml),
+  # optional so Gitea starts before it is issued while it serves http.
   deployment:
     env:
     - name: SSL_CERT_DIR
@@ -70,9 +72,16 @@ gitea:
       items:
       - key: ca.crt
         path: ca.crt
+  - name: gitea-tls
+    secret:
+      secretName: gitea-tls
+      optional: true
   extraContainerVolumeMounts:
   - name: valkey-ca
     mountPath: /etc/valkey-ca
+    readOnly: true
+  - name: gitea-tls
+    mountPath: /etc/gitea-tls
     readOnly: true
   serviceAccount:
     create: true
@@ -142,6 +151,11 @@ gitea:
         # silently defaults it — but rendered manifests fail schema checks).
         HTTP_PORT: 3000
         SSH_LISTEN_PORT: 2222
+        # TLS: PROTOCOL https, with metrics.serviceMonitor.scheme https. Gitea
+        # serves one listener, so http stops; it reads the certificate once,
+        # so restart it after each renewal.
+        CERT_FILE: /etc/gitea-tls/tls.crt
+        KEY_FILE: /etc/gitea-tls/tls.key
       openid:
         ENABLE_OPENID_SIGNIN: true
         ENABLE_OPENID_SIGNUP: true
@@ -160,6 +174,9 @@ gitea:
       enabled: true
       serviceMonitor:
         enabled: true
+        # Over https, unverified, as the other scrapes of TLS ports.
+        tlsConfig:
+          insecureSkipVerify: true
   postgresql-ha:
     enabled: false
     primary:
@@ -177,6 +194,18 @@ gitea:
 # changing the issuer of a running Valkey.
 valkeyCertificate:
   issuerRef: {}
+
+# Gitea's serving certificate with gitea.gitea.config.server.PROTOCOL https
+# (templates/certificate.yaml), and the CA the gateway verifies it with
+# (templates/backendtlspolicy.yaml): a trust bundle ConfigMap in this namespace
+# (Gateway API's portable form), or empty for the ca.crt of the certificate's
+# own Secret (a gateway that reads Secrets, as Traefik does).
+certificate:
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: ohmlab-internal-ca
+  caConfigMap: ohmlab-internal-ca
 
 valkey:
   fullnameOverride: gitea-valkey

@@ -218,7 +218,7 @@ jobs:
         run: scripts/ci/test-vault-spokes.sh
       - name: Test that Grafana's database comes with Grafana
         run: scripts/ci/test-prometheus-stack-chart.sh
-      - name: Test the gitea chart's Valkey TLS
+      - name: Test the gitea chart's TLS
         run: scripts/ci/test-gitea-chart.sh
       - name: Test the argo-cd chart's Redis
         run: scripts/ci/test-argo-cd-chart.sh
