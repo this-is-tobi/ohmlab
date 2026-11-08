@@ -1,0 +1,49 @@
+{{- if and .Values.gateway.enabled .Values.rustfs.tls.enabled }}
+{{- $svc := printf "%s-svc" (include "rustfs.fullname" (index .Subcharts "rustfs")) }}
+{{- $routed := false }}
+{{- range .Values.gateway.routes }}
+{{- range .rules }}
+{{- if eq (toString .backendService) $svc }}
+{{- $routed = true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $routed }}
+---
+# Gateway API HTTPS-upstream validation of both RustFS listeners, once a route
+# reaches the Service: only a route using the policy gives it a status, which
+# Argo CD waits for. One policy for both ports, since Traefik marks a second one
+# on the same Service Conflicted.
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ $svc }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # The Gateway API CRDs may not exist yet on a fresh cluster.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: {{ $svc }}
+    sectionName: endpoint
+  - group: ""
+    kind: Service
+    name: {{ $svc }}
+    sectionName: console
+  validation:
+    caCertificateRefs:
+    {{- if .Values.certificate.caConfigMap }}
+    - group: ""
+      kind: ConfigMap
+      name: {{ .Values.certificate.caConfigMap }}
+    {{- else }}
+    - group: ""
+      kind: Secret
+      name: {{ .Values.rustfs.tls.existingSecret }}
+    {{- end }}
+    # SNI sent to and validated against RustFS's certificate.
+    hostname: {{ $svc }}.{{ .Release.Namespace }}.svc
+{{- end }}
+{{- end }}

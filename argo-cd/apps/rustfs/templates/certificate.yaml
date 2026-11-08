@@ -1,0 +1,39 @@
+{{- /*
+RustFS's serving certificate with rustfs.tls.enabled, from
+certificate.issuerRef, for the Service's names: one TLS directory serves the
+S3 API and the console, and RustFS reloads it on renewal.
+*/}}
+{{- if .Values.rustfs.tls.enabled }}
+{{- if .Values.rustfs.mode.distributed.enabled }}
+{{- fail "rustfs.tls.enabled: standalone mode only, the certificate names the Service, not the pods rustfs.mode.distributed reaches each other by" }}
+{{- end }}
+{{- $svc := printf "%s-svc" (include "rustfs.fullname" (index .Subcharts "rustfs")) }}
+{{- $secret := .Values.rustfs.tls.existingSecret }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $secret }}
+  annotations:
+    # Issued before the pod that mounts it: the rollout stops the old pod first.
+    argocd.argoproj.io/sync-wave: "-1"
+    # cert-manager's CRDs may not exist yet on a fresh cluster.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  secretName: {{ $secret }}
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+  - digital signature
+  - server auth
+  dnsNames:
+  - {{ $svc }}
+  - {{ $svc }}.{{ .Release.Namespace }}
+  - {{ $svc }}.{{ .Release.Namespace }}.svc
+  - {{ $svc }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    {{- toYaml .Values.certificate.issuerRef | nindent 4 }}
+{{- end }}
