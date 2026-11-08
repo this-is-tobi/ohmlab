@@ -61,13 +61,18 @@ mattermost:
     capabilities:
       drop:
       - ALL
+  # Without persistence (the default), the data and plugins directories are
+  # emptyDirs the chart does not size: the ephemeral-storage limit evicts the
+  # pod before they fill the node's disk.
   resources:
     requests:
       cpu: 250m
       memory: 512Mi
+      ephemeral-storage: 256Mi
     limits:
       cpu: 1000m
       memory: 1536Mi
+      ephemeral-storage: 2Gi
   serviceAccount:
     create: true
     name: mattermost
