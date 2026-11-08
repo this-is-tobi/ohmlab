@@ -71,6 +71,17 @@ argo-cd:
       enabled: true
       serviceMonitor:
         enabled: true
+    # The metrics Service and ServiceMonitor above scrape this sidecar: without
+    # it they have no port.
+    exporter:
+      enabled: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
   # PreSync hook Job seeding the redis password, re-run on every sync;
   # require-resource-limits flags it without these.
   redisSecretInit:
