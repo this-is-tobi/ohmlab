@@ -277,6 +277,24 @@ The other gateway backends follow one shape. The switch is a value of the app's 
 
 The `gitea` app serves Gitea over TLS with `gitea.gitea.config.server.PROTOCOL: https` and `gitea.gitea.metrics.serviceMonitor.scheme: https`, set together: the scrape uses Gitea's one listener and does not verify it. The certificate is `gitea-tls` (`certificate.issuerRef`, `certificate.caConfigMap`), and the route stays on port 3000. Gitea reads its certificate only when it starts, so restart it after each renewal. During the switch, pushes handled by old pods can fail: their hooks read the shared `app.ini`, which the new pods have already moved to https. An instance that sets `gitea.extraVolumes` or `gitea.extraContainerVolumeMounts` replaces the catalog's lists and must keep their `gitea-tls` entries, which the render checks.
 
+The `prometheus-stack` app serves Grafana over TLS once an instance sets this recipe, since Grafana's chart has no switch of its own; the render fails on any part left out:
+
+```yaml
+kube-prometheus-stack:
+  grafana:
+    grafana.ini:
+      server: {protocol: https, cert_file: /etc/grafana/tls/tls.crt, cert_key: /etc/grafana/tls/tls.key, certs_watch_interval: 1h}
+    extraSecretMounts: [{name: tls, mountPath: /etc/grafana/tls, secretName: grafana-tls, readOnly: true}]
+    livenessProbe: {httpGet: {scheme: HTTPS}}
+    readinessProbe: {httpGet: {scheme: HTTPS}}
+    serviceMonitor: {scheme: https, tlsConfig: {insecureSkipVerify: true}}
+    sidecar:
+      dashboards: {reloadURL: "https://localhost:3000/api/admin/provisioning/dashboards/reload", env: {REQ_SKIP_TLS_VERIFY: "true"}}
+      datasources: {reloadURL: "https://localhost:3000/api/admin/provisioning/datasources/reload", env: {REQ_SKIP_TLS_VERIFY: "true"}}
+```
+
+The app issues the certificate into the Secret of the `tls` mount (`grafanaCertificate.issuerRef`, `grafanaCertificate.caConfigMap`), and Grafana reloads it every `certs_watch_interval`. The sidecars reload the dashboards and datasources through localhost, so they skip verification, and so does the scrape. The route stays on the Service's port 80. An instance that sets `extraSecretMounts` or a sidecar's `env` replaces the catalog's and must keep these entries.
+
 `ohmlab audit tls` checks a running cluster against this ([cheat sheet](07-cheat-sheet.md#ohmlab-cli)): it probes every Service port through a port-forward and fails on a plaintext one that neither the rule (metrics, DNS) nor an exception of the instance's `ohmlab.yaml`, each with its reason, allows.
 
 ### Secrets
