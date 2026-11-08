@@ -4,8 +4,9 @@ type: application
 version: 0.1.0
 description: |
   The ohmlab controller. Reconciles the ohmlab.fr custom resources into the
-  platform's backends (Vault today; Harbor and SonarQube follow), one Deployment
-  per target by default. Templates only: the CRDs are generated from
+  platform's backends (Vault today; Harbor and SonarQube follow) and restarts
+  the workloads that read their certificate only at start, one Deployment per
+  target by default. Templates only: the CRDs are generated from
   cli/api/v1alpha1 into files/crds.
 home: https://this-is-tobi.com/ohmlab
 maintainers:

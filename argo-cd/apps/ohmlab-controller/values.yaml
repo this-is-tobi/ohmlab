@@ -55,6 +55,24 @@ targets:
         # (vault-operator: ohmlab.controller.audience) accepts nothing else.
         # Empty logs in with the pod's API token.
         audience: vault
+  certificates:
+    enabled: false
+    # The workloads that read their certificate only when they start, under
+    # the cert-manager Certificate they mount. Each time the Certificate is
+    # issued again (status.revision), the controller rolls them by setting the
+    # pod-template annotation ohmlab.fr/certificate-revision; it also rolls
+    # them once when it first sees them, since it cannot know which
+    # certificate their pods loaded. A workload lives in its Certificate's
+    # namespace and is listed under one Certificate only. The controller may
+    # get and patch exactly these workloads, and read the Certificates of
+    # these namespaces. A patch can change anything in a workload (its
+    # Secrets, its ServiceAccount, its image), so each listed namespace is
+    # trusted to the controller: keep privileged ones out where you can.
+    restarts: []
+    # - namespace: gitea
+    #   certificate: gitea-tls
+    #   workloads:
+    #   - {kind: Deployment, name: gitea}   # or StatefulSet, DaemonSet
 
 # How the targets are packaged. Empty: one Deployment per enabled target
 # ("split"), each with its own ServiceAccount, RBAC, Vault role and egress.

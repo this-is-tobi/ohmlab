@@ -1,8 +1,9 @@
 {{- /*
 Least privilege per deployment: Roles in the namespaces its targets watch (not
 ClusterRoles), a Role in the lease namespace for its own Leases, and one small
-ClusterRole that reads its own CRDs by name (the API revision check). No Secret
-access: the vault target authenticates with its ServiceAccount token alone.
+ClusterRole that reads its own CRDs by name (the API revision check), for the
+targets that have one. No Secret access: the vault target authenticates with
+its ServiceAccount token alone.
 */}}
 {{- range $dep, $targets := (include "ohmlab-controller.deployments" . | fromJson) }}
 {{- $sa := printf "ohmlab-controller-%s" $dep }}
@@ -17,8 +18,8 @@ metadata:
     {{- include "ohmlab-controller.labels" $ | nindent 4 }}
 rules:
 {{- range $t := $targets }}
-{{- if has $ns (index $.Values.targets $t).watchNamespaces }}
-{{ include "ohmlab-controller.namespaceRules" $t }}
+{{- if has $ns (include "ohmlab-controller.targetNamespaces" (dict "root" $ "target" $t) | fromJsonArray) }}
+{{ include "ohmlab-controller.namespaceRules" (dict "root" $ "target" $t "namespace" $ns) }}
 {{- end }}
 {{- end }}
 ---
@@ -70,6 +71,11 @@ metadata:
 roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $sa }}-leases}
 subjects:
 - {kind: ServiceAccount, name: {{ $sa }}, namespace: {{ $.Release.Namespace }}}
+{{- $crds := list }}
+{{- range $t := $targets }}
+{{- with include "ohmlab-controller.crdName" $t }}{{ $crds = append $crds . }}{{ end }}
+{{- end }}
+{{- if $crds }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -81,8 +87,8 @@ rules:
 - apiGroups: [apiextensions.k8s.io]
   resources: [customresourcedefinitions]
   resourceNames:
-  {{- range $t := $targets }}
-  - {{ include "ohmlab-controller.crdName" $t }}
+  {{- range $crds }}
+  - {{ . }}
   {{- end }}
   verbs: [get]
 ---
@@ -95,4 +101,5 @@ metadata:
 roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ $.Release.Namespace }}:{{ $sa }}}
 subjects:
 - {kind: ServiceAccount, name: {{ $sa }}, namespace: {{ $.Release.Namespace }}}
+{{- end }}
 {{- end }}

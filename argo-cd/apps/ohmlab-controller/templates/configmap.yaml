@@ -32,4 +32,8 @@ data:
           tokenFile: /var/run/secrets/ohmlab/vault/token
           {{- end }}
     {{- end }}
+    {{- if has "certificates" $targets }}
+    certificates:
+      restarts: {{ include "ohmlab-controller.restarts" $ }}
+    {{- end }}
 {{- end }}
