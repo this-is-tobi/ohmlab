@@ -3,7 +3,10 @@
 # only: the server, repo-server and application controller verify it against
 # the Secret's ca.crt; the probes, exporter and reload sidecar connect over
 # loopback without verifying. The subchart's own helpers say when and under
-# which name, so this follows the Redis it renders.
+# which name, so this follows the Redis it renders. Redis serves each renewal
+# through the tls-reload sidecar of argo-cd.redis.extraContainers: an instance
+# that sets that list must keep it, or Redis serves its first certificate
+# until it restarts.
 {{- $argocd := index .Subcharts "argo-cd" }}
 {{- if include "argo-cd.redis.tlsEnabled" $argocd }}
 {{- $redis := include "argo-cd.redis.fullname" $argocd }}

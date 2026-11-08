@@ -24,7 +24,10 @@ networkPolicy:
 
 # The issuer of Redis's certificate when argo-cd.redis.tls.enabled is on.
 # Empty: a CA of this namespace issues it. To use the internal CA:
-# {kind: ClusterIssuer, name: ohmlab-internal-ca}.
+# {kind: ClusterIssuer, name: ohmlab-internal-ca}. The server, repo-server and
+# application controller read the CA when they start: after changing this on a
+# running install, or if the namespace CA is re-created, restart them once
+# Redis serves the new certificate.
 redisCertificate:
   issuerRef: {}
 
@@ -94,13 +97,12 @@ argo-cd:
           cpu: 100m
           memory: 64Mi
     # On by default: every client of this Redis is set up by this chart, and
-    # the namespace CA needs nothing from the instance (false turns it off).
+    # the namespace CA needs only cert-manager (false turns it off).
     # Redis serves TLS only, and the server, repo-server and application
     # controller (the ApplicationSet controller does not use Redis) verify it
     # against the ca.crt of this Secret, which templates/redis-certificate.yaml
-    # issues (see redisCertificate). They read that CA when they start: after a
-    # change of issuer on a running install, restart them once Redis serves the
-    # new certificate. The single node Redis only, not redis-ha.
+    # issues (see redisCertificate, and when to restart them). The single node
+    # Redis only, not redis-ha.
     tls:
       enabled: true
       secretName: argocd-redis-tls
