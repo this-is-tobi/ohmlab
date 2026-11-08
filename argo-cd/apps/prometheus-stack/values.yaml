@@ -322,6 +322,20 @@ kube-prometheus-stack:
         user: grafana
         ssl_mode: require
 
+# Grafana's serving certificate once an instance serves Grafana over https
+# (kube-prometheus-stack.grafana."grafana.ini".server.protocol; the recipe is in
+# docs/05-services.md), into the Secret its extraSecretMounts entry `tls`
+# mounts (templates/grafana-certificate.yaml), and the CA the gateway verifies
+# it with (templates/grafana-backendtlspolicy.yaml): a trust bundle ConfigMap
+# in this namespace (Gateway API's portable form), or empty for the ca.crt of
+# the certificate's own Secret (a gateway that reads Secrets, as Traefik does).
+grafanaCertificate:
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: ohmlab-internal-ca
+  caConfigMap: ohmlab-internal-ca
+
 # CNPG PostgreSQL cluster for Grafana (replaces the default embedded SQLite,
 # which serialized every request behind a single-writer lock and — combined
 # with the old RWX/Longhorn-NFS-backed PVC — caused multi-minute request

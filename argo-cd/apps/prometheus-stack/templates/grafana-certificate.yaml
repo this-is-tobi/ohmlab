@@ -1,0 +1,82 @@
+{{- /*
+Grafana's serving certificate once kube-prometheus-stack.grafana."grafana.ini"
+server.protocol is https (or h2), from grafanaCertificate.issuerRef, into the
+Secret of the extraSecretMounts entry `tls`. Grafana's chart has no TLS switch,
+so an instance sets the whole recipe, which this checks: Grafana reloads the
+certificate every certs_watch_interval.
+*/}}
+{{- if index .Values "kube-prometheus-stack" "grafana" "enabled" }}
+{{- $g := index (index .Subcharts "kube-prometheus-stack").Subcharts "grafana" }}
+{{- $v := $g.Values }}
+{{- $key := "kube-prometheus-stack.grafana" }}
+{{- $server := index $v "grafana.ini" "server" | default dict }}
+{{- $tls := has (toString $server.protocol) (list "https" "h2") }}
+{{- range $probe := list "livenessProbe" "readinessProbe" "startupProbe" }}
+{{- with (index $v $probe | default dict).httpGet }}
+{{- $https := eq (toString .scheme) "HTTPS" }}
+{{- if and $tls (not $https) }}
+{{- fail (printf "%s.%s.httpGet.scheme: HTTPS, Grafana serves https" $key $probe) }}
+{{- else if and $https (not $tls) }}
+{{- fail (printf "%s.%s.httpGet.scheme HTTPS needs \"grafana.ini\".server.protocol https" $key $probe) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $tls }}
+{{- if not (and $server.cert_file $server.cert_key) }}
+{{- fail (printf "%s.\"grafana.ini\".server: protocol https needs cert_file and cert_key" $key) }}
+{{- end }}
+{{- if not $server.certs_watch_interval }}
+{{- fail (printf "%s.\"grafana.ini\".server.certs_watch_interval: without it Grafana keeps serving its certificate past renewal" $key) }}
+{{- end }}
+{{- $secret := "" }}
+{{- range $v.extraSecretMounts }}
+{{- if and (eq (toString .name) "tls") (eq (toString .mountPath) (dir (toString $server.cert_file))) (eq (toString .mountPath) (dir (toString $server.cert_key))) }}{{ $secret = .secretName }}{{ end }}
+{{- end }}
+{{- if not $secret }}
+{{- fail (printf "%s.extraSecretMounts needs the entry tls, the certificate's Secret, at the directory of cert_file and cert_key; an instance that sets the list replaces its entries" $key) }}
+{{- end }}
+{{- if and $v.serviceMonitor.enabled (ne (toString $v.serviceMonitor.scheme) "https") }}
+{{- fail (printf "%s.serviceMonitor.scheme: https, Grafana serves https" $key) }}
+{{- end }}
+{{- if and $v.serviceMonitor.enabled (not (or ($v.serviceMonitor.tlsConfig | default dict).insecureSkipVerify ($v.serviceMonitor.tlsConfig | default dict).ca)) }}
+{{- fail (printf "%s.serviceMonitor.tlsConfig: insecureSkipVerify, or a ca that verifies Grafana's certificate" $key) }}
+{{- end }}
+{{- range $name := list "alerts" "dashboards" "datasources" "plugins" "notifiers" "repositories" }}
+{{- with index $v.sidecar $name }}
+{{- if and .enabled (not .skipReload) .reloadURL }}
+{{- if not (and (hasPrefix "https://" (toString .reloadURL)) (eq (toString (index (.env | default dict) "REQ_SKIP_TLS_VERIFY")) "true")) }}
+{{- fail (printf "%s.sidecar.%s.reloadURL: https, with env.REQ_SKIP_TLS_VERIFY \"true\" for localhost, once Grafana serves https" $key $name) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $svc := include "grafana.fullname" $g }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $secret }}
+  annotations:
+    # Issued before the pod that mounts it.
+    argocd.argoproj.io/sync-wave: "-1"
+    # cert-manager's CRDs may not exist yet on a fresh cluster.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  secretName: {{ $secret }}
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+  - digital signature
+  - server auth
+  dnsNames:
+  - {{ $svc }}
+  - {{ $svc }}.{{ .Release.Namespace }}
+  - {{ $svc }}.{{ .Release.Namespace }}.svc
+  - {{ $svc }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    {{- toYaml .Values.grafanaCertificate.issuerRef | nindent 4 }}
+{{- end }}
+{{- end }}

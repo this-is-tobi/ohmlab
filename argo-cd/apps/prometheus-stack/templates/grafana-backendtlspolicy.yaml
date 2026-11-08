@@ -1,0 +1,53 @@
+{{- if and .Values.gateway.enabled (index .Values "kube-prometheus-stack" "grafana" "enabled") }}
+{{- $g := index (index .Subcharts "kube-prometheus-stack").Subcharts "grafana" }}
+{{- $v := $g.Values }}
+{{- $server := index $v "grafana.ini" "server" | default dict }}
+{{- if has (toString $server.protocol) (list "https" "h2") }}
+{{- $svc := include "grafana.fullname" $g }}
+{{- $routed := false }}
+{{- range .Values.gateway.routes }}
+{{- range .rules }}
+{{- if and (eq (toString .backendService) $svc) (eq (toString .backendPort) (toString $v.service.port)) }}
+{{- $routed = true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $routed }}
+{{- $secret := "" }}
+{{- range $v.extraSecretMounts }}
+{{- if eq (toString .name) "tls" }}{{ $secret = .secretName }}{{ end }}
+{{- end }}
+---
+# Gateway API HTTPS-upstream validation of Grafana, once a route reaches it:
+# only a route using the policy gives it a status, which Argo CD waits for.
+# Synced after the rollout, so the gateway reaches the old pod over http until then.
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ $svc }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # The Gateway API CRDs may not exist yet on a fresh cluster.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: {{ $svc }}
+    sectionName: {{ $v.service.portName }}
+  validation:
+    caCertificateRefs:
+    {{- if .Values.grafanaCertificate.caConfigMap }}
+    - group: ""
+      kind: ConfigMap
+      name: {{ .Values.grafanaCertificate.caConfigMap }}
+    {{- else }}
+    - group: ""
+      kind: Secret
+      name: {{ $secret }}
+    {{- end }}
+    # SNI sent to and validated against Grafana's certificate.
+    hostname: {{ $svc }}.{{ .Release.Namespace }}.svc
+{{- end }}
+{{- end }}
+{{- end }}
