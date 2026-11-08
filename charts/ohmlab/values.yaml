@@ -428,6 +428,12 @@ projects:
       kind: MutatingWebhookConfiguration
     - group: admissionregistration.k8s.io
       kind: ValidatingWebhookConfiguration
+    # Kubernetes' own CEL admission (ohmlab-controller limits what its
+    # certificates target may change with one).
+    - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionPolicy
+    - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionPolicyBinding
     - group: scheduling.k8s.io
       kind: PriorityClass
     - group: storage.k8s.io
