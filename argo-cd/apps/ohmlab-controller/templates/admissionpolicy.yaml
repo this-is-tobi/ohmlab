@@ -1,0 +1,64 @@
+{{- /*
+RBAC grants the certificates target patch on each listed workload by name, and
+a patch can change any field. This policy has the API server refuse the
+target's ServiceAccount anything but the pod-template annotation it sets: the
+spec, the rest of the pod template and the workload's own metadata must stay
+as they are. Compared field by field, so it holds for every workload kind and
+for fields added later.
+*/}}
+{{- range $dep, $targets := (include "ohmlab-controller.deployments" . | fromJson) }}
+{{- if has "certificates" $targets }}
+{{- $name := printf "%s.ohmlab-controller-%s" $.Release.Namespace $dep }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+spec:
+  # A policy that cannot be evaluated refuses the change.
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [apps]
+      apiVersions: ["*"]
+      operations: [UPDATE]
+      resources: [daemonsets, deployments, statefulsets]
+  matchConditions:
+  - name: the-certificates-target
+    expression: request.userInfo.username == "system:serviceaccount:{{ $.Release.Namespace }}:ohmlab-controller-{{ $dep }}"
+  variables:
+  - name: key
+    expression: "'ohmlab.fr/certificate-revision'"
+  - name: annotations
+    expression: object.spec.template.metadata.?annotations.orValue({})
+  - name: oldAnnotations
+    expression: oldObject.spec.template.metadata.?annotations.orValue({})
+  validations:
+  - expression: >-
+      object.spec.all(k, k == 'template' || (k in oldObject.spec && object.spec[k] == oldObject.spec[k]))
+      && oldObject.spec.all(k, k in object.spec)
+      && object.spec.template.all(k, k == 'metadata' || (k in oldObject.spec.template && object.spec.template[k] == oldObject.spec.template[k]))
+      && oldObject.spec.template.all(k, k in object.spec.template)
+      && object.spec.template.metadata.all(k, k == 'annotations' || (k in oldObject.spec.template.metadata && object.spec.template.metadata[k] == oldObject.spec.template.metadata[k]))
+      && oldObject.spec.template.metadata.all(k, k in object.spec.template.metadata)
+      && variables.annotations.all(k, k == variables.key || (k in variables.oldAnnotations && variables.annotations[k] == variables.oldAnnotations[k]))
+      && variables.oldAnnotations.all(k, k == variables.key || k in variables.annotations)
+      && object.metadata.?labels.orValue({}) == oldObject.metadata.?labels.orValue({})
+      && object.metadata.?annotations.orValue({}) == oldObject.metadata.?annotations.orValue({})
+      && object.metadata.?ownerReferences.orValue([]) == oldObject.metadata.?ownerReferences.orValue([])
+      && object.metadata.?finalizers.orValue([]) == oldObject.metadata.?finalizers.orValue([])
+    message: the certificates target may change only the pod-template annotation ohmlab.fr/certificate-revision
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ohmlab-controller.labels" $ | nindent 4 }}
+spec:
+  policyName: {{ $name }}
+  validationActions: [Deny]
+{{- end }}
+{{- end }}

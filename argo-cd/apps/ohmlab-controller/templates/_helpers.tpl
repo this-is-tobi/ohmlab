@@ -44,18 +44,28 @@ every enabled target exactly once, anything else fails the render.
 {{- end -}}
 
 {{/*
-The restarts of the certificates target, checked, as JSON. Duplicates are left
-to the controller, which refuses them at start.
+The restarts of the certificates target, checked, as JSON. The checks are the
+controller's own, so a mistake fails the render instead of the process.
 */}}
 {{- define "ohmlab-controller.restarts" -}}
 {{- $list := .Values.targets.certificates.restarts | default list -}}
 {{- if not $list -}}{{- fail "targets.certificates.restarts lists nothing: list the Certificates whose workloads to restart" -}}{{- end -}}
+{{- $certs := dict -}}
+{{- $owners := dict -}}
 {{- range $i, $r := $list -}}
+{{- with omit $r "namespace" "certificate" "workloads" -}}{{- fail (printf "targets.certificates.restarts[%d] has unknown keys: %v" $i (keys . | sortAlpha)) -}}{{- end -}}
 {{- if not (and $r.namespace $r.certificate) -}}{{- fail (printf "targets.certificates.restarts[%d] needs namespace and certificate" $i) -}}{{- end -}}
 {{- if not $r.workloads -}}{{- fail (printf "targets.certificates.restarts[%d] (%s/%s) lists no workload" $i $r.namespace $r.certificate) -}}{{- end -}}
+{{- $id := printf "%s/%s" $r.namespace $r.certificate -}}
+{{- if hasKey $certs $id -}}{{- fail (printf "targets.certificates: %s is listed twice" $id) -}}{{- end -}}
+{{- $_ := set $certs $id true -}}
 {{- range $j, $w := $r.workloads -}}
+{{- with omit $w "kind" "name" -}}{{- fail (printf "targets.certificates.restarts[%d] (%s): workloads[%d] has unknown keys: %v" $i $id $j (keys . | sortAlpha)) -}}{{- end -}}
 {{- if not (and $w.kind $w.name) -}}{{- fail (printf "targets.certificates.restarts[%d] (%s/%s): workloads[%d] needs kind and name" $i $r.namespace $r.certificate $j) -}}{{- end -}}
 {{- if not (has $w.kind (list "DaemonSet" "Deployment" "StatefulSet")) -}}{{- fail (printf "targets.certificates.restarts[%d] (%s/%s): kind %q is not one of DaemonSet, Deployment, StatefulSet" $i $r.namespace $r.certificate $w.kind) -}}{{- end -}}
+{{- $key := printf "%s %s/%s" $w.kind $r.namespace $w.name -}}
+{{- if hasKey $owners $key -}}{{- fail (printf "targets.certificates: %s is listed under %s and %s: a workload carries one certificate's revision" $key (get $owners $key) $id) -}}{{- end -}}
+{{- $_ := set $owners $key $id -}}
 {{- end -}}
 {{- end -}}
 {{- $list | toJson -}}

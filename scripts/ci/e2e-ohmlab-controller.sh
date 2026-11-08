@@ -216,6 +216,28 @@ can patch deployment/app || fail "the target may not patch the workload it lists
 ! can list deployments || fail "the target may list Deployments"
 ! can get secrets || fail "the target may read Secrets"
 
+step "the API server lets the target change its annotation and nothing else"
+as_target() { k --as="system:serviceaccount:$NS_CTL:$CERTS_DEPLOY" -n "$NS_CERTS" "$@"; }
+# What the controller sends: its annotation, here at its current value.
+as_target patch deploy app --type=merge -p '{"spec":{"template":{"metadata":{"annotations":{"ohmlab.fr/certificate-revision":"1"}}}}}' >/dev/null \
+  || fail "the target may not set its own annotation"
+# Anything else is refused at admission (a server-side dry run is admitted
+# like a write, and changes nothing if it were let through).
+is_refused() { # <patch type> <patch>
+  local out
+  out=$(as_target patch deploy app --dry-run=server --type="$1" -p "$2" 2>&1) && return 1
+  grep -q 'may change only' <<<"$out"
+}
+refused() { # <description> <patch type> <patch>
+  is_refused "$2" "$3" || fail "the target may $1, or was refused for another reason"
+}
+IMAGE_PATCH='[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"mirror.gcr.io/library/busybox:1.36.1"}]'
+# The API server loads a new policy within seconds.
+eventually 30 "the admission policy to refuse an image change" is_refused json "$IMAGE_PATCH"
+refused "add another pod annotation" merge '{"spec":{"template":{"metadata":{"annotations":{"other":"x"}}}}}'
+refused "label the workload" merge '{"metadata":{"labels":{"other":"x"}}}'
+refused "change the replicas" merge '{"spec":{"replicas":2}}'
+
 step "a renewal rolls the workload onto the new certificate"
 secret_serial() { k -n "$NS_CERTS" get secret app-tls -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -serial; }
 # The certificate a running pod of the workload mounts, not one terminating.
