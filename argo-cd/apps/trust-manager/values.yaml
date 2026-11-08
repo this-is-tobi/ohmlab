@@ -14,6 +14,9 @@ vaultCaBundle:
   enabled: true
   name: vault-ca-bundle
   sourceSecret: vault-tls
+  # The target namespaces to publish it to, among trust-manager.app.targetNamespaces.
+  # Empty: every target namespace.
+  namespaces: []
 
 # Publishes the internal CA root (internalCA in the cert-manager app, which
 # this needs) as the ConfigMap `name` (key ca.crt) in the target namespaces.
@@ -24,6 +27,9 @@ internalCaBundle:
   enabled: false
   name: ohmlab-internal-ca
   issuer: ohmlab-internal-ca
+  # The target namespaces to publish it to, among trust-manager.app.targetNamespaces.
+  # Empty: every target namespace.
+  namespaces: []
 
 trust-manager:
   app:

@@ -12,6 +12,5 @@ spec:
       name: {{ .Values.vaultCaBundle.sourceSecret }}
       key: ca.crt
   target:
-    configMap:
-      key: ca.crt
+    {{- include "trust-manager-app.target" (dict "root" $ "key" "vaultCaBundle") | nindent 4 }}
 {{- end }}
