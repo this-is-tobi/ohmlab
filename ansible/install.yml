@@ -159,7 +159,11 @@
     # k3sApiServerEndpoint / k3sCaData used by the kubeconfig template.
     - "{{ ansible_inventory_sources | first }}/group_vars/k3s.yml"
   roles:
+    # Ansible's own Python, which has the libraries these modules need: all.yml
+    # sets the nodes' interpreter, and vars_files outrank localhost's default.
+    # A role parameter outranks vars_files.
     - role: k3s/users
+      ansible_python_interpreter: "{{ ansible_playbook_python }}"
   tags:
     - k3s
     - k3s-deploy
