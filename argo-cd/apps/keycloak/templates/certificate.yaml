@@ -21,8 +21,8 @@ Keycloak reloads it hourly.
 {{- $fullname := include "keycloak.fullname" $sub }}
 {{- $secret := include "keycloak.tlsSecretName" $sub }}
 {{- $url := printf "https://%s:%v" $fullname $sub.Values.service.httpsPort }}
-{{- if and .Values.keycloakConfigCli.enabled (ne (toString .Values.keycloakConfigCli.env.KEYCLOAK_URL) $url) }}
-{{- fail (printf "keycloak.tls.enabled: set keycloakConfigCli.env.KEYCLOAK_URL to %s, the chart of keycloak-config-cli cannot see the switch" $url) }}
+{{- if and .Values.keycloakConfigCli.enabled (not (hasPrefix "https://" (toString .Values.keycloakConfigCli.env.KEYCLOAK_URL))) }}
+{{- fail (printf "keycloak.tls.enabled: set keycloakConfigCli.env.KEYCLOAK_URL to an https URL such as %s, the chart of keycloak-config-cli cannot see the switch" $url) }}
 {{- end }}
 ---
 apiVersion: cert-manager.io/v1
