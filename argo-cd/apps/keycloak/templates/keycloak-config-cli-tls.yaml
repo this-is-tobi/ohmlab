@@ -1,0 +1,14 @@
+{{- if and .Values.keycloak.enabled .Values.keycloakConfigCli.enabled .Values.keycloak.tls.enabled }}
+---
+# keycloak-config-cli's truststore with TLS on, read through its extraEnv: its
+# chart's values cannot see keycloak.tls.enabled. The truststore holds the CA
+# of Keycloak's certificate (templates/certificate.yaml); its password guards a
+# public certificate.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-config-cli-tls
+data:
+  KEYCLOAK_TLS_TRUSTSTOREPATH: /etc/keycloak-tls/truststore.p12
+  KEYCLOAK_TLS_TRUSTSTOREPASSWORD: changeit
+{{- end }}

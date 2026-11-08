@@ -1,0 +1,60 @@
+{{- /*
+Keycloak's serving certificate with keycloak.tls.enabled, from
+certificate.issuerRef. The gateway verifies it against the issuer's CA
+(templates/backendtlspolicy.yaml), keycloak-config-cli against the truststore
+cert-manager writes beside it (templates/keycloak-config-cli-tls.yaml).
+Keycloak reloads it hourly.
+*/}}
+{{- if .Values.keycloak.enabled }}
+{{- $kc := .Values.keycloak }}
+{{- if ne (toString $kc.tls.enabled) (toString $kc.keycloak.httpsEnabled) }}
+{{- fail "keycloak.tls.enabled and keycloak.keycloak.httpsEnabled go together: set both to serve Keycloak over TLS, or neither" }}
+{{- end }}
+{{- if and (not $kc.keycloak.httpEnabled) (not $kc.tls.enabled) }}
+{{- fail "keycloak.keycloak.httpEnabled: false needs keycloak.tls.enabled: Keycloak would have no listener" }}
+{{- end }}
+{{- if $kc.tls.certManager.enabled }}
+{{- fail "keycloak.tls.certManager.enabled would issue a second certificate into keycloak-tls: leave it off, the app issues it (certificate.issuerRef)" }}
+{{- end }}
+{{- if $kc.tls.enabled }}
+{{- $sub := index .Subcharts "keycloak" }}
+{{- $fullname := include "keycloak.fullname" $sub }}
+{{- $secret := include "keycloak.tlsSecretName" $sub }}
+{{- $url := printf "https://%s:%v" $fullname $sub.Values.service.httpsPort }}
+{{- if and .Values.keycloakConfigCli.enabled (ne (toString .Values.keycloakConfigCli.env.KEYCLOAK_URL) $url) }}
+{{- fail (printf "keycloak.tls.enabled: set keycloakConfigCli.env.KEYCLOAK_URL to %s, the chart of keycloak-config-cli cannot see the switch" $url) }}
+{{- end }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $secret }}
+spec:
+  secretName: {{ $secret }}
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    # The PEM form every Java reader takes.
+    encoding: PKCS8
+  usages:
+  - digital signature
+  - server auth
+  dnsNames:
+  - {{ $fullname }}
+  - {{ $fullname }}.{{ .Release.Namespace }}
+  - {{ $fullname }}.{{ .Release.Namespace }}.svc
+  - {{ $fullname }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    {{- toYaml .Values.certificate.issuerRef | nindent 4 }}
+  # truststore.p12 (the issuer's CA) for keycloak-config-cli, which reads
+  # PKCS#12 or JKS only. Its password guards a public certificate: the
+  # keystore.p12 beside it holds the key tls.key holds in clear.
+  keystores:
+    pkcs12:
+      create: true
+      profile: Modern2023
+      password: changeit
+{{- end }}
+{{- end }}

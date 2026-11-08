@@ -1,0 +1,24 @@
+{{- if and .Values.gateway.enabled .Values.keycloak.enabled .Values.keycloak.tls.enabled }}
+{{- $fullname := include "keycloak.fullname" (index .Subcharts "keycloak") }}
+---
+# Gateway API HTTPS-upstream validation of Keycloak's https port only: a route
+# on its http port stays plain while an instance switches. Without the CA
+# ConfigMap in this namespace, Traefik drops the route.
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ $fullname }}
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: {{ $fullname }}
+    sectionName: https
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: ConfigMap
+      name: {{ .Values.certificate.caConfigMap }}
+    # SNI sent to and validated against Keycloak's certificate.
+    hostname: {{ $fullname }}.{{ .Release.Namespace }}.svc
+{{- end }}
