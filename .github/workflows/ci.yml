@@ -46,6 +46,8 @@ jobs:
         run: scripts/dashboard-coverage.test.sh
       - name: Test the bootstrap chart resolver
         run: scripts/ci/test-ohmlab-chart.sh
+      - name: Test run.sh's destroy guard and kubeconfig copy
+        run: scripts/ci/test-run-sh.sh
       - name: Test the release gating check
         run: scripts/ci/check-release-gating.test.sh
       - name: Test the catalog verification used by cd.yml

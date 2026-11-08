@@ -256,8 +256,12 @@ run_playbook() {
   # never wipe the cluster without a prompt). -y skips this, like everywhere else.
   # Not confirm(): that helper treats a bare Enter as yes, which is the wrong
   # default for wiping a cluster — require a literal "yes".
-  if [[ ",$tags," == *",k3s-destroy,"* && "$YES" != "true" ]]; then
-    warn "Tag 'k3s-destroy' will REMOVE k3s (binaries, data, /var/lib/rancher) from every node."
+  # never selects every play tagged never, k3s-destroy's included; Ansible
+  # adds ANSIBLE_RUN_TAGS to -t and strips the spaces around tags.
+  local selected=",$tags,${ANSIBLE_RUN_TAGS:-},"
+  selected="${selected// /}"
+  if [[ ( "$selected" == *",k3s-destroy,"* || "$selected" == *",never,"* ) && "$YES" != "true" ]]; then
+    warn "These tags select k3s-destroy (never selects it too): it will REMOVE k3s (binaries, data, /var/lib/rancher) from every node."
     echo -e "${YELLOW}[ohmlab]${NC} Type 'yes' to destroy the cluster: "
     read -r ANSWER
     if [[ "$ANSWER" != "yes" ]]; then
