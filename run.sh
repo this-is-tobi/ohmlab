@@ -269,12 +269,26 @@ run_playbook() {
   log "Running Ansible playbook: $playbook"
   log "Tags: $tags"
 
-  # Determine kubeconfig path
+  # The k3s-users play runs here and acts on the current context of the
+  # kubeconfig it gets: give it the cluster's context alone, never whichever
+  # one is current.
   local kubeconfig="${KUBECONFIG_PATH:-${KUBECONFIG:-$HOME/.kube/config}}"
+  local context="${KUBE_CONTEXT_NAME:-ohmlab}"
+  PLAYBOOK_KUBE_DIR="$(mktemp -d)"
+  trap 'rm -rf "$PLAYBOOK_KUBE_DIR"' EXIT
+  if ! KUBECONFIG="$kubeconfig" kubectl config view --minify --flatten --context "$context" > "$PLAYBOOK_KUBE_DIR/config" 2>/dev/null; then
+    warn "No context '$context' in $kubeconfig (or no kubectl): the k3s-users play gets none and reaches no cluster. Set KUBE_CONTEXT_NAME, or fetch it with -k first."
+    printf 'apiVersion: v1\nkind: Config\n' > "$PLAYBOOK_KUBE_DIR/config"
+  fi
 
+  local rc=0
   ansible-playbook "$playbook" \
     --tags "$tags" \
-    -e "K8S_AUTH_KUBECONFIG=$kubeconfig"
+    -e "K8S_AUTH_KUBECONFIG=$PLAYBOOK_KUBE_DIR/config" || rc=$?
+  # At once, not on exit only: -b sets an EXIT trap of its own, in place of
+  # this one.
+  rm -rf "$PLAYBOOK_KUBE_DIR"
+  return "$rc"
 }
 
 fetch_kubeconfig() {
