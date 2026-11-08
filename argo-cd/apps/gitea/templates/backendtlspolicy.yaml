@@ -1,0 +1,45 @@
+{{- $sub := index .Subcharts "gitea" }}
+{{- if and .Values.gateway.enabled (eq (toString .Values.gitea.gitea.config.server.PROTOCOL) "https") }}
+{{- $svc := include "gitea.service.http.name" $sub }}
+{{- $routed := false }}
+{{- range .Values.gateway.routes }}
+{{- range .rules }}
+{{- if and (eq (toString .backendService) $svc) (eq (toString .backendPort) (toString $sub.Values.service.http.port)) }}
+{{- $routed = true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if $routed }}
+---
+# Gateway API HTTPS-upstream validation of Gitea, once a route reaches it: only a
+# route using the policy gives it a status, which Argo CD waits for. Synced after
+# the rollout, so the gateway reaches the old pods over http until then.
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: {{ $svc }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # The Gateway API CRDs may not exist yet on a fresh cluster.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: {{ $svc }}
+    sectionName: http
+  validation:
+    caCertificateRefs:
+    {{- if .Values.certificate.caConfigMap }}
+    - group: ""
+      kind: ConfigMap
+      name: {{ .Values.certificate.caConfigMap }}
+    {{- else }}
+    - group: ""
+      kind: Secret
+      name: gitea-tls
+    {{- end }}
+    # SNI sent to and validated against Gitea's certificate.
+    hostname: {{ $svc }}.{{ .Release.Namespace }}.svc
+{{- end }}
+{{- end }}

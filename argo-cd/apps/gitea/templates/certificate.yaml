@@ -1,0 +1,59 @@
+{{- /*
+Gitea's serving certificate with gitea.gitea.config.server.PROTOCOL https, from
+certificate.issuerRef, for the http Service's names. Gitea serves one listener
+and reads the certificate once at start: a renewal needs a restart.
+*/}}
+{{- $sub := index .Subcharts "gitea" }}
+{{- $g := .Values.gitea.gitea }}
+{{- $protocol := toString ($g.config.server.PROTOCOL | default "http") }}
+{{- if not (has $protocol (list "http" "https")) }}
+{{- fail (printf "gitea.gitea.config.server.PROTOCOL: http or https, lowercase as Gitea reads it, not %s" $protocol) }}
+{{- end }}
+{{- $tls := eq $protocol "https" }}
+{{- if and $g.metrics.enabled $g.metrics.serviceMonitor.enabled (ne $tls (eq (toString $g.metrics.serviceMonitor.scheme) "https")) }}
+{{- fail "gitea.gitea.config.server.PROTOCOL https and gitea.gitea.metrics.serviceMonitor.scheme https go together: the scrape uses Gitea's one listener" }}
+{{- end }}
+{{- if $tls }}
+{{- $volume := "" }}
+{{- range .Values.gitea.extraVolumes }}
+{{- if and .secret (eq (toString .secret.secretName) "gitea-tls") }}{{ $volume = .name }}{{ end }}
+{{- end }}
+{{- if not $volume }}
+{{- fail "gitea.gitea.config.server.PROTOCOL https: gitea.extraVolumes needs the Secret gitea-tls; an instance that sets the list replaces the app's entries" }}
+{{- end }}
+{{- $mounted := false }}
+{{- range .Values.gitea.extraContainerVolumeMounts }}
+{{- if and (eq .name $volume) (eq (toString .mountPath) (dir (toString $g.config.server.CERT_FILE))) (eq (toString .mountPath) (dir (toString $g.config.server.KEY_FILE))) }}{{ $mounted = true }}{{ end }}
+{{- end }}
+{{- if not $mounted }}
+{{- fail (printf "gitea.gitea.config.server.PROTOCOL https: gitea.extraContainerVolumeMounts needs %s at the directory of CERT_FILE and KEY_FILE; an instance that sets the list replaces the app's entries" $volume) }}
+{{- end }}
+{{- $svc := include "gitea.service.http.name" $sub }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: gitea-tls
+  annotations:
+    # Issued before the pods that mount it.
+    argocd.argoproj.io/sync-wave: "-1"
+    # cert-manager's CRDs may not exist yet on a fresh cluster.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  secretName: gitea-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  usages:
+  - digital signature
+  - server auth
+  dnsNames:
+  - {{ $svc }}
+  - {{ $svc }}.{{ .Release.Namespace }}
+  - {{ $svc }}.{{ .Release.Namespace }}.svc
+  - {{ $svc }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    {{- toYaml .Values.certificate.issuerRef | nindent 4 }}
+{{- end }}
