@@ -39,7 +39,7 @@ tests:
     - exp_labels: {severity: warning, target: vault, kind: VaultSeed, namespace: n, name: a}
       exp_annotations:
         summary: An ohmlab object has not been reconciled for 15 minutes
-        description: "Read its conditions: kubectl get vaultseeds -A. RefPending waits for another path, BackendUnavailable and Forbidden are the backend's answer, a Stalled object waits for its spec to change."
+        description: "Read its conditions: kubectl get vaultseeds -A. RefPending waits for another path, BackendUnavailable and Forbidden are the backend's answer, a Stalled object waits for its spec to change. For a Certificate of the certificates target, read its events: a listed workload is missing, or the certificate is not issued yet."
 # Three resyncs (30m at the 10m default) without a success is stale.
 - interval: 1m
   input_series:
@@ -129,3 +129,18 @@ tests:
       exp_annotations:
         summary: The installed CRD and the controller image disagree on the API revision
         description: "The catalog and the image pin were released apart. A custom resource may use a new field only after the image pin includes it."
+# A workload rolled three times within an hour is a loop; twice is not.
+- interval: 10m
+  input_series:
+  - series: 'ohmlab_workload_restarts_total{target="certificates", namespace="gitea", kind="Deployment", name="gitea"}'
+    values: '0 1 2 3 3 3 3 3'
+  - series: 'ohmlab_workload_restarts_total{target="certificates", namespace="kube-system", kind="Deployment", name="hubble-oauth2-proxy"}'
+    values: '0 1 2 2 2 2 2 2'
+  alert_rule_test:
+  - eval_time: 40m
+    alertname: OhmlabRestartLoop
+    exp_alerts:
+    - exp_labels: {severity: critical, target: certificates, namespace: gitea, kind: Deployment, name: gitea}
+      exp_annotations:
+        summary: The ohmlab controller keeps restarting a workload
+        description: "Deployment gitea/gitea was rolled more than twice in an hour. Something probably removes or changes its ohmlab.fr/certificate-revision pod-template annotation, or its Certificate is issued again and again: look at the workload's managedFields and the Certificate's events."

@@ -32,7 +32,9 @@ spec:
         description: >-
           Read its conditions: kubectl get vaultseeds -A. RefPending waits for
           another path, BackendUnavailable and Forbidden are the backend's
-          answer, a Stalled object waits for its spec to change.
+          answer, a Stalled object waits for its spec to change. For a
+          Certificate of the certificates target, read its events: a listed
+          workload is missing, or the certificate is not issued yet.
     - alert: OhmlabReconcileStale
       # More than three resyncs without a reconcile that completed.
       expr: time() - max by (target) (ohmlab_reconcile_last_success_timestamp_seconds) > {{ $stale }}
@@ -77,6 +79,21 @@ spec:
           More than one data write every ten seconds for fifteen minutes.
           Another writer is probably undoing the controller's work. Set
           observeOnly on the target and look at the audit log.
+    - alert: OhmlabRestartLoop
+      # A certificate is issued again every few weeks. A workload rolled again
+      # and again is a loop between the controller and something that undoes
+      # its annotation.
+      expr: increase(ohmlab_workload_restarts_total[1h]) > 2
+      labels:
+        severity: critical
+      annotations:
+        summary: The ohmlab controller keeps restarting a workload
+        description: >-
+          {{ "{{" }} $labels.kind {{ "}}" }} {{ "{{" }} $labels.namespace {{ "}}" }}/{{ "{{" }} $labels.name {{ "}}" }}
+          was rolled more than twice in an hour. Something probably removes or
+          changes its ohmlab.fr/certificate-revision pod-template annotation,
+          or its Certificate is issued again and again: look at the workload's
+          managedFields and the Certificate's events.
     - alert: OhmlabCRDRevisionMismatch
       expr: ohmlab_crd_revision_mismatch == 1
       for: 10m

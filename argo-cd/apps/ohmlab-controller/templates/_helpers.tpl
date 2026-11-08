@@ -43,25 +43,76 @@ every enabled target exactly once, anything else fails the render.
 {{- $image -}}
 {{- end -}}
 
+{{/*
+The restarts of the certificates target, checked, as JSON. Duplicates are left
+to the controller, which refuses them at start.
+*/}}
+{{- define "ohmlab-controller.restarts" -}}
+{{- $list := .Values.targets.certificates.restarts | default list -}}
+{{- if not $list -}}{{- fail "targets.certificates.restarts lists nothing: list the Certificates whose workloads to restart" -}}{{- end -}}
+{{- range $i, $r := $list -}}
+{{- if not (and $r.namespace $r.certificate) -}}{{- fail (printf "targets.certificates.restarts[%d] needs namespace and certificate" $i) -}}{{- end -}}
+{{- if not $r.workloads -}}{{- fail (printf "targets.certificates.restarts[%d] (%s/%s) lists no workload" $i $r.namespace $r.certificate) -}}{{- end -}}
+{{- range $j, $w := $r.workloads -}}
+{{- if not (and $w.kind $w.name) -}}{{- fail (printf "targets.certificates.restarts[%d] (%s/%s): workloads[%d] needs kind and name" $i $r.namespace $r.certificate $j) -}}{{- end -}}
+{{- if not (has $w.kind (list "DaemonSet" "Deployment" "StatefulSet")) -}}{{- fail (printf "targets.certificates.restarts[%d] (%s/%s): kind %q is not one of DaemonSet, Deployment, StatefulSet" $i $r.namespace $r.certificate $w.kind) -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $list | toJson -}}
+{{- end -}}
+
+{{/* The namespaces one target reads, unique and sorted, as JSON. Takes (dict "root" $ "target" $t). */}}
+{{- define "ohmlab-controller.targetNamespaces" -}}
+{{- $set := dict -}}
+{{- if eq .target "certificates" -}}
+{{- range $r := (include "ohmlab-controller.restarts" .root | fromJsonArray) -}}{{- $_ := set $set $r.namespace true -}}{{- end -}}
+{{- else -}}
+{{- range $ns := (index .root.Values.targets .target).watchNamespaces -}}{{- $_ := set $set $ns true -}}{{- end -}}
+{{- end -}}
+{{- keys $set | sortAlpha | toJson -}}
+{{- end -}}
+
 {{/* The namespaces a deployment's targets watch, unique and sorted, as JSON. */}}
 {{- define "ohmlab-controller.watchedNamespaces" -}}
 {{- $root := .root -}}
 {{- $set := dict -}}
 {{- range $t := .targets -}}
-{{- range $ns := (index $root.Values.targets $t).watchNamespaces -}}{{- $_ := set $set $ns true -}}{{- end -}}
+{{- range $ns := (include "ohmlab-controller.targetNamespaces" (dict "root" $root "target" $t) | fromJsonArray) -}}{{- $_ := set $set $ns true -}}{{- end -}}
 {{- end -}}
 {{- keys $set | sortAlpha | toJson -}}
 {{- end -}}
 
-{{/* RBAC rules inside a watched namespace, per target. */}}
+{{/* RBAC rules of one target inside one of its namespaces. Takes (dict "root" $ "target" $t "namespace" $ns). */}}
 {{- define "ohmlab-controller.namespaceRules" -}}
-{{- if eq . "vault" -}}
+{{- if eq .target "vault" -}}
 - apiGroups: [ohmlab.fr]
   resources: [vaultseeds]
   verbs: [get, list, watch, patch, update]
 - apiGroups: [ohmlab.fr]
   resources: [vaultseeds/status]
   verbs: [get, patch, update]
+- apiGroups: [events.k8s.io]
+  resources: [events]
+  verbs: [create, patch]
+{{- else if eq .target "certificates" -}}
+{{- $names := dict -}}
+{{- range $r := (include "ohmlab-controller.restarts" .root | fromJsonArray) -}}
+{{- if eq $r.namespace $.namespace -}}
+{{- range $w := $r.workloads -}}
+{{- $_ := set $names $w.kind (append (get $names $w.kind | default list) $w.name) -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+- apiGroups: [cert-manager.io]
+  resources: [certificates]
+  verbs: [get, list, watch]
+{{- range $kind := keys $names | sortAlpha }}
+# By name only: a workload this list does not hold cannot be read or rolled.
+- apiGroups: [apps]
+  resources: [{{ printf "%ss" (lower $kind) }}]
+  resourceNames: {{ get $names $kind | uniq | sortAlpha | toJson }}
+  verbs: [get, patch]
+{{- end }}
 - apiGroups: [events.k8s.io]
   resources: [events]
   verbs: [create, patch]

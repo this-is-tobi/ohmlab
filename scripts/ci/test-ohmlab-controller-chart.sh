@@ -111,5 +111,57 @@ bare=$(render --namespace ohmlab-system --set "image=$IMAGE" --set targets.vault
 out=$(render "${BASE[@]}" --set resync=soon)
 grep -q 'write it as' <<<"$out" || fail "a bad resync must fail"
 
+# --- the certificates target -------------------------------------------------
+RESTARTS='[{"namespace":"gitea","certificate":"gitea-tls","workloads":[{"kind":"Deployment","name":"gitea"},{"kind":"StatefulSet","name":"gitea-valkey"}]},{"namespace":"kube-system","certificate":"hubble-oauth2-proxy-tls","workloads":[{"kind":"Deployment","name":"hubble-oauth2-proxy"}]}]'
+CERTS=(--set targets.certificates.enabled=true --set-json "targets.certificates.restarts=$RESTARTS")
+both=$(render "${BASE[@]}" "${CERTS[@]}")
+[ "$(yq -N 'select(.kind == "Deployment") | .metadata.name' <<<"$both" | sort | tr '\n' ' ')" = "ohmlab-controller-certificates ohmlab-controller-vault " ] \
+  || fail "certificates: want its own Deployment beside vault's"
+[ "$(yq 'select(.kind == "Deployment" and .metadata.name == "ohmlab-controller-certificates") | .spec.template.spec.containers[0].args[] | select(test("^--target="))' <<<"$both")" = "--target=certificates" ] \
+  || fail "certificates: the process runs its own target only"
+ccfg=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "ohmlab-controller-certificates") | .data["controller.yaml"]' <<<"$both")
+vcfg=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "ohmlab-controller-vault") | .data["controller.yaml"]' <<<"$both")
+[ "$(yq -o=json -I=0 '.certificates.restarts' <<<"$ccfg" | jq -cS .)" = "$(jq -cS . <<<"$RESTARTS")" ] || fail "certificates: the config does not hold the restarts as listed"
+[ "$(yq '.vault' <<<"$ccfg")" = null ] || fail "certificates: the process received the vault section"
+[ "$(yq '.certificates' <<<"$vcfg")" = null ] || fail "vault: the process received the certificates section"
+# shellcheck disable=SC2016 # $ns is yq syntax
+crules=$(yq -o=json -I=0 'select(.kind == "Role" and .metadata.name == "ohmlab-controller-certificates") | .metadata.namespace as $ns | {"ns": $ns, "rules": .rules}' <<<"$both" | jq -s .)
+[ "$(jq -c '[.[].ns] | sort' <<<"$crules")" = '["gitea","kube-system"]' ] || fail "certificates: want Roles in exactly the listed namespaces, got $(jq -c '[.[].ns]' <<<"$crules")"
+rule() { jq -c --arg ns "$1" --arg res "$2" '[.[] | select(.ns == $ns) | .rules[] | select(.resources == [$res]) | {g: .apiGroups, n: (.resourceNames // null), v: .verbs}]' <<<"$crules"; }
+[ "$(rule gitea certificates)" = '[{"g":["cert-manager.io"],"n":null,"v":["get","list","watch"]}]' ] || fail "certificates: gitea's Certificates must be readable: $(rule gitea certificates)"
+[ "$(rule gitea deployments)" = '[{"g":["apps"],"n":["gitea"],"v":["get","patch"]}]' ] || fail "certificates: want get/patch on deployment gitea only: $(rule gitea deployments)"
+[ "$(rule gitea statefulsets)" = '[{"g":["apps"],"n":["gitea-valkey"],"v":["get","patch"]}]' ] || fail "certificates: want get/patch on statefulset gitea-valkey only: $(rule gitea statefulsets)"
+[ "$(rule gitea daemonsets)" = '[]' ] || fail "certificates: no DaemonSet is listed in gitea"
+[ "$(rule gitea events)" = '[{"g":["events.k8s.io"],"n":null,"v":["create","patch"]}]' ] || fail "certificates: want events in gitea"
+[ "$(rule kube-system deployments)" = '[{"g":["apps"],"n":["hubble-oauth2-proxy"],"v":["get","patch"]}]' ] || fail "certificates: want get/patch on deployment hubble-oauth2-proxy only"
+jq -e '[.[].rules[] | select(.apiGroups == ["apps"]) | select((.resourceNames // []) == [] or (.verbs - ["get","patch"]) != [])] | length == 0' <<<"$crules" >/dev/null \
+  || fail "certificates: a rule on workloads must name them and only get or patch"
+allrules=$(yq -o=json -I=0 'select(.kind == "Role" or .kind == "ClusterRole") | .rules' <<<"$both" | jq -s 'add')
+jq -e '[.[] | select((.resources // []) | index("secrets"))] | length == 0' <<<"$allrules" >/dev/null || fail "certificates: no Secrets"
+jq -e '[.[] | select((.verbs | index("delete")) or (.verbs | index("*")))] | length == 0' <<<"$allrules" >/dev/null || fail "certificates: no delete"
+[ "$(yq 'select(.kind == "ClusterRole") | .metadata.name' <<<"$both")" = "ohmlab-system:ohmlab-controller-vault" ] || fail "certificates: want vault's ClusterRole only"
+alone=$(render --namespace ohmlab-system --set "image=$IMAGE" "${CERTS[@]}")
+[ -z "$(yq 'select(.kind == "ClusterRole" or .kind == "ClusterRoleBinding" or .kind == "CustomResourceDefinition") | .kind' <<<"$alone")" ] \
+  || fail "certificates alone: no CRD, no ClusterRole"
+[ "$(yq 'select(.kind == "Deployment") | .metadata.name' <<<"$alone")" = "ohmlab-controller-certificates" ] || fail "certificates alone: want its Deployment"
+grouped=$(render "${BASE[@]}" "${CERTS[@]}" --set 'deployments.all={certificates,vault}')
+# One name per line: a grouped process holds both Leases in one rule.
+# shellcheck disable=SC2016 # $ns is yq syntax
+named_grants() { yq -o=json -I=0 'select(.kind == "Role") | .metadata.namespace as $ns | .rules[] | {"ns": $ns, "r": .}' <<<"$1" \
+  | jq -c '.r as $r | if $r.resourceNames then $r.resourceNames[] as $n | {ns, r: ($r | .resourceNames = [$n])} else . end' | jq -cS . \
+  | sed -e 's/ohmlab-controller-[a-z]*/LEASE/g' | sort -u; }
+if [ "$(named_grants "$both")" != "$(named_grants "$grouped")" ]; then
+  fail "certificates: grouping changed the grants:"
+  diff <(named_grants "$both") <(named_grants "$grouped") >&2 || true
+fi
+cexpect_fail() { # <message fragment> <restarts json>
+  local out; out=$(render "${BASE[@]}" --set targets.certificates.enabled=true --set-json "targets.certificates.restarts=$2")
+  grep -qF "$1" <<<"$out" || fail "certificates: want an error mentioning '$1', got: $(head -c 200 <<<"$out")"
+}
+cexpect_fail 'targets.certificates.restarts lists nothing' '[]'
+cexpect_fail 'targets.certificates.restarts[0] needs namespace and certificate' '[{"certificate":"a","workloads":[{"kind":"Deployment","name":"a"}]}]'
+cexpect_fail 'lists no workload' '[{"namespace":"a","certificate":"a","workloads":[]}]'
+cexpect_fail 'kind "Pod" is not one of DaemonSet, Deployment, StatefulSet' '[{"namespace":"a","certificate":"a","workloads":[{"kind":"Pod","name":"a"}]}]'
+
 [ "$failures" -eq 0 ] && echo "ok: ohmlab-controller chart"
 exit "$failures"
