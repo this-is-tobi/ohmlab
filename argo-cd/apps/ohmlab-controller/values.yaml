@@ -9,7 +9,7 @@
 # sync then runs exactly the image that was reviewed. Renovate proposes each new
 # release and Kyverno's verify-images policy checks the signature and the
 # provenance. Required as soon as a target is enabled; there is no `latest`.
-image: "ghcr.io/this-is-tobi/ohmlab/controller:0.5.1@sha256:10cf3da35ab55d68085026848231b1af5c3ab1a2e242bdf8e38d3bc52bf55439"
+image: "ghcr.io/this-is-tobi/ohmlab/controller:0.6.0@sha256:e918fecaa10ccc5775f7a934a3e4135bd3cbc80746e78cbd6f488c25e656ed87"
 imagePullPolicy: IfNotPresent
 # Accept an image that is not pinned by digest. For the kind e2e, which runs an
 # image it just built and has no registry digest for it. Never set it on a
