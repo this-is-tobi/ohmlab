@@ -34,9 +34,10 @@ contexts:
 current-context: default
 `
 
-// setup makes a product checkout (its ansible.cfg) and an inventory with a
-// gateway, and points $KUBECONFIG at a file in a temporary directory, so no
-// test can reach the real ~/.kube/config.
+// setup makes a product checkout (its ansible.cfg), an inventory with a
+// gateway and a vault password file in $ANSIBLE_VAULT_PASSWORD_FILE, and
+// points $KUBECONFIG at a file in a temporary directory, so no test can reach
+// the real ~/.kube/config.
 func setup(t *testing.T) (product, inventory, target string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -53,11 +54,15 @@ func setup(t *testing.T) (product, inventory, target string) {
 	if err := os.WriteFile(filepath.Join(inventory, "hosts.yml"), []byte(hosts), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	password := filepath.Join(dir, "vault_password")
+	if err := os.WriteFile(password, []byte("x\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	target = filepath.Join(dir, "kube", "config")
 	t.Setenv("KUBECONFIG", target)
 	t.Setenv("KUBE_CONTEXT_NAME", "")
 	t.Setenv("ANSIBLE_INVENTORY", "")
-	t.Setenv("ANSIBLE_VAULT_PASSWORD_FILE", "")
+	t.Setenv("ANSIBLE_VAULT_PASSWORD_FILE", password)
 	return product, inventory, target
 }
 
@@ -73,7 +78,7 @@ func TestKubeconfigDryRunRunsNothing(t *testing.T) {
 	if err := run(context.Background(), f, term(&out), t.TempDir(), os.Getenv, o); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"ANSIBLE_CONFIG=" + product + "/ansible/ansible.cfg ansible 'masters[0]' -i " + inventory, "https://192.168.1.100:6443", target, "lab"} {
+	for _, want := range []string{"ANSIBLE_CONFIG=" + product + "/ansible/ansible.cfg ANSIBLE_VAULT_PASSWORD_FILE=" + os.Getenv("ANSIBLE_VAULT_PASSWORD_FILE") + " ansible 'masters[0]' -i " + inventory, "https://192.168.1.100:6443", target, "lab"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}
@@ -139,6 +144,36 @@ func TestKubeconfigNeedsTheProduct(t *testing.T) {
 	err := run(context.Background(), f, term(&bytes.Buffer{}), t.TempDir(), os.Getenv, o)
 	if err == nil || !strings.Contains(err.Error(), "--product") {
 		t.Errorf("got %v, want an error naming --product", err)
+	}
+	if len(f.Calls) != 0 {
+		t.Errorf("ran %v", f.Calls)
+	}
+}
+
+// The product's ansible.cfg names a .vault_password in the product checkout:
+// with no file of the workspace's, Ansible would fail on that one.
+func TestNoVaultPasswordFile(t *testing.T) {
+	product, inventory, _ := setup(t)
+	t.Setenv("ANSIBLE_VAULT_PASSWORD_FILE", "")
+	f := &runnertest.Fake{}
+	o := options{workspace: config.Flags{Product: product, Inventory: inventory}}
+	err := run(context.Background(), f, term(&bytes.Buffer{}), t.TempDir(), os.Getenv, o)
+	if err == nil || !strings.Contains(err.Error(), "--vault-password-file") {
+		t.Errorf("got %v, want an error naming --vault-password-file", err)
+	}
+	if len(f.Calls) != 0 {
+		t.Errorf("ran %v", f.Calls)
+	}
+
+	var out bytes.Buffer
+	o.dryRun = true
+	if err := run(context.Background(), f, term(&out), t.TempDir(), os.Getenv, o); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"warning: no Ansible vault password file", "Would run: ANSIBLE_CONFIG="} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q:\n%s", want, out.String())
+		}
 	}
 	if len(f.Calls) != 0 {
 		t.Errorf("ran %v", f.Calls)

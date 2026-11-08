@@ -8,11 +8,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/spf13/cobra"
 
+	"github.com/this-is-tobi/ohmlab/cli/internal/ansible"
 	"github.com/this-is-tobi/ohmlab/cli/internal/config"
 	kc "github.com/this-is-tobi/ohmlab/cli/internal/kubeconfig"
 	"github.com/this-is-tobi/ohmlab/cli/internal/runner"
@@ -83,15 +83,10 @@ func run(ctx context.Context, r runner.Runner, u *ui.UI, cwd string, getenv func
 	if err != nil {
 		return err
 	}
-	// Ansible skips an ANSIBLE_CONFIG that does not exist and takes another
-	// config, then fails on the vault with nothing pointing here.
-	var noProduct error
-	if st, err := os.Stat(filepath.Join(s.Product, "ansible", "ansible.cfg")); err != nil || !st.Mode().IsRegular() {
-		noProduct = fmt.Errorf("no ansible/ansible.cfg in %s: pass --product with a checkout of ohmlab, or set product in %s", s.Product, config.DefaultPath)
-	}
+	problem := ansible.Check(s.Product, s.VaultPasswordFile)
 	if o.dryRun {
-		if noProduct != nil {
-			u.Warn("%v", noProduct)
+		if problem != nil {
+			u.Warn("%v", problem)
 		}
 		u.Info("Would run: %s", kc.FetchCommand(opts, "<a temporary directory>"))
 		u.Info("Would merge context %s, server https://%s, into %s", opts.Name, net.JoinHostPort(server, "6443"), opts.Target)
@@ -100,8 +95,8 @@ func run(ctx context.Context, r runner.Runner, u *ui.UI, cwd string, getenv func
 	if _, err := r.LookPath("ansible"); err != nil {
 		return errors.New("ansible is not installed: it fetches the kubeconfig from the first master")
 	}
-	if noProduct != nil {
-		return noProduct
+	if problem != nil {
+		return problem
 	}
 
 	step := u.Step("Fetch the kubeconfig from the first master")
