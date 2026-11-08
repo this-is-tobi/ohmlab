@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/this-is-tobi/ohmlab/cli/internal/ansible"
 	"github.com/this-is-tobi/ohmlab/cli/internal/runner"
 )
 
@@ -41,10 +42,7 @@ func FetchCommand(o Options, dest string) runner.Cmd {
 	if vault := filepath.Join(o.Inventory, "group_vars", "vault.yml"); isFile(vault) {
 		args = append(args, "-e", "@"+vault)
 	}
-	if o.VaultPasswordFile != "" {
-		args = append(args, "--vault-password-file", o.VaultPasswordFile)
-	}
-	return runner.Cmd{Name: "ansible", Args: args, Env: []string{"ANSIBLE_CONFIG=" + filepath.Join(o.Product, "ansible", "ansible.cfg")}}
+	return runner.Cmd{Name: "ansible", Args: args, Env: ansible.Env(o.Product, o.VaultPasswordFile)}
 }
 
 // Fetch copies k3s.yaml into a private temporary directory, reads it and

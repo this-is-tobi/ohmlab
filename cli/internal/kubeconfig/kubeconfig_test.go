@@ -22,8 +22,8 @@ func TestFetchCommand(t *testing.T) {
 		inv, password, want string
 	}{
 		{plain, "", "ANSIBLE_CONFIG=/p/ansible/ansible.cfg ansible 'masters[0]' -i " + plain + " --become -m ansible.builtin.fetch -a 'src=/etc/rancher/k3s/k3s.yaml dest=/d/k3s.yaml flat=true'"},
-		{withVault, "/s/pw", "ANSIBLE_CONFIG=/p/ansible/ansible.cfg ansible 'masters[0]' -i " + withVault + " --become -m ansible.builtin.fetch -a 'src=/etc/rancher/k3s/k3s.yaml dest=/d/k3s.yaml flat=true' -e @" + withVault + "/group_vars/vault.yml --vault-password-file /s/pw"},
-		{plain, "/s/pw", "ANSIBLE_CONFIG=/p/ansible/ansible.cfg ansible 'masters[0]' -i " + plain + " --become -m ansible.builtin.fetch -a 'src=/etc/rancher/k3s/k3s.yaml dest=/d/k3s.yaml flat=true' --vault-password-file /s/pw"},
+		{withVault, "/s/pw", "ANSIBLE_CONFIG=/p/ansible/ansible.cfg ANSIBLE_VAULT_PASSWORD_FILE=/s/pw ansible 'masters[0]' -i " + withVault + " --become -m ansible.builtin.fetch -a 'src=/etc/rancher/k3s/k3s.yaml dest=/d/k3s.yaml flat=true' -e @" + withVault + "/group_vars/vault.yml"},
+		{plain, "/s/pw", "ANSIBLE_CONFIG=/p/ansible/ansible.cfg ANSIBLE_VAULT_PASSWORD_FILE=/s/pw ansible 'masters[0]' -i " + plain + " --become -m ansible.builtin.fetch -a 'src=/etc/rancher/k3s/k3s.yaml dest=/d/k3s.yaml flat=true'"},
 	} {
 		if got := FetchCommand(Options{Product: "/p", Inventory: c.inv, VaultPasswordFile: c.password}, "/d").String(); got != c.want {
 			t.Errorf("got  %s\nwant %s", got, c.want)
