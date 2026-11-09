@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.19.0...catalog-v0.19.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.8.0 ([2e69768](https://github.com/this-is-tobi/ohmlab/commit/2e697686fd0d1a7b199e72f6c92e8a67d1432484))
+
 ## [0.19.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.18.0...catalog-v0.19.0) (2026-11-08)
 
 
