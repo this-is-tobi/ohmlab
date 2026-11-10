@@ -13,7 +13,7 @@ dependencies:
   repository: https://cloudnative-pg.github.io/charts
 - name: oauth2-proxy
   alias: sso
-  version: 10.7.2
+  version: 10.7.3
   repository: https://oauth2-proxy.github.io/manifests
 - name: vso-utils
   alias: vso
