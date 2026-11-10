@@ -6,4 +6,4 @@ system-upgrade:
   k3s:
     # The cluster's current k3s version (e.g. the ansible k3sVersion it was installed with).
     # Bumping it upgrades every node; never skip a minor version.
-    version: "v1.36.5+k3s1"
+    version: "v1.36.6+k3s1"
