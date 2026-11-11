@@ -13,5 +13,5 @@ dependencies:
   repository: oci://ghcr.io/this-is-tobi/charts
 - name: oauth2-proxy
   alias: sso
-  version: 10.7.3
+  version: 10.7.4
   repository: https://oauth2-proxy.github.io/manifests
