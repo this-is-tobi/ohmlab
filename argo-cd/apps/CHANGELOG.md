@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.19.3](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.19.2...catalog-v0.19.3) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** update helm release argo-cd to v10.18.0 ([12c9d28](https://github.com/this-is-tobi/ohmlab/commit/12c9d2800bd43144b7cdafce51f95570a6de01a0))
+* **deps:** update helm release kyverno to v3.10.0 ([76ae084](https://github.com/this-is-tobi/ohmlab/commit/76ae084e08802a8a54f3ac53c446359ffd7e3762))
+* **deps:** update helm release loki to v21.2.1 ([e4dd3ce](https://github.com/this-is-tobi/ohmlab/commit/e4dd3ce33f9a0a91dc8c97372106504bffb245f2))
+* **deps:** update helm release plugin-barman-cloud to v0.9.0 ([241947a](https://github.com/this-is-tobi/ohmlab/commit/241947a9e8643015c4cd73497aa9531a59fa4b9c))
+
 ## [0.19.2](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.19.1...catalog-v0.19.2) (2026-11-11)
 
 
