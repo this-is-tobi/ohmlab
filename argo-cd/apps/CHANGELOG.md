@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.19.2](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.19.1...catalog-v0.19.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** update backup-utils docker tag to v2.5.9 ([64217ec](https://github.com/this-is-tobi/ohmlab/commit/64217ec06f2777c11428cf427865ec4c642d5c22))
+* **deps:** update cnpg postgres images ([3e33584](https://github.com/this-is-tobi/ohmlab/commit/3e33584cbc69c0dd6c63c614829c1b2999cdf44d))
+* **deps:** update helm release apisix to v2.18.3 ([14db171](https://github.com/this-is-tobi/ohmlab/commit/14db1719e21e209e9bf8219a45de823baffefae5))
+* **deps:** update helm release argo-cd to v10.17.1 ([a00a438](https://github.com/this-is-tobi/ohmlab/commit/a00a438e853cb21dd74bfea2c56f3ba8893083cd))
+* **deps:** update helm release argo-cd to v10.17.2 ([ad8da1f](https://github.com/this-is-tobi/ohmlab/commit/ad8da1fcb52b7acbf7572839a7da601a92731573))
+* **deps:** update helm release coder to v2.39.1 ([da5deb5](https://github.com/this-is-tobi/ohmlab/commit/da5deb59076f35d883e654693b836107b2726b93))
+* **deps:** update helm release oauth2-proxy to v10.7.3 ([6d396c9](https://github.com/this-is-tobi/ohmlab/commit/6d396c91981e629d8058b78d8e84fc476ea0558f))
+* **deps:** update helm release oauth2-proxy to v10.7.4 ([c4dac56](https://github.com/this-is-tobi/ohmlab/commit/c4dac567c2186815196246b8ef54e0919574f8d2))
+* **deps:** update helm release rustfs to v1.0.5 ([0b24889](https://github.com/this-is-tobi/ohmlab/commit/0b24889344f0f2e7cde788a6945070285fcd2e14))
+* **deps:** update helm release sops-secrets-operator to v0.29.2 ([15fc44d](https://github.com/this-is-tobi/ohmlab/commit/15fc44debffb720cba5e44c77f054b6f12d4bc36))
+* **deps:** update helm release sops-secrets-operator to v0.29.3 ([25b3e40](https://github.com/this-is-tobi/ohmlab/commit/25b3e40d0756f01e1d5d04e11ab71d9e95f27991))
+* **deps:** update helm release teleport-cluster to v18.11.10 ([43b9f04](https://github.com/this-is-tobi/ohmlab/commit/43b9f04115109ffb1e9c0d491e32b03975be3a14))
+* **deps:** update helm release traefik to v42.3.2 ([e689a79](https://github.com/this-is-tobi/ohmlab/commit/e689a79a59df09812f08d802fab8db3d809adc27))
+
 ## [0.19.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.19.0...catalog-v0.19.1) (2026-11-09)
 
 
