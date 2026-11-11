@@ -10,7 +10,7 @@ keywords: []
 dependencies:
   - name: argo-cd
     alias: argo-cd
-    version: 10.17.1
+    version: 10.17.2
     repository: https://argoproj.github.io/argo-helm
     condition: argo-cd.enabled
   - name: vso-utils
