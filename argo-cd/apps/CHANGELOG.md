@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.20.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.19.3...catalog-v0.20.0) (2026-11-12)
+
+
+### Features
+
+* **api:** the S3Bucket kind ([b9fa668](https://github.com/this-is-tobi/ohmlab/commit/b9fa6683c25a6a85731716fe7a15c1f455a34ff9))
+* **ohmlab-controller:** package the storage target ([180656e](https://github.com/this-is-tobi/ohmlab/commit/180656e701c13f69b16774a52fc119cb9036788c))
+
+
+### Bug Fixes
+
+* **controller:** keep a rotated key's grace when Vault fails between two writes ([ce788c0](https://github.com/this-is-tobi/ohmlab/commit/ce788c0ed943808c39b87867b95cbed8b4925d9f))
+* **deps:** update dependency hashicorp/vault to v2.2.2 ([dfecb50](https://github.com/this-is-tobi/ohmlab/commit/dfecb50c9b5cf7b0f1c0a008266e3737702f9e8b))
+* **deps:** update valkey docker tag to v0.26.0 ([a8d7084](https://github.com/this-is-tobi/ohmlab/commit/a8d7084a22729c0c1913f39ff67bbc4189e1bb55))
+* **ohmlab-controller:** give the storage target the memory its key derivations need ([3755aa5](https://github.com/this-is-tobi/ohmlab/commit/3755aa53fa016947b8036e2972c733f6864d6277))
+
 ## [0.19.3](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.19.2...catalog-v0.19.3) (2026-11-11)
 
 
