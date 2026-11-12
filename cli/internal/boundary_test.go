@@ -8,7 +8,9 @@ import (
 
 // The targets share a process in some topologies, so the code of one must not
 // be able to reach the credentials of another: the other targets' packages may
-// not import anything of Vault's, and Vault's may not import theirs. The
+// not import anything of Vault's or the storage target's, and Vault's may not
+// import theirs. The storage target may use Vault's client, since it writes
+// the claims' records; Vault's code may not reach a store's root keys. The
 // module path is stable (it is the module's, see go.mod).
 const module = "github.com/this-is-tobi/ohmlab/cli/"
 
@@ -16,6 +18,8 @@ var vaultSide = []string{
 	"internal/vault", "internal/seed", "internal/secretgen",
 	"internal/controller/vaultseed",
 }
+
+var storageSide = []string{"internal/rustfs", "internal/controller/storage"}
 
 var otherSide = []string{"internal/harbor", "internal/sonarqube", "internal/controller/certificates"}
 
@@ -45,8 +49,12 @@ func TestOtherTargetsNeverImportVault(t *testing.T) {
 	imports(t, otherSide, vaultSide)
 }
 
+func TestOtherTargetsNeverImportStorage(t *testing.T) {
+	imports(t, otherSide, storageSide)
+}
+
 func TestVaultNeverImportsTheOtherTargets(t *testing.T) {
-	imports(t, vaultSide, otherSide)
+	imports(t, vaultSide, append(append([]string{}, otherSide...), storageSide...))
 }
 
 // The CLI, in the release archives and the image alike, may use client-go

@@ -38,6 +38,8 @@ func TestConfigurationProblemsStopTheProcessWithAMessage(t *testing.T) {
 	_ = os.WriteFile(good, []byte("leaseNamespace: ohmlab-system\nvault:\n  watchNamespaces: [a]\n  backend:\n    address: https://v:8200\n    auth: {role: r}\n"), 0o600)
 	typo := filepath.Join(dir, "typo.yaml")
 	_ = os.WriteFile(typo, []byte("vualt: {}\n"), 0o600)
+	bare := filepath.Join(dir, "bare.yaml")
+	_ = os.WriteFile(bare, []byte("leaseNamespace: ohmlab-system\n"), 0o600)
 
 	tests := []struct {
 		name string
@@ -48,6 +50,8 @@ func TestConfigurationProblemsStopTheProcessWithAMessage(t *testing.T) {
 		{"a typo", []string{"--config", typo, "--target", "vault"}, "parse config"},
 		{"no target", []string{"--config", good}, "no target"},
 		{"unknown target", []string{"--config", good, "--target", "harbor"}, "unknown target"},
+		{"storage grouped with vault", []string{"--config", good, "--target", "vault,storage"}, "the storage target runs alone"},
+		{"storage without its section", []string{"--config", bare, "--target", "storage"}, "the storage section and the storage target must go together"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
