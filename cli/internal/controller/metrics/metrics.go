@@ -22,14 +22,19 @@ type Metrics struct {
 	// WorkloadRestarts counts the rolls of each workload onto a renewed
 	// certificate (the certificates target).
 	WorkloadRestarts *prometheus.CounterVec
+	// BucketQuota and StoreCapacity are the storage target's bound: the quotas
+	// a store holds against the volume it has.
+	BucketQuota   *prometheus.GaugeVec
+	StoreCapacity *prometheus.GaugeVec
 
 	mu      sync.Mutex
 	planned map[string]map[string]int // "target/kind/ns/name" -> action -> count
+	buckets map[string][2]string      // "target/kind/ns/name" -> store, bucket
 }
 
 // New creates the collectors and registers them.
 func New(reg prometheus.Registerer) *Metrics {
-	m := &Metrics{planned: map[string]map[string]int{}}
+	m := &Metrics{planned: map[string]map[string]int{}, buckets: map[string][2]string{}}
 	m.LastSuccess = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ohmlab_reconcile_last_success_timestamp_seconds",
 		Help: "Unix time of the last reconcile that completed without a backend error.",
@@ -69,12 +74,39 @@ func New(reg prometheus.Registerer) *Metrics {
 		Name: "ohmlab_workload_restarts_total",
 		Help: "Rolls of a workload onto a certificate that was issued again.",
 	}, []string{"target", "namespace", "kind", "name"})
+	m.BucketQuota = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ohmlab_storage_bucket_quota_bytes",
+		Help: "The hard quota of each bucket the storage target manages.",
+	}, []string{"store", "bucket"})
+	m.StoreCapacity = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ohmlab_storage_capacity_bytes",
+		Help: "The capacity of each store the storage target manages: the size of its volume.",
+	}, []string{"store"})
 	reg.MustRegister(m.LastSuccess, m.ObjectReady, m.BackendRequests, m.BackendDuration, m.BackendWrites,
-		m.PlannedChanges, m.Rotations, m.Adopted, m.CRDMismatch, m.WorkloadRestarts)
+		m.PlannedChanges, m.Rotations, m.Adopted, m.CRDMismatch, m.WorkloadRestarts, m.BucketQuota, m.StoreCapacity)
 	return m
 }
 
-var allActions = []string{"adopt", "add-key", "update-field", "rotate", "prune"}
+// kindActions are the actions each kind plans: a kind exposes a series for
+// each of its own actions and none for another kind's.
+var kindActions = map[string][]string{
+	"VaultSeed": {"adopt", "add-key", "update-field", "rotate", "prune"},
+	"S3Bucket": {"adopt", "add-key", "update-field", "rotate", "retire-key",
+		"create-bucket", "set-versioning", "set-lifecycle", "set-quota", "put-policy", "create-user",
+		"attach-policy", "detach-policy", "add-service-account", "remove-service-account"},
+}
+
+// SetBucketQuota exposes the quota of one S3Bucket's bucket. Forget drops it.
+func (m *Metrics) SetBucketQuota(target, kind, namespace, name, store, bucket string, bytes float64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id := target + "/" + kind + "/" + namespace + "/" + name
+	if prev, ok := m.buckets[id]; ok && prev != [2]string{store, bucket} {
+		m.BucketQuota.DeleteLabelValues(prev[0], prev[1])
+	}
+	m.buckets[id] = [2]string{store, bucket}
+	m.BucketQuota.WithLabelValues(store, bucket).Set(bytes)
+}
 
 // SetPlanned records what one object's last reconcile planned and refreshes
 // the per-action sums of the kind.
@@ -95,7 +127,12 @@ func (m *Metrics) Forget(target, kind, namespace, name string) {
 	m.ObjectReady.DeleteLabelValues(target, kind, namespace, name)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	delete(m.planned, target+"/"+kind+"/"+namespace+"/"+name)
+	id := target + "/" + kind + "/" + namespace + "/" + name
+	delete(m.planned, id)
+	if b, ok := m.buckets[id]; ok {
+		m.BucketQuota.DeleteLabelValues(b[0], b[1])
+		delete(m.buckets, id)
+	}
 	m.refreshPlanned(target, kind)
 }
 
@@ -109,7 +146,7 @@ func (m *Metrics) refreshPlanned(target, kind string) {
 			}
 		}
 	}
-	for _, a := range allActions {
+	for _, a := range kindActions[kind] {
 		m.PlannedChanges.WithLabelValues(target, kind, a).Set(float64(sums[a]))
 	}
 }
