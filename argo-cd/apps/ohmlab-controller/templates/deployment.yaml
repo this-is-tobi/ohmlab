@@ -1,5 +1,10 @@
 {{- range $dep, $targets := (include "ohmlab-controller.deployments" . | fromJson) }}
 {{- $sa := printf "ohmlab-controller-%s" $dep }}
+{{- /* The Vault identity of the deployment: the vault target's, or the storage target's, which never share a process. */}}
+{{- $backend := dict }}
+{{- range $t := list "vault" "storage" }}{{ if has $t $targets }}{{ $backend = (index $.Values.targets $t).backend }}{{ end }}{{ end }}
+{{- $audience := dig "auth" "audience" "" $backend }}
+{{- $storeCA := and (has "storage" $targets) $.Values.targets.storage.storeCA.configMap }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -68,31 +73,43 @@ spec:
           capabilities: {drop: [ALL]}
         volumeMounts:
         - {name: config, mountPath: /etc/ohmlab/controller.yaml, subPath: controller.yaml, readOnly: true}
-        {{- if and (has "vault" $targets) $.Values.targets.vault.backend.caSecret }}
+        {{- if $backend.caSecret }}
         - {name: vault-ca, mountPath: /etc/ohmlab/vault-ca, readOnly: true}
         {{- end }}
-        {{- if and (has "vault" $targets) $.Values.targets.vault.backend.auth.audience }}
+        {{- if $audience }}
         - {name: vault-token, mountPath: /var/run/secrets/ohmlab/vault, readOnly: true}
+        {{- end }}
+        {{- if $storeCA }}
+        - {name: store-ca, mountPath: /etc/ohmlab/store-ca, readOnly: true}
         {{- end }}
       volumes:
       - name: config
         configMap: {name: {{ $sa }}}
-      {{- if and (has "vault" $targets) $.Values.targets.vault.backend.caSecret }}
+      {{- if $backend.caSecret }}
       - name: vault-ca
         secret:
-          secretName: {{ $.Values.targets.vault.backend.caSecret }}
+          secretName: {{ $backend.caSecret }}
           items:
-          - {key: {{ $.Values.targets.vault.backend.caKey }}, path: {{ $.Values.targets.vault.backend.caKey }}}
+          - {key: {{ $backend.caKey }}, path: {{ $backend.caKey }}}
       {{- end }}
-      {{- if and (has "vault" $targets) $.Values.targets.vault.backend.auth.audience }}
+      {{- if $audience }}
       # Valid for Vault only and for ten minutes; the kubelet renews it before
       # then and every login reads the file again.
       - name: vault-token
         projected:
           sources:
           - serviceAccountToken:
-              audience: {{ $.Values.targets.vault.backend.auth.audience | quote }}
+              audience: {{ $audience | quote }}
               expirationSeconds: 600
               path: token
+      {{- end }}
+      {{- if $storeCA }}
+      # The stores' CA, read again at each reconcile: a rotation reaches the
+      # records without a restart.
+      - name: store-ca
+        configMap:
+          name: {{ $.Values.targets.storage.storeCA.configMap }}
+          items:
+          - {key: {{ $.Values.targets.storage.storeCA.key }}, path: {{ $.Values.targets.storage.storeCA.key }}}
       {{- end }}
 {{- end }}

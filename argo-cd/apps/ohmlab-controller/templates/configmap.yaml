@@ -36,4 +36,28 @@ data:
     certificates:
       restarts: {{ include "ohmlab-controller.restarts" $ }}
     {{- end }}
+    {{- if has "storage" $targets }}
+    {{- $s := $.Values.targets.storage }}
+    storage:
+      observeOnly: {{ $s.observeOnly }}
+      allowDelete: {{ $s.allowDelete }}
+      watchNamespaces: {{ $s.watchNamespaces | toJson }}
+      rotationGrace: {{ $s.rotationGrace | quote }}
+      backend:
+        address: {{ $s.backend.address | quote }}
+        {{- if $s.backend.caSecret }}
+        caFile: /etc/ohmlab/vault-ca/{{ $s.backend.caKey }}
+        {{- end }}
+        skipTLSVerify: {{ $s.backend.skipTLSVerify }}
+        auth:
+          mount: {{ $s.backend.auth.mount | quote }}
+          role: {{ $s.backend.auth.role | quote }}
+          {{- if $s.backend.auth.audience }}
+          tokenFile: /var/run/secrets/ohmlab/vault/token
+          {{- end }}
+      {{- if $s.storeCA.configMap }}
+      caFile: /etc/ohmlab/store-ca/{{ $s.storeCA.key }}
+      {{- end }}
+      stores: {{ include "ohmlab-controller.storeConfigs" $ }}
+    {{- end }}
 {{- end }}

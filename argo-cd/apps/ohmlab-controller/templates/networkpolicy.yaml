@@ -135,4 +135,34 @@ spec:
     {{- toYaml $group.rules | nindent 4 }}
 {{- end }}
 {{- end }}
+{{- if and .Values.networkPolicy.egressDeny .Values.targets.storage.enabled }}
+---
+# The storage target holds the stores' root keys: it reaches its stores' pods,
+# on their port, and nothing else of theirs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-storage-egress
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ohmlab-controller
+      app.kubernetes.io/component: {{ include "ohmlab-controller.storageDeployment" . }}
+  policyTypes:
+  - Egress
+  egress:
+  {{- range $s := (include "ohmlab-controller.stores" . | fromJsonArray) }}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ $s.namespace }}
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rustfs
+    ports:
+    - protocol: TCP
+      port: {{ regexReplaceAll "^.*:([0-9]+)$" $s.endpoint "${1}" | int }}
+  {{- end }}
+{{- end }}
 {{- end }}

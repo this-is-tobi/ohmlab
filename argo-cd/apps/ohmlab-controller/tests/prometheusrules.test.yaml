@@ -39,7 +39,7 @@ tests:
     - exp_labels: {severity: warning, target: vault, kind: VaultSeed, namespace: n, name: a}
       exp_annotations:
         summary: An ohmlab object has not been reconciled for 15 minutes
-        description: "Read its conditions: kubectl get vaultseeds -A. RefPending waits for another path, BackendUnavailable and Forbidden are the backend's answer, a Stalled object waits for its spec to change. For a Certificate of the certificates target, read its events: a listed workload is missing, or the certificate is not issued yet."
+        description: "Read its conditions: kubectl get vaultseeds,s3buckets -A. RefPending waits for another path, BackendUnavailable and Forbidden are the backend's answer, OwnedByAnother is a path or a key another object holds, a Stalled object waits for its spec to change. For a Certificate of the certificates target, read its events: a listed workload is missing, or the certificate is not issued yet."
 # Three resyncs (30m at the 10m default) without a success is stale.
 - interval: 1m
   input_series:
@@ -70,7 +70,7 @@ tests:
     - exp_labels: {severity: warning, target: vault}
       exp_annotations:
         summary: Requests from the ohmlab controller to a backend fail
-        description: "Errors that are neither a lost compare-and-set nor a refused policy: the backend is down, sealed or unreachable. For the certificates target, read the controller's log: the API server, or its admission policy, refused a workload update."
+        description: "Errors that are neither a lost compare-and-set nor a refused policy: Vault or a store is down, sealed or unreachable. For the certificates target, read the controller's log: the API server, or its admission policy, refused a workload update."
 - interval: 1m
   input_series:
   - series: 'ohmlab_backend_requests_total{target="vault", op="write", result="conflict"}'
@@ -144,3 +144,104 @@ tests:
       exp_annotations:
         summary: The ohmlab controller keeps restarting a workload
         description: "Deployment gitea/gitea was rolled more than twice in an hour. Something probably removes or changes its ohmlab.fr/certificate-revision pod-template annotation, or its Certificate is issued again and again: look at the workload's managedFields and the Certificate's events."
+# A store's volume above 75% for 15m warns, above 85% for 5m is critical; a
+# volume outside the stores' namespaces never alerts here.
+- interval: 1m
+  input_series:
+  - series: 'kubelet_volume_stats_used_bytes{namespace="rustfs-backups", persistentvolumeclaim="data-rustfs-0", node="pi1"}'
+    values: '80+0x30'
+  - series: 'kubelet_volume_stats_capacity_bytes{namespace="rustfs-backups", persistentvolumeclaim="data-rustfs-0", node="pi1"}'
+    values: '100+0x30'
+  - series: 'kubelet_volume_stats_used_bytes{namespace="other", persistentvolumeclaim="x", node="pi1"}'
+    values: '99+0x30'
+  - series: 'kubelet_volume_stats_capacity_bytes{namespace="other", persistentvolumeclaim="x", node="pi1"}'
+    values: '100+0x30'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: OhmlabStoreFilling
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: OhmlabStoreFilling
+    exp_alerts:
+    - exp_labels: {severity: warning, namespace: rustfs-backups, persistentvolumeclaim: data-rustfs-0}
+      exp_annotations:
+        summary: A store's volume is more than 75% full
+        description: "rustfs-backups/data-rustfs-0 holds a store's objects. The bucket quotas bound what apps write, so a store that fills holds more than its quotas allow for: compare ohmlab_storage_bucket_quota_bytes with the volume, then expand the volume online or lower a quota."
+  - eval_time: 20m
+    alertname: OhmlabStoreFull
+    exp_alerts: []
+- interval: 1m
+  input_series:
+  - series: 'kubelet_volume_stats_used_bytes{namespace="rustfs-backups", persistentvolumeclaim="data-rustfs-0", node="pi1"}'
+    values: '90+0x10'
+  - series: 'kubelet_volume_stats_capacity_bytes{namespace="rustfs-backups", persistentvolumeclaim="data-rustfs-0", node="pi1"}'
+    values: '100+0x10'
+  alert_rule_test:
+  - eval_time: 7m
+    alertname: OhmlabStoreFull
+    exp_alerts:
+    - exp_labels: {severity: critical, namespace: rustfs-backups, persistentvolumeclaim: data-rustfs-0}
+      exp_annotations:
+        summary: A store's volume is more than 85% full
+        description: "rustfs-backups/data-rustfs-0: a full store refuses every write, and the backups that land in it stop. Expand the volume now; the apps keep running."
+- interval: 1m
+  input_series:
+  - series: 'kubelet_volume_stats_used_bytes{namespace="rustfs-backups", persistentvolumeclaim="data-rustfs-0", node="pi1"}'
+    values: '70+0x30'
+  - series: 'kubelet_volume_stats_capacity_bytes{namespace="rustfs-backups", persistentvolumeclaim="data-rustfs-0", node="pi1"}'
+    values: '100+0x30'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: OhmlabStoreFilling
+    exp_alerts: []
+# A bucket above 80% of its quota for 30m warns. Every RustFS node exports the
+# cluster's usage, so a bucket's series repeat per node.
+- interval: 1m
+  input_series:
+  - series: 'rustfs_cluster_usage_buckets_total_bytes{bucket="ohmlab-gitea-pg", instance="rustfs-0"}'
+    values: '90+0x40'
+  - series: 'rustfs_cluster_usage_buckets_total_bytes{bucket="ohmlab-gitea-pg", instance="rustfs-1"}'
+    values: '90+0x40'
+  - series: 'rustfs_cluster_usage_buckets_total_bytes{bucket="ohmlab-keycloak-pg", instance="rustfs-0"}'
+    values: '50+0x40'
+  - series: 'ohmlab_storage_bucket_quota_bytes{store="backups", bucket="ohmlab-gitea-pg", pod="ohmlab-controller-storage-a"}'
+    values: '100+0x40'
+  - series: 'ohmlab_storage_bucket_quota_bytes{store="backups", bucket="ohmlab-keycloak-pg", pod="ohmlab-controller-storage-a"}'
+    values: '100+0x40'
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: OhmlabBucketNearQuota
+    exp_alerts: []
+  - eval_time: 35m
+    alertname: OhmlabBucketNearQuota
+    exp_alerts:
+    - exp_labels: {severity: warning, bucket: ohmlab-gitea-pg}
+      exp_annotations:
+        summary: A bucket is above 80% of its quota
+        description: "Bucket ohmlab-gitea-pg: its store refuses the writes beyond the quota. The producer's pruning (a retention policy, a backup job's retention) may have stopped, or the quota is too small for it."
+# The quotas of a store above 80% of its capacity for 15m warn. A bucket two
+# controller pods expose during a rollout counts once.
+- interval: 1m
+  input_series:
+  - series: 'ohmlab_storage_bucket_quota_bytes{store="backups", bucket="a", pod="p1"}'
+    values: '50+0x30'
+  - series: 'ohmlab_storage_bucket_quota_bytes{store="backups", bucket="b", pod="p1"}'
+    values: '35+0x30'
+  - series: 'ohmlab_storage_capacity_bytes{store="backups", pod="p1"}'
+    values: '100+0x30'
+  - series: 'ohmlab_storage_bucket_quota_bytes{store="data", bucket="c", pod="p1"}'
+    values: '45+0x30'
+  - series: 'ohmlab_storage_bucket_quota_bytes{store="data", bucket="c", pod="p2"}'
+    values: '45+0x30'
+  - series: 'ohmlab_storage_capacity_bytes{store="data", pod="p1"}'
+    values: '100+0x30'
+  - series: 'ohmlab_storage_capacity_bytes{store="data", pod="p2"}'
+    values: '100+0x30'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: OhmlabStorageOvercommitted
+    exp_alerts:
+    - exp_labels: {severity: warning, store: backups}
+      exp_annotations:
+        summary: A store's quotas exceed 80% of its capacity
+        description: "Store backups: the sum of its bucket quotas is above 80% of its volume, so the buckets could fill it before their quotas stop them. Expand the store's volume and its capacity, or lower a quota."
