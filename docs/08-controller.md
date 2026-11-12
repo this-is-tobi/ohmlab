@@ -1,6 +1,6 @@
 # The ohmlab controller
 
-The controller keeps the platform's backends configured from Kubernetes objects. It runs continuously, so a value that was deleted or edited by hand is corrected without waiting for a sync, and every object reports its own status. Today it configures Vault, and restarts the workloads that read their certificate only when they start; Harbor and SonarQube follow.
+The controller keeps the platform's backends configured from Kubernetes objects. It runs continuously, so a value that was deleted or edited by hand is corrected without waiting for a sync, and every object reports its own status. Today it configures Vault, gives apps the buckets they claim in a RustFS store, and restarts the workloads that read their certificate only when they start; Harbor and SonarQube follow.
 
 It does not deploy anything. Argo CD does that, starting from the `ohmlab` bootstrap chart ([03-installation.md](03-installation.md)). The controller is one of the apps the instance's `core.yaml` lists, and the objects it reads are rendered by the charts that own the configuration, for example `vault-operator`.
 
@@ -138,9 +138,123 @@ kubectl -n gitea patch certificate gitea-tls --subresource=status --type=json -p
   "[{\"op\":\"add\",\"path\":\"/status/conditions/-\",\"value\":{\"type\":\"Issuing\",\"status\":\"True\",\"reason\":\"ManuallyTriggered\",\"message\":\"manual renewal\",\"lastTransitionTime\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}]"
 ```
 
+## Object storage (S3Bucket)
+
+The `storage` target gives each app the bucket it claims. One `S3Bucket` is one claim: a bucket in a store, with its quota, versioning and lifecycle, an identity confined to it, and the app's key in the claim's Vault record. The app reads its key from the record through a VaultStaticSecret, like any other secret.
+
+```yaml
+apiVersion: ohmlab.fr/v1alpha1
+kind: S3Bucket
+metadata:
+  name: ohmlab-keycloak-pg
+  namespace: ohmlab-system
+spec:
+  store: backups                                    # a store of the target's configuration, never an endpoint
+  bucket: ohmlab-keycloak-pg                        # <bucketPrefix><mount>-<app>-<claim>; immutable
+  credentials:                                      # the claim's record and key; immutable
+    path: ohmlab/platforms/production/core/keycloak/s3
+    key: pg
+  access: readWrite                                 # default; or readOnly
+  quota: 2Gi
+  versioning: true                                  # default
+  lifecycle: {noncurrentDays: 7, expireDays: 0}     # defaults
+  rotate: {token: "2026-11-12"}                     # optional
+  deletionPolicy: Retain                            # default
+```
+
+| Field | Meaning |
+| --- | --- |
+| `store` | A store of the target's configuration. Where to connect and as whom is the controller's business, never the object's. |
+| `bucket` | The store's `bucketPrefix` (empty on RustFS), then the record's mount, app and claim joined by dashes. An object can only name the bucket its record implies, so no object gives one app's key another app's bucket. At most 63 characters. |
+| `credentials.path`, `credentials.key` | The app's record, `<mount>/platforms/<env>/<scope>/<app>/s3`, and the claim's key in it. |
+| `access` | `readWrite` lists, reads, writes and deletes objects; `readOnly` lists and reads. Neither may delete an object version or change the bucket's configuration (versioning, lifecycle, policy, object lock, replication), so an app that is taken over cannot erase its history faster than the lifecycle does. |
+| `quota` | The bucket's hard quota: the store refuses the writes beyond it. |
+| `lifecycle` | Noncurrent versions expire after `noncurrentDays`, and objects after `expireDays` unless it is 0: a backstop for a producer that stops pruning. |
+| `replicate` | Reserved for a cloud replica; nothing acts on it yet. |
+| `rotate.token` | Make a new key once per distinct token (see [Rotation](#rotation)). |
+| `deletionPolicy` | `Retain` or `Delete` (see [Deleting a claim](#deleting-a-claim)). |
+
+### The record
+
+An app has one record, `<mount>/platforms/<env>/<scope>/<app>/s3`, with one key per claim, so the claims of one app share it. A claim's key holds:
+
+| Field | Value |
+| --- | --- |
+| `accessKey`, `secretKey` | The app's key: 20 characters `[A-Z0-9]` and 40 characters `[A-Za-z0-9]`, generated once. |
+| `endpoint`, `region`, `pathStyle` | The store's, from the target's configuration; `pathStyle` is `"true"` or `"false"`. |
+| `bucket` | The bucket's name. |
+| `ca` | The stores' CA (PEM), read again at every reconcile, so a rotation of the CA reaches the apps. Empty for a store behind a public CA. |
+
+The record's custom metadata says who owns what. `ohmlab.fr/owner: ohmlab-controller-storage` marks the path, so a `VaultSeed` aimed at it stops at `OwnedByAnother`. `ohmlab.fr/claim.<claim>: <namespace>/<name>` marks each key with the `S3Bucket` that owns it: a second object on the same key waits at `OwnedByAnother` and writes nothing. A key that holds a pair and has no marker (written by hand before the object existed) is adopted. A rotation adds `ohmlab.fr/rotation-token.<claim>` and, during its grace, `ohmlab.fr/retiring.<claim>`.
+
+### In the store
+
+On a `rustfs` store, each claim has:
+
+- the bucket, its versioning, a lifecycle rule `ohmlab`, and the hard quota;
+- a canned policy `ohmlab-<bucket>-<access>` that allows the bucket's object operations and denies deleting a version and every bucket-configuration action;
+- a user named after the bucket, with that policy attached and no other one: a policy attached by hand is detached at the next resync. The user's own secret is random and stored nowhere, so nothing logs in as it;
+- the app's key, a service account of that user.
+
+### Vault first, then the store
+
+Every reconcile writes the record first (with compare-and-set) and then makes the store match it. Vault is the source of truth:
+
+- A key is generated into the record before the store knows it, so a crash never leaves the store with a key that Vault does not hold.
+- A store rebuilt empty gets every bucket, policy, user and key back at the next resync, with the same keys. The objects in the buckets are not restored: that is the replica's job.
+- A service account of the user that the record does not name is removed. Its `Removed` event names its first four characters only.
+- A new pair written into the record by hand is followed: its service account is added and the old one removed. A hand edit of `secretKey` alone is not followed, because a service account's secret cannot be read back: change keys with `rotate.token`.
+
+A resync that finds nothing to do writes nothing to Vault, the store or the Kubernetes API.
+
+`targets.storage.observeOnly: true` plans every record and store change and writes none. `Drifted` sums them by action and names what they touch, for example `1 create-bucket (ohmlab-keycloak-pg), 2 add-key (accessKey, secretKey)`. A key never appears.
+
+### Rotation
+
+A new `rotate.token` writes a new pair into the record and keeps the old access key in `ohmlab.fr/retiring.<claim>`, with a deadline. Both keys work until then: VSO's refresh delivers the new one, and a job that started with the old one finishes. The first reconcile after the deadline removes the old service account. The grace is `targets.storage.rotationGrace`, 26 hours by default: VSO's hour plus a day's backup cycle. The deadline lives in the record, so a restart of the controller changes nothing. A claim keeps one old key: a second rotation within the grace replaces it, and the first old key goes at the next reconcile.
+
+### Deleting a claim
+
+Deleting an `S3Bucket` with `deletionPolicy: Retain` (the default) leaves the bucket, its identity and the record. With `Delete` and `targets.storage.allowDelete: true`, the object carries a finalizer, and deleting it removes the service accounts, the user and the policy, in that order (RustFS refuses to remove an attached policy), then the bucket if it holds no object version, then the claim's key and markers from the record. A bucket that holds data is never removed. Without `allowDelete`, an object asking for `Delete` reports `Stalled` with reason `Forbidden`.
+
+### Stores, root keys and CA
+
+The target's configuration lists its stores. Each one names where its root keys live in Vault (`rootCredentials`: a path and a key holding `accessKey` and `secretKey`). The target reads them itself, with its own Vault role, at the first reconcile that needs the store, and again after the store refused them. No Kubernetes Secret holds a copy. The stores' CA comes from a ConfigMap (`targets.storage.storeCA`, trust-manager's `ohmlab-internal-ca` bundle by default) that the target reads at every reconcile: it verifies the stores with it and writes it into every record. A store's endpoint is `https://<host>:<port>`.
+
+```yaml
+targets:
+  storage:
+    enabled: true
+    observeOnly: false
+    allowDelete: false
+    rotationGrace: 26h
+    stores:                                 # the instance-manager fills it from instance.yaml
+    - name: backups
+      type: rustfs
+      endpoint: https://rustfs-svc.rustfs-backups.svc:9000
+      region: eu-west-1                     # the store's own region
+      pathStyle: true
+      capacity: 50Gi                        # the store's volume
+      namespace: rustfs-backups             # where its pods run, for the egress policy
+      rootCredentials: {path: ohmlab/platforms/production/core/rustfs-backups, key: admin}
+```
+
+The chart refuses a store without a name, type, endpoint, region, namespace, capacity or root keys, an endpoint that is not `https://<host>:<port>`, and unknown keys. The target's Deployment takes `targets.storage.resources` rather than the shared `resources`: each admin call that creates a user or a key, or attaches a policy, encrypts its request with a 64 MiB argon2id key, so the target idles near 40 MiB and peaks near 190 MiB while it writes. The target's Vault policy, which `vault-operator` renders, creates, updates and reads `…/platforms/+/+/+/s3` and reads each store's root keys, and nothing else.
+
+### Metrics and alerts
+
+The target reports through the controller's metrics (`ohmlab_object_ready`; `ohmlab_backend_requests_total` and `ohmlab_backend_writes_total`, whose ops are named after the store calls, such as `create-bucket` and `add-service-account`), and adds `ohmlab_storage_bucket_quota_bytes{store,bucket}` and `ohmlab_storage_capacity_bytes{store}`. With the target on, the chart adds four alerts:
+
+| Alert | Fires when |
+| --- | --- |
+| `OhmlabStoreFilling` | A store's volume is more than 75% full for 15 minutes (warning). |
+| `OhmlabStoreFull` | It is more than 85% full for 5 minutes (critical): a full store refuses every write, the backups in it included. |
+| `OhmlabBucketNearQuota` | A bucket is above 80% of its quota for 30 minutes, from RustFS's `rustfs_cluster_usage_buckets_total_bytes`. |
+| `OhmlabStorageOvercommitted` | A store's quotas add up to more than 80% of its capacity for 15 minutes. |
+
 ## Topologies
 
-The unit is the **target**; a Deployment is only packaging. By default each enabled target gets its own Deployment, ServiceAccount, RBAC, Vault role and network egress (`split`). The chart's `deployments` map groups targets into shared processes, for example `{all: [vault, harbor, sonarqube]}`, or `{vault: [vault], apps: [harbor, sonarqube]}` to keep Vault alone. Every enabled target must appear exactly once. A group of `networkPolicy.extraEgress` applies to every pod of the namespace unless it names a `podSelector`: scope a target's egress to its own Deployment with `app.kubernetes.io/component: <deployment>`, or the other targets get it too.
+The unit is the **target**; a Deployment is only packaging. By default each enabled target gets its own Deployment, ServiceAccount, RBAC, Vault role and network egress (`split`). The chart's `deployments` map groups targets into shared processes, for example `{all: [vault, harbor, sonarqube]}`, or `{vault: [vault], apps: [harbor, sonarqube]}` to keep Vault alone. Every enabled target must appear exactly once. The `storage` target is the exception to grouping: it holds the stores' root keys and always gets a Deployment of its own, for example `{all: [vault, certificates], storage: [storage]}`. A group of `networkPolicy.extraEgress` applies to every pod of the namespace unless it names a `podSelector`: scope a target's egress to its own Deployment with `app.kubernetes.io/component: <deployment>`, or the other targets get it too.
 
 Whatever the grouping, each target runs its own manager: its own cache, work queue and Lease (`ohmlab-controller-<target>`). A rolling update therefore never runs a target twice, and one process serves one metrics and one probe endpoint.
 
@@ -160,18 +274,24 @@ A shared process is not a security boundary. What is isolated and what is not:
 - **Objects say what, never where or as whom.** Backend addresses and credentials live in the controller's configuration, so no object can point the controller at another endpoint.
 - **Namespaces.** A target reconciles only the namespaces its chart lists. Objects anywhere else are ignored. Only Argo CD and cluster administrators can write in them.
 - **Vault.** The Vault target logs in under a role bound to its ServiceAccount, with a projected ServiceAccount token whose audience is `vault` (`targets.vault.backend.auth.audience`) rather than the pod's API token: the JWT Vault receives is not a Kubernetes API credential, and lives ten minutes. The role accepts only that audience (`ohmlab.controller.audience` in `vault-operator`), so no other token of the ServiceAccount logs in. Vault grants a 15-minute token, which the controller replaces before it expires. Its policy covers KV data and metadata under `platforms/+/+/*` of the system mount and of the instance's, and nothing else: no identity, policies, auth methods, mounts or tokens. Deleting needs the extra grant described above.
+- **Storage.** The `storage` target holds the stores' root keys, so it runs alone: the chart refuses to group it, and the controller refuses `--target=storage` beside another target. Its Vault role writes the claims' records and reads the stores' root keys, nothing else. It has no access to Kubernetes Secrets: the root keys stay in Vault and in its memory. With the chart's network policy, `allow-storage-egress` lets it reach its stores' pods on their port; the API server, DNS and Vault come from `extraEgress`, scoped to its Deployment like the other targets'. An app's key reaches its own bucket only.
 - **Kubernetes.** Roles in the watched namespaces (not ClusterRoles), a Role for its own Leases, and one ClusterRole that reads its own CRDs by name. The `certificates` target has no CRD and no ClusterRole: it reads Certificates in the namespaces it lists, and gets and patches its listed workloads by name. No access to Secrets, and an admission policy keeps its workload patches to the one annotation it sets ([Certificate restarts](#certificate-restarts)).
 - **Pod.** Restricted Pod Security (non-root numeric user, read-only root filesystem, no capabilities, `RuntimeDefault` seccomp), a distroless image with no shell, signed with SLSA provenance (Kyverno's `verify-images` policy covers it), a default-deny network policy when the instance turns on the chart's `networkPolicy` (off by default), with the egress to the API server, DNS and Vault written in `extraEgress`.
 - **No secret material** in an object's spec (templates only), status, events, logs or metric labels. Status holds key names and KV versions.
 
 ## Operating
 
-Metrics, alerts and a dashboard come with the chart. The PodMonitor and the alert rules render only where the Prometheus Operator CRDs exist (`prometheus-stack`), so the app syncs without them and gains them at Argo CD's next reconciliation once they are installed. The alerts: `OhmlabControllerDown`, `OhmlabObjectNotReady`, `OhmlabReconcileStale` (three resyncs without a completed reconcile), `OhmlabBackendErrors`, `OhmlabBackendForbidden`, `OhmlabWriteLoop` (a sustained rate of data writes, which means something else rewrites the path), `OhmlabRestartLoop` (a workload rolled more than twice in an hour), `OhmlabCRDRevisionMismatch`.
+Metrics, alerts and a dashboard come with the chart. The PodMonitor and the alert rules render only where the Prometheus Operator CRDs exist (`prometheus-stack`), so the app syncs without them and gains them at Argo CD's next reconciliation once they are installed. The alerts: `OhmlabControllerDown`, `OhmlabObjectNotReady`, `OhmlabReconcileStale` (three resyncs without a completed reconcile), `OhmlabBackendErrors`, `OhmlabBackendForbidden`, `OhmlabWriteLoop` (a sustained rate of data writes, which means something else rewrites the path), `OhmlabRestartLoop` (a workload rolled more than twice in an hour), `OhmlabCRDRevisionMismatch`, and with the storage target `OhmlabStoreFilling`, `OhmlabStoreFull`, `OhmlabBucketNearQuota` and `OhmlabStorageOvercommitted` ([Metrics and alerts](#metrics-and-alerts)).
 
 ```sh
-kubectl get vaultseeds -A                       # path, Ready, reason
+kubectl get vaultseeds,s3buckets -A             # path or bucket, Ready, reason
 kubectl -n vault-operator-system describe vaultseed production-core-keycloak
+kubectl -n ohmlab-system describe s3bucket ohmlab-keycloak-pg
 ```
+
+- **An `S3Bucket` is `OwnedByAnother`.** Another `S3Bucket` holds the record's key (the record's `ohmlab.fr/claim.<claim>` names it), or the record belongs to something else, such as a `VaultSeed` whose owner marker is on the path. Delete the duplicate object. To hand a key over, remove its claim marker by hand.
+- **An `S3Bucket` is `Stalled` with `InvalidSpec`.** The message says why: a store the target does not know, a quota of zero, or a bucket that is not the one its record implies, with the expected name.
+- **An `S3Bucket` is `Forbidden`.** The message says whether Vault refused (the target's role, or a record path its policy does not cover) or the store did (root keys in Vault that the store does not hold, for example after they changed in Vault only). The target reads the root keys again after a refusal, so a fix in Vault is picked up at the next attempt.
 
 - **An object stays `RefPending` after its source exists.** The retry delay grows to five minutes; touch the object (an annotation change does not count, the spec must change) or wait.
 - **A deleted object's finalizer will not clear.** Only `deletionPolicy: Delete` adds one. Read the `Forbidden` or `BackendUnavailable` condition. Once the cause is fixed it finishes by itself; to give up on removing the path, patch the finalizer away: `kubectl patch vaultseed <name> -p '{"metadata":{"finalizers":null}}' --type merge`.
@@ -194,6 +314,6 @@ It reports malformed templates, bcrypt targets and rotation keys that do not exi
 
 ## Not covered yet
 
-Harbor and SonarQube have target names reserved and no objects yet. Objects owned by applications in their own namespaces (so an adopter's app can declare its own configuration) are a later addition: the allow-list and the owner markers are what it will build on.
+Harbor and SonarQube have target names reserved and no objects yet. The storage target manages RustFS stores only: cloud stores, the encrypted cloud replica that `replicate` asks for, and claims of apps on spoke clusters are not there yet. Objects owned by applications in their own namespaces (so an adopter's app can declare its own configuration) are a later addition: the allow-list and the owner markers are what it will build on.
 
 Identity groups and their OIDC aliases are not the controller's either: the `vault-operator` chart renders `ohmlab.vault.identity` into the Vault resource's `externalConfig`, where bank-vaults applies them.
