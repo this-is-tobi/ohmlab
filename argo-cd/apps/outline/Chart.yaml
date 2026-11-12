@@ -9,7 +9,7 @@ dependencies:
   repository: https://community-charts.github.io/helm-charts
 - name: valkey
   alias: valkey
-  version: 0.25.16
+  version: 0.26.0
   repository: oci://ghcr.io/cloudpirates-io/helm-charts
 - name: cluster
   alias: cnpg
