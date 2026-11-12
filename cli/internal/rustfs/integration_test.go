@@ -260,6 +260,9 @@ func TestBucketRoundTrip(t *testing.T) {
 	if b, err := c.InspectBucket(ctx, name); err != nil || b.Exists {
 		t.Errorf("after removal: %+v, %v", b, err)
 	}
+	if empty, err := c.BucketEmpty(ctx, name); err != nil || !empty {
+		t.Errorf("BucketEmpty of a removed bucket = %v, %v", empty, err)
+	}
 }
 
 func TestIdentityRoundTrip(t *testing.T) {

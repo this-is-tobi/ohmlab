@@ -1,8 +1,15 @@
 package rustfs
 
 import (
+	"crypto/rand"
+	"encoding/pem"
 	"errors"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -44,5 +51,50 @@ func TestWrapErrClassifiesTheStoresAnswers(t *testing.T) {
 	}
 	if wrapErr("op", nil) != nil {
 		t.Error("wrapErr(nil) must be nil")
+	}
+}
+
+func TestWrapErrDropsTheQueryOfATransportError(t *testing.T) {
+	key := rand.Text()
+	u := "https://rustfs-svc.store.svc:9000/rustfs/admin/v3/delete-service-account?accessKey=" + key
+	for name, in := range map[string]error{
+		"a refused connection": &url.Error{Op: "Delete", URL: u, Err: errors.New("dial tcp 10.0.0.1:9000: connect: connection refused")},
+		"madmin's EOF rewrite": &url.Error{Op: "Delete", URL: u, Err: errors.New("Connection closed by foreign host " + u + ". Retry again.")},
+	} {
+		err := wrapErr("remove-service-account", in)
+		if msg := err.Error(); strings.Contains(msg, key) || !strings.Contains(msg, "/rustfs/admin/v3/delete-service-account") {
+			t.Errorf("%s: message %q: want the URL's path and no query", name, msg)
+		}
+		if ue := (*url.Error)(nil); !errors.As(err, &ue) {
+			t.Errorf("%s: the transport error must stay in the chain", name)
+		}
+	}
+}
+
+// storeAnswering is a store that answers every request with status and body.
+func storeAnswering(t *testing.T, status int, body string) *Client {
+	t.Helper()
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		w.WriteHeader(status)
+		_, _ = io.WriteString(w, body)
+	}))
+	t.Cleanup(srv.Close)
+	ca := filepath.Join(t.TempDir(), "ca.crt")
+	if err := os.WriteFile(ca, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := New(Config{Endpoint: srv.Listener.Addr().String(), CAFile: ca, Region: "us-east-1", AccessKey: "TESTACCESSKEY", SecretKey: "test-secret-key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestBucketEmptyOfAMissingBucketIsTrue(t *testing.T) {
+	c := storeAnswering(t, http.StatusNotFound,
+		`<?xml version="1.0" encoding="UTF-8"?><Error><Code>NoSuchBucket</Code><Message>The specified bucket does not exist</Message><BucketName>gone</BucketName></Error>`)
+	if empty, err := c.BucketEmpty(t.Context(), "gone"); err != nil || !empty {
+		t.Errorf("BucketEmpty of a missing bucket = %v, %v; want true, so a deletion that removed it already can finish", empty, err)
 	}
 }

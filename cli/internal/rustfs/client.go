@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -132,8 +133,21 @@ func wrapErr(op string, err error) error {
 	case code != "":
 		return fmt.Errorf("%s: %s: %s", op, code, message)
 	}
-	return fmt.Errorf("%s: %w", op, err)
+	return redacted{msg: op + ": " + urlQuery.ReplaceAllString(err.Error(), "$1"), err: err}
 }
+
+// urlQuery matches a URL's query. A transport error quotes the request's URL,
+// and some queries carry an access key (delete-service-account?accessKey=).
+var urlQuery = regexp.MustCompile(`(https?://[^\s"?]*)\?[^\s"]*`)
+
+// redacted is an error whose text is rewritten and whose chain is kept.
+type redacted struct {
+	msg string
+	err error
+}
+
+func (r redacted) Error() string { return r.msg }
+func (r redacted) Unwrap() error { return r.err }
 
 func errorOf(err error) (code, message string, status int) {
 	if r := madmin.ToErrorResponse(err); r.Code != "" {
