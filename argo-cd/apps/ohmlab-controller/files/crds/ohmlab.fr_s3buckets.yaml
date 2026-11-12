@@ -155,7 +155,9 @@ spec:
                   token:
                     description: |-
                       Token identifies the rotation. A new key pair is made when it differs
-                      from the one recorded on the record, then the token is recorded.
+                      from the one recorded on the record, then the token is recorded. At most
+                      128 characters: it is kept in the record's custom_metadata.
+                    maxLength: 128
                     minLength: 1
                     type: string
                 required:

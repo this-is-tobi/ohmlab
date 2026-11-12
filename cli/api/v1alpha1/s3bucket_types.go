@@ -116,9 +116,11 @@ type S3Lifecycle struct {
 // S3RotateSpec asks for one rotation of the key.
 type S3RotateSpec struct {
 	// Token identifies the rotation. A new key pair is made when it differs
-	// from the one recorded on the record, then the token is recorded.
+	// from the one recorded on the record, then the token is recorded. At most
+	// 128 characters: it is kept in the record's custom_metadata.
 	//
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
 	Token string `json:"token"`
 }
 

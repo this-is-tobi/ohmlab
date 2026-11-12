@@ -31,12 +31,28 @@ type MemKV struct {
 
 	reads, dataWrites, metaWrites int
 	fail                          map[string]error
+	failWrite                     map[string]error // by "data" or "metadata", once
 	destroyErr                    error
 	destroys                      int
 }
 
 // New returns an empty MemKV.
-func New() *MemKV { return &MemKV{entries: map[string]*entry{}, fail: map[string]error{}} }
+func New() *MemKV {
+	return &MemKV{entries: map[string]*entry{}, fail: map[string]error{}, failWrite: map[string]error{}}
+}
+
+// FailNextWrite makes the next "data" or "metadata" write return err.
+func (k *MemKV) FailNextWrite(kind string, err error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.failWrite[kind] = err
+}
+
+func (k *MemKV) takeWriteFailure(kind string) error {
+	err := k.failWrite[kind]
+	delete(k.failWrite, kind)
+	return err
+}
 
 func key(mount, path string) string { return mount + "/" + path }
 
@@ -160,6 +176,9 @@ func (k *MemKV) KVWriteCAS(_ context.Context, mount, path string, data map[strin
 
 	k.mu.Lock()
 	defer k.mu.Unlock()
+	if err := k.takeWriteFailure("data"); err != nil {
+		return 0, err
+	}
 	e := k.entries[key(mount, path)]
 	current := int64(0)
 	if e != nil {
@@ -182,6 +201,9 @@ func (k *MemKV) KVWriteCAS(_ context.Context, mount, path string, data map[strin
 func (k *MemKV) KVSetCustomMetadata(_ context.Context, mount, path string, md map[string]string) error {
 	k.mu.Lock()
 	defer k.mu.Unlock()
+	if err := k.takeWriteFailure("metadata"); err != nil {
+		return err
+	}
 	e := k.entries[key(mount, path)]
 	if e == nil {
 		// The real policy has no create capability on metadata.

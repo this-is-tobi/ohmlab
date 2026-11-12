@@ -376,7 +376,18 @@ func (r *Reconciler) drop(store string) {
 	delete(r.clients, store)
 }
 
+// writeRecord writes the markers before the data on a path that exists: a
+// rotation interrupted between the two is then seen as pending and resumes,
+// where the other order would rotate twice and drop the key the app uses. A
+// new path keeps no custom_metadata before its first version: data first.
 func (r *Reconciler) writeRecord(ctx context.Context, mount, path string, sec *vault.KVSecret, p recordPlan) (int64, error) {
+	// custom_metadata is written whole: the plan carries what was there.
+	markersFirst := p.metadata != nil && sec.Version > 0
+	if markersFirst {
+		if err := r.kv.KVSetCustomMetadata(ctx, mount, path, p.metadata); err != nil {
+			return sec.Version, err
+		}
+	}
 	version := sec.Version
 	if p.data != nil {
 		v, err := r.kv.KVWriteCAS(ctx, mount, path, p.data, sec.Version)
@@ -385,8 +396,7 @@ func (r *Reconciler) writeRecord(ctx context.Context, mount, path string, sec *v
 		}
 		version = v
 	}
-	if p.metadata != nil {
-		// custom_metadata is written whole: the plan carries what was there.
+	if p.metadata != nil && !markersFirst {
 		if err := r.kv.KVSetCustomMetadata(ctx, mount, path, p.metadata); err != nil {
 			return version, err
 		}
