@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.9.0](https://github.com/this-is-tobi/ohmlab/compare/v0.8.0...v0.9.0) (2026-11-12)
+
+
+### Features
+
+* **api:** the S3Bucket kind ([b9fa668](https://github.com/this-is-tobi/ohmlab/commit/b9fa6683c25a6a85731716fe7a15c1f455a34ff9))
+* **controller:** a RustFS client for buckets and identities ([fe9869f](https://github.com/this-is-tobi/ohmlab/commit/fe9869f07abe9bb63b1d9e518064f953ab858f91))
+* **controller:** configure the storage target ([35c8f42](https://github.com/this-is-tobi/ohmlab/commit/35c8f42b2e9d707547b58b59fee522ccc01606bd))
+* **controller:** reconcile S3Buckets into RustFS and their Vault records ([01fe7ef](https://github.com/this-is-tobi/ohmlab/commit/01fe7ef514b913d51c7ac796e6f9b773e350be2a))
+
+
+### Bug Fixes
+
+* **controller:** bound every store call of the storage target ([2d09e6f](https://github.com/this-is-tobi/ohmlab/commit/2d09e6fd1933bd698f0f41bfa0822d483a30a150))
+* **controller:** keep a rotated key's grace when Vault fails between two writes ([ce788c0](https://github.com/this-is-tobi/ohmlab/commit/ce788c0ed943808c39b87867b95cbed8b4925d9f))
+* **controller:** let a claim's deletion finish when its bucket is gone ([bb17ebc](https://github.com/this-is-tobi/ohmlab/commit/bb17ebc8aa6fb17e6dd0aea89997ebedb6679169))
+* **controller:** refuse a second claim on a bucket through another record ([740dd2e](https://github.com/this-is-tobi/ohmlab/commit/740dd2e522f8ecfb42fa8d3a2cdae677a61353e4))
+* **deps:** update dependency hashicorp/vault to v2.2.2 ([dfecb50](https://github.com/this-is-tobi/ohmlab/commit/dfecb50c9b5cf7b0f1c0a008266e3737702f9e8b))
+* **deps:** update module golang.org/x/crypto to v0.59.0 ([3dd8939](https://github.com/this-is-tobi/ohmlab/commit/3dd8939b38a3daa40486dba0d03b22d19986a3e5))
+
 ## [0.8.0](https://github.com/this-is-tobi/ohmlab/compare/v0.7.0...v0.8.0) (2026-11-08)
 
 
