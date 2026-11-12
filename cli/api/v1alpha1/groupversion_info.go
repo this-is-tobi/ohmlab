@@ -31,7 +31,7 @@ var (
 )
 
 func addKnownTypes(s *runtime.Scheme) error {
-	s.AddKnownTypes(GroupVersion, &VaultSeed{}, &VaultSeedList{})
+	s.AddKnownTypes(GroupVersion, &VaultSeed{}, &VaultSeedList{}, &S3Bucket{}, &S3BucketList{})
 	metav1.AddToGroupVersion(s, GroupVersion)
 	return nil
 }
