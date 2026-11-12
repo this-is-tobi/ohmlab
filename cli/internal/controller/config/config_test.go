@@ -43,6 +43,62 @@ func TestLoadAndValidate(t *testing.T) {
 	if c.Vault.Backend.Auth.Role != "ohmlab-controller-vault" || c.Vault.WatchNamespaces[0] != "vault-operator-system" {
 		t.Errorf("config = %+v", c.Vault)
 	}
+
+	s, err := Load(write(t, validStorage))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Validate([]string{"storage"}); err != nil {
+		t.Fatal(err)
+	}
+	if g, err := s.Storage.Grace(); err != nil || g != 26*time.Hour {
+		t.Errorf("grace = %s, err = %v", g, err)
+	}
+	if b, err := s.Storage.Stores[0].CapacityBytes(); err != nil || b != 53687091200 {
+		t.Errorf("capacity = %d, err = %v", b, err)
+	}
+	if r := s.Storage.Stores[0].RootCredentials; r.Path != "ohmlab/platforms/production/core/rustfs-backups" || r.Key != "admin" {
+		t.Errorf("rootCredentials = %+v", r)
+	}
+}
+
+const validStorage = `
+leaseNamespace: ohmlab-system
+storage:
+  watchNamespaces: [ohmlab-system]
+  backend:
+    address: https://vault.vault-operator-system.svc:8200
+    caFile: /etc/ohmlab/vault-ca/ca.crt
+    auth: {role: ohmlab-controller-storage}
+  caFile: /etc/ohmlab/store-ca/ca.crt
+  stores:
+  - name: backups
+    type: rustfs
+    endpoint: https://rustfs-svc.rustfs-backups.svc:9000
+    region: us-east-1
+    capacity: 50Gi
+    rootCredentials: {path: ohmlab/platforms/production/core/rustfs-backups, key: admin}
+`
+
+func goodStorage() *Storage {
+	return &Storage{
+		WatchNamespaces: []string{"ohmlab-system"},
+		Backend:         Backend{Address: "https://v", Auth: Auth{Role: "ohmlab-controller-storage"}},
+		Stores: []Store{{
+			Name: "s", Type: "rustfs", Endpoint: "https://rustfs-svc.s.svc:9000", Region: "us-east-1", Capacity: "50Gi",
+			RootCredentials: SecretRef{Path: "ohmlab/platforms/e2e/core/rustfs", Key: "admin"},
+		}},
+	}
+}
+
+// withStorage replaces the vault section by a valid storage section, edited.
+func withStorage(edit func(*Storage)) func(*Config) {
+	return func(c *Config) {
+		c.Vault = nil
+		s := goodStorage()
+		edit(s)
+		c.Storage = s
+	}
 }
 
 const withCertificates = valid + `
@@ -154,6 +210,23 @@ func TestValidateRejects(t *testing.T) {
 		{"no address", []string{"vault"}, func(c *Config) { c.Vault.Backend.Address = "" }, "address"},
 		{"no role", []string{"vault"}, func(c *Config) { c.Vault.Backend.Auth.Role = "" }, "role"},
 		{"bad resync", []string{"vault"}, func(c *Config) { c.Resync = "soon" }, "resync"},
+		{"storage target without section", []string{"storage"}, func(c *Config) { c.Vault = nil }, "the storage section and the storage target must go together"},
+		{"storage section without target", []string{"vault"}, func(c *Config) { c.Storage = goodStorage() }, "the storage section and the storage target must go together"},
+		{"storage grouped with vault", []string{"storage", "vault"}, func(c *Config) { c.Storage = goodStorage() }, "the storage target runs alone: it holds the stores' root keys"},
+		{"no store", []string{"storage"}, withStorage(func(s *Storage) { s.Stores = []Store{} }), "storage.stores lists nothing"},
+		{"an empty store", []string{"storage"}, withStorage(func(s *Storage) { s.Stores = []Store{{}} }), "storage.stores[0]: missing [capacity endpoint name region rootCredentials.key rootCredentials.path type]"},
+		{"an external store", []string{"storage"}, withStorage(func(s *Storage) { s.Stores[0].Type = "external" }), `storage.stores[0] (s): type "external" is not one of rustfs`},
+		{"a plain http endpoint", []string{"storage"}, withStorage(func(s *Storage) { s.Stores[0].Endpoint = "http://x:9000" }), `storage.stores[0] (s): endpoint "http://x:9000" must be https://<host>:<port>`},
+		{"an endpoint without a port", []string{"storage"}, withStorage(func(s *Storage) { s.Stores[0].Endpoint = "https://x" }), `storage.stores[0] (s): endpoint "https://x" must be https://<host>:<port>`},
+		{"an endpoint with a path", []string{"storage"}, withStorage(func(s *Storage) { s.Stores[0].Endpoint = "https://x:9000/b" }), `storage.stores[0] (s): endpoint "https://x:9000/b" must be https://<host>:<port>`},
+		{"a bucket prefix on rustfs", []string{"storage"}, withStorage(func(s *Storage) { s.Stores[0].BucketPrefix = "p-" }), "storage.stores[0] (s): bucketPrefix must be empty on a rustfs store"},
+		{"a capacity that is no quantity", []string{"storage"}, withStorage(func(s *Storage) { s.Stores[0].Capacity = "big" }), `storage.stores[0] (s): capacity "big" is not a quantity`},
+		{"a capacity of zero", []string{"storage"}, withStorage(func(s *Storage) { s.Stores[0].Capacity = "0" }), `storage.stores[0] (s): capacity "0" must be above zero`},
+		{"a store twice", []string{"storage"}, withStorage(func(s *Storage) { s.Stores = append(s.Stores, s.Stores[0]) }), "storage: store s is listed twice"},
+		{"a short rotation grace", []string{"storage"}, withStorage(func(s *Storage) { s.RotationGrace = "30s" }), `storage.rotationGrace "30s": want a duration of at least 1m`},
+		{"no storage identity", []string{"storage"}, withStorage(func(s *Storage) {
+			s.WatchNamespaces, s.Backend.Address, s.Backend.Auth.Role = nil, "", ""
+		}), "missing [storage.backend.address storage.backend.auth.role storage.watchNamespaces]"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
