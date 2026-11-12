@@ -113,6 +113,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager, skipNameValidation bool)
 	}
 	r.kv = &instrumentedKV{inner: r.KV, m: r.Metrics}
 	r.clients = map[string]*storeClient{}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.S3Bucket{}, bucketIndex, func(o client.Object) []string {
+		return []string{storeBucket(o.(*v1alpha1.S3Bucket))}
+	}); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.S3Bucket{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Named("s3bucket").
@@ -121,6 +126,38 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager, skipNameValidation bool)
 }
 
 func owner(o *v1alpha1.S3Bucket) string { return o.Namespace + "/" + o.Name }
+
+// bucketIndex finds the S3Buckets naming one bucket of one store.
+const bucketIndex = "ohmlab.fr/store-bucket"
+
+func storeBucket(o *v1alpha1.S3Bucket) string { return o.Spec.Store + "/" + o.Spec.Bucket }
+
+// holder is the oldest S3Bucket naming obj's store and bucket through another
+// record key, when it is older than obj. The naming rule leaves the record's
+// env and scope out, and its parts may hold dashes, so two records can imply
+// one bucket; claims on one record key are told apart by its claim marker.
+func (r *Reconciler) holder(ctx context.Context, obj *v1alpha1.S3Bucket) (*v1alpha1.S3Bucket, error) {
+	var list v1alpha1.S3BucketList
+	if err := r.List(ctx, &list, client.MatchingFields{bucketIndex: storeBucket(obj)}); err != nil {
+		return nil, fmt.Errorf("list the claims on bucket %s: %w", obj.Spec.Bucket, err)
+	}
+	var h *v1alpha1.S3Bucket
+	for i := range list.Items {
+		o := &list.Items[i]
+		if o.Spec.Credentials != obj.Spec.Credentials && older(o, obj) && (h == nil || older(o, h)) {
+			h = o
+		}
+	}
+	return h, nil
+}
+
+// older orders claims by creation, then by namespace and name.
+func older(a, b *v1alpha1.S3Bucket) bool {
+	if !a.CreationTimestamp.Equal(&b.CreationTimestamp) {
+		return a.CreationTimestamp.Before(&b.CreationTimestamp)
+	}
+	return owner(a) < owner(b)
+}
 
 func (r *Reconciler) now() time.Time {
 	if r.Now != nil {
@@ -189,6 +226,14 @@ func (r *Reconciler) decide(ctx context.Context, obj *v1alpha1.S3Bucket) outcome
 	sc, mount, path, err := r.check(obj)
 	if err != nil {
 		return stalled(v1alpha1.ReasonInvalidSpec, err.Error())
+	}
+	h, err := r.holder(ctx, obj)
+	if err != nil {
+		return backendDown(err)
+	}
+	if h != nil {
+		return outcome{ready: metav1.ConditionFalse, reason: v1alpha1.ReasonOwnedByAnother, success: true,
+			message: fmt.Sprintf("bucket %s of store %s is claimed by %s, through another record", obj.Spec.Bucket, sc.Name, owner(h))}
 	}
 	if o := r.syncFinalizer(ctx, obj); o != nil {
 		return *o
@@ -475,6 +520,14 @@ func (r *Reconciler) finalize(ctx context.Context, obj *v1alpha1.S3Bucket) (ctrl
 	sc, mount, path, err := r.check(obj)
 	if err != nil {
 		r.Recorder.Eventf(obj, nil, "Normal", "Retained", "Delete", "nothing removed: %s", err.Error())
+		return release()
+	}
+	h, err := r.holder(ctx, obj)
+	if err != nil {
+		return r.retryDelete(ctx, obj, sc.Name, err)
+	}
+	if h != nil {
+		r.Recorder.Eventf(obj, nil, "Normal", "Retained", "Delete", "bucket %s is claimed by %s: nothing removed", obj.Spec.Bucket, owner(h))
 		return release()
 	}
 	sec, err := r.kv.KVRead(ctx, mount, path)
