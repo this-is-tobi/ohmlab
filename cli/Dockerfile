@@ -61,7 +61,7 @@ ARG USER_UID=1000
 ARG USER_GID=${USER_UID}
 # Third-party tool versions — pinned, checksum-verified below. Bump
 # deliberately (kubectl tracks the cluster's k3s minor).
-ARG VAULT_VERSION=2.2.1
+ARG VAULT_VERSION=2.2.2
 ARG KUBECTL_VERSION=v1.36.4
 ARG HELM_VERSION=v4.3.1
 
