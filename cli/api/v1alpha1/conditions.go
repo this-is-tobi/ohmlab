@@ -31,3 +31,6 @@ const (
 
 // Finalizer is set on a VaultSeed whose deletion policy is Delete.
 const Finalizer = "ohmlab.fr/vaultseed"
+
+// S3BucketFinalizer is set on an S3Bucket whose deletion policy is Delete.
+const S3BucketFinalizer = "ohmlab.fr/s3bucket"
