@@ -1,0 +1,50 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketLocation",
+        "s3:ListBucket",
+        "s3:ListBucketMultipartUploads"
+      ],
+      "Resource": [
+        "arn:aws:s3:::homelab-gitea-pg"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:AbortMultipartUpload",
+        "s3:DeleteObject",
+        "s3:GetObject",
+        "s3:ListMultipartUploadParts",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::homelab-gitea-pg/*"
+      ]
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "s3:BypassGovernanceRetention",
+        "s3:DeleteBucket",
+        "s3:DeleteBucketPolicy",
+        "s3:DeleteObjectVersion",
+        "s3:ForceDeleteBucket",
+        "s3:PutBucketEncryption",
+        "s3:PutBucketLifecycle",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketVersioning",
+        "s3:PutReplicationConfiguration",
+        "s3:ResetBucketReplicationState"
+      ],
+      "Resource": [
+        "arn:aws:s3:::homelab-gitea-pg",
+        "arn:aws:s3:::homelab-gitea-pg/*"
+      ]
+    }
+  ]
+}
