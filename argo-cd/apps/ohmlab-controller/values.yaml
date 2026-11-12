@@ -73,6 +73,59 @@ targets:
     #   certificate: gitea-tls
     #   workloads:
     #   - {kind: Deployment, name: gitea}   # or StatefulSet, DaemonSet
+  storage:
+    enabled: false
+    # Each S3Bucket is one app's claim: a bucket in a store, with its quota,
+    # versioning and lifecycle, a user confined to it, and the app's key in the
+    # claim's Vault record (<mount>/platforms/<env>/<scope>/<app>/s3). The
+    # record is written first and the store follows it, so a store rebuilt
+    # empty gets every key back. The target holds the stores' root keys: it
+    # always runs alone, in a deployment of its own.
+    #
+    # Plan every bucket, identity and record change and write none: the
+    # observe-only phase of a rollout. Conditions and ohmlab_planned_changes
+    # say what a live run would do.
+    observeOnly: false
+    # Let `deletionPolicy: Delete` remove a claim's identity and record key,
+    # and its bucket when that holds no object version. A bucket holding data
+    # is never removed.
+    allowDelete: false
+    watchNamespaces:
+    - ohmlab-system
+    # How long the key a rotation replaces keeps working: VSO's refresh plus a
+    # day's backup cycle. At least 1m.
+    rotationGrace: 26h
+    # The target's own Vault identity, as for the vault target. Its policy
+    # writes the claims' records and reads each store's root keys, nothing
+    # else (vault-operator renders it).
+    backend:
+      address: https://vault.vault-operator-system.svc.cluster.local:8200
+      caSecret: vault-tls
+      caKey: ca.crt
+      skipTLSVerify: false
+      auth:
+        mount: kubernetes
+        role: ohmlab-controller-storage
+        audience: vault
+    # The stores' CA: written into every record, and what the target verifies
+    # the stores with. trust-manager's bundle of the internal CA by default; an
+    # empty configMap trusts the system roots.
+    storeCA:
+      configMap: ohmlab-internal-ca
+      key: ca.crt
+    # The stores, set by the instance-manager from instance.yaml's
+    # storage.stores. The target reads each store's root keys from Vault
+    # itself, so no Secret holds a copy.
+    stores: []
+    # - name: backups
+    #   type: rustfs                        # the only type today
+    #   endpoint: https://rustfs-svc.rustfs-backups.svc:9000   # https://<host>:<port>
+    #   region: eu-west-1                   # the store's own region
+    #   pathStyle: true
+    #   bucketPrefix: ""                    # empty on rustfs
+    #   capacity: 50Gi                      # the store's volume: its quotas are alerted on against it
+    #   namespace: rustfs-backups           # where its pods run, for the egress policy
+    #   rootCredentials: {path: ohmlab/platforms/production/core/rustfs-backups, key: admin}
 
 # How the targets are packaged. Empty: one Deployment per enabled target
 # ("split"), each with its own ServiceAccount, RBAC, Vault role and egress.
@@ -82,6 +135,7 @@ targets:
 #     all: [vault, harbor, sonarqube]       # one process for everything
 #     vault: [vault]                        # or keep Vault alone
 #     apps: [harbor, sonarqube]
+#     storage: [storage]                    # storage is always alone
 # A shared process shares memory, the OOM limit, the ServiceAccount, network
 # egress and the failure domain: it is not a security boundary (docs/08).
 deployments: {}

@@ -31,7 +31,45 @@ every enabled target exactly once, anything else fails the render.
 {{- else -}}
   {{- range $t := $enabled -}}{{- $_ := set $result $t (list $t) -}}{{- end -}}
 {{- end -}}
+{{- /* It holds the stores' root keys: no other target shares its process. */ -}}
+{{- range $dep, $list := $result -}}
+  {{- if and (has "storage" $list) (gt (len $list) 1) -}}{{- fail "targets.storage runs alone: give it a deployment of its own" -}}{{- end -}}
+{{- end -}}
 {{- $result | toJson -}}
+{{- end -}}
+
+{{/* The deployment that runs the storage target. */}}
+{{- define "ohmlab-controller.storageDeployment" -}}
+{{- range $dep, $targets := (include "ohmlab-controller.deployments" . | fromJson) -}}
+{{- if has "storage" $targets -}}{{- $dep -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The stores of the storage target, checked, as JSON. The checks are the
+controller's own where a template can make them, so a mistake fails the
+render instead of the process.
+*/}}
+{{- define "ohmlab-controller.stores" -}}
+{{- $list := .Values.targets.storage.stores | default list -}}
+{{- if not $list -}}{{- fail "targets.storage.stores lists nothing: the instance-manager sets it from instance.yaml storage.stores" -}}{{- end -}}
+{{- $names := dict -}}
+{{- range $i, $s := $list -}}
+{{- with omit $s "name" "type" "endpoint" "region" "pathStyle" "bucketPrefix" "capacity" "namespace" "rootCredentials" -}}{{- fail (printf "targets.storage.stores[%d] has unknown keys: %v" $i (keys . | sortAlpha)) -}}{{- end -}}
+{{- $root := $s.rootCredentials | default dict -}}
+{{- if not (and $s.name $s.type $s.endpoint $s.region $s.namespace $s.capacity $root.path $root.key) -}}{{- fail (printf "targets.storage.stores[%d] needs name, type, endpoint, region, namespace, capacity and rootCredentials" $i) -}}{{- end -}}
+{{- if not (regexMatch "^https://[^/:@?#]+:[0-9]{1,5}$" (toString $s.endpoint)) -}}{{- fail (printf "targets.storage.stores[%d].endpoint must be https://<host>:<port>" $i) -}}{{- end -}}
+{{- if hasKey $names $s.name -}}{{- fail (printf "targets.storage: store %s is listed twice" $s.name) -}}{{- end -}}
+{{- $_ := set $names $s.name true -}}
+{{- end -}}
+{{- $list | toJson -}}
+{{- end -}}
+
+{{/* The stores as the controller reads them: namespace is the chart's, for the egress policy. */}}
+{{- define "ohmlab-controller.storeConfigs" -}}
+{{- $out := list -}}
+{{- range $s := (include "ohmlab-controller.stores" . | fromJsonArray) -}}{{- $out = append $out (omit $s "namespace") -}}{{- end -}}
+{{- $out | toJson -}}
 {{- end -}}
 
 {{/* The pinned image; required once anything runs, and never a floating tag. */}}
@@ -104,6 +142,16 @@ controller's own, so a mistake fails the render instead of the process.
 - apiGroups: [events.k8s.io]
   resources: [events]
   verbs: [create, patch]
+{{- else if eq .target "storage" -}}
+- apiGroups: [ohmlab.fr]
+  resources: [s3buckets]
+  verbs: [get, list, watch, patch, update]
+- apiGroups: [ohmlab.fr]
+  resources: [s3buckets/status]
+  verbs: [get, patch, update]
+- apiGroups: [events.k8s.io]
+  resources: [events]
+  verbs: [create, patch]
 {{- else if eq .target "certificates" -}}
 {{- $names := dict -}}
 {{- range $r := (include "ohmlab-controller.restarts" .root | fromJsonArray) -}}
@@ -131,11 +179,11 @@ controller's own, so a mistake fails the render instead of the process.
 
 {{/* The CRD file and name of a target. */}}
 {{- define "ohmlab-controller.crd" -}}
-{{- if eq . "vault" -}}ohmlab.fr_vaultseeds.yaml{{- end -}}
+{{- if eq . "vault" -}}ohmlab.fr_vaultseeds.yaml{{- else if eq . "storage" -}}ohmlab.fr_s3buckets.yaml{{- end -}}
 {{- end -}}
 
 {{- define "ohmlab-controller.crdName" -}}
-{{- if eq . "vault" -}}vaultseeds.ohmlab.fr{{- end -}}
+{{- if eq . "vault" -}}vaultseeds.ohmlab.fr{{- else if eq . "storage" -}}s3buckets.ohmlab.fr{{- end -}}
 {{- end -}}
 
 {{- define "ohmlab-controller.labels" -}}

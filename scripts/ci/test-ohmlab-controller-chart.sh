@@ -183,5 +183,67 @@ cexpect_fail 'Deployment a/x is listed under a/a and a/b' '[{"namespace":"a","ce
 cexpect_fail 'targets.certificates.restarts[0] has unknown keys: [secret]' '[{"namespace":"a","certificate":"a","secret":"s","workloads":[{"kind":"Deployment","name":"x"}]}]'
 cexpect_fail 'workloads[0] has unknown keys: [namespace]' '[{"namespace":"a","certificate":"a","workloads":[{"kind":"Deployment","name":"x","namespace":"b"}]}]'
 
+# --- the storage target ------------------------------------------------------
+STORE='[{"name":"backups","type":"rustfs","endpoint":"https://rustfs-svc.rustfs-backups.svc:9000","region":"eu-west-1","pathStyle":true,"capacity":"50Gi","namespace":"rustfs-backups","rootCredentials":{"path":"ohmlab/platforms/production/core/rustfs-backups","key":"admin"}}]'
+STORAGE=(--set targets.storage.enabled=true --set-json "targets.storage.stores=$STORE")
+s=$(render --namespace ohmlab-system --set "image=$IMAGE" --api-versions monitoring.coreos.com/v1 "${STORAGE[@]}")
+for k in Deployment ServiceAccount ConfigMap; do
+  [ "$(k=$k yq 'select(.kind == strenv(k) and .metadata.name == "ohmlab-controller-storage") | .metadata.name' <<<"$s")" = "ohmlab-controller-storage" ] || fail "storage: want $k ohmlab-controller-storage"
+done
+[ "$(yq 'select(.kind == "Deployment") | .spec.template.spec.containers[0].args[] | select(test("^--target="))' <<<"$s")" = "--target=storage" ] || fail "storage: the process runs its own target only"
+scfg=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "ohmlab-controller-storage") | .data["controller.yaml"]' <<<"$s")
+[ "$(yq -o=json -I=0 '.storage.stores' <<<"$scfg" | jq -cS .)" = "$(jq -cS '[.[] | del(.namespace)]' <<<"$STORE")" ] || fail "storage: the config's stores are the values minus namespace"
+[ "$(yq '.storage.caFile' <<<"$scfg")" = "/etc/ohmlab/store-ca/ca.crt" ] || fail "storage: the config must point at the stores' CA"
+[ "$(yq '.storage.backend.auth.role' <<<"$scfg")" = "ohmlab-controller-storage" ] || fail "storage: want its own Vault role"
+[ "$(yq '.storage.rotationGrace' <<<"$scfg")" = "26h" ] || fail "storage: want the rotation grace"
+[ "$(yq '.vault' <<<"$scfg")" = null ] || fail "storage: the process received the vault section"
+sspec=$(yq -o=json 'select(.kind == "Deployment") | .spec.template.spec' <<<"$s")
+jq -e '([.containers[0].volumeMounts[] | {(.name): .mountPath}] | add) as $m
+       | $m["vault-ca"] == "/etc/ohmlab/vault-ca" and $m["vault-token"] == "/var/run/secrets/ohmlab/vault" and $m["store-ca"] == "/etc/ohmlab/store-ca"
+       and ([.volumes[] | select(.name == "store-ca") | .configMap] == [{"name": "ohmlab-internal-ca", "items": [{"key": "ca.crt", "path": "ca.crt"}]}])
+       and ([.volumes[] | select(.name == "vault-ca") | .secret.secretName] == ["vault-tls"])' <<<"$sspec" >/dev/null \
+  || fail "storage: want the Vault CA, the Vault token and the stores' CA mounted"
+srules=$(yq -o=json -I=0 'select(.kind == "Role" and .metadata.name == "ohmlab-controller-storage") | {"ns": .metadata.namespace, "rules": .rules}' <<<"$s" | jq -s .)
+[ "$(jq -c '[.[].ns]' <<<"$srules")" = '["ohmlab-system"]' ] || fail "storage: want a Role in ohmlab-system only, got $(jq -c '[.[].ns]' <<<"$srules")"
+[ "$(jq -c '[.[].rules[] | {g: .apiGroups, r: .resources, v: .verbs}]' <<<"$srules")" \
+  = '[{"g":["ohmlab.fr"],"r":["s3buckets"],"v":["get","list","watch","patch","update"]},{"g":["ohmlab.fr"],"r":["s3buckets/status"],"v":["get","patch","update"]},{"g":["events.k8s.io"],"r":["events"],"v":["create","patch"]}]' ] \
+  || fail "storage: the Role must grant its S3Buckets and events only: $(jq -c '[.[].rules[]]' <<<"$srules")"
+sall=$(yq -o=json -I=0 'select(.kind == "Role" or .kind == "ClusterRole") | .rules' <<<"$s" | jq -s 'add')
+jq -e '[.[] | select((.resources // []) | index("secrets"))] | length == 0' <<<"$sall" >/dev/null || fail "storage: no Secrets"
+jq -e '[.[] | select((.verbs | index("delete")) or (.verbs | index("*")))] | length == 0' <<<"$sall" >/dev/null || fail "storage: no delete"
+[ "$(yq -o=json -I=0 'select(.kind == "ClusterRole") | .rules[0].resourceNames' <<<"$s")" = '["s3buckets.ohmlab.fr"]' ] || fail "storage alone: the ClusterRole names its CRD only"
+[ "$(yq 'select(.kind == "CustomResourceDefinition") | .metadata.name' <<<"$s")" = "s3buckets.ohmlab.fr" ] || fail "storage alone: its CRD renders"
+vs=$(render "${BASE[@]}" "${STORAGE[@]}")
+[ "$(yq -N 'select(.kind == "ClusterRole") | .rules[0].resourceNames[]' <<<"$vs" | sort | tr '\n' ' ')" = "s3buckets.ohmlab.fr vaultseeds.ohmlab.fr " ] || fail "vault and storage: both CRDs must be readable"
+[ "$(yq -N 'select(.kind == "CustomResourceDefinition") | .metadata.name' <<<"$vs" | sort | tr '\n' ' ')" = "s3buckets.ohmlab.fr vaultseeds.ohmlab.fr " ] || fail "vault and storage: both CRDs render"
+# The e2e's single mode: everything grouped but storage, which keeps a deployment of its own.
+mixed=$(render "${BASE[@]}" "${CERTS[@]}" "${STORAGE[@]}" --set 'deployments.all={certificates,vault}' --set 'deployments.storage={storage}')
+[ "$(yq -N 'select(.kind == "Deployment") | .metadata.name' <<<"$mixed" | sort | tr '\n' ' ')" = "ohmlab-controller-all ohmlab-controller-storage " ] || fail "storage: want its own deployment beside a group"
+expect_fail 'targets.storage runs alone: give it a deployment of its own' "${STORAGE[@]}" --set 'deployments.all={storage,vault}'
+# Its egress reaches the stores' pods on their port, and nothing else.
+np=$(render --namespace ohmlab-system --set "image=$IMAGE" "${STORAGE[@]}" --set networkPolicy.enabled=true)
+want_np='{"podSelector":{"matchLabels":{"app.kubernetes.io/name":"ohmlab-controller","app.kubernetes.io/component":"storage"}},"policyTypes":["Egress"],"egress":[{"to":[{"namespaceSelector":{"matchLabels":{"kubernetes.io/metadata.name":"rustfs-backups"}},"podSelector":{"matchLabels":{"app.kubernetes.io/name":"rustfs"}}}],"ports":[{"protocol":"TCP","port":9000}]}]}'
+[ "$(yq -o=json -I=0 'select(.kind == "NetworkPolicy" and .metadata.name == "allow-storage-egress") | .spec' <<<"$np" | jq -cS .)" = "$(jq -cS . <<<"$want_np")" ] \
+  || fail "storage: allow-storage-egress must reach the store's pods on 9000"
+nodeny=$(render --namespace ohmlab-system --set "image=$IMAGE" "${STORAGE[@]}" --set networkPolicy.enabled=true --set networkPolicy.egressDeny=false)
+[ -z "$(yq 'select(.metadata.name == "allow-storage-egress") | .kind' <<<"$nodeny")" ] || fail "storage: no egress rule when egress is not denied"
+[ -z "$(yq 'select(.metadata.name == "allow-storage-egress") | .kind' <<<"$out")" ] || fail "vault alone renders the storage egress"
+# The alerts follow the stores' namespaces.
+[ "$(yq 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "ohmlab-storage") | .rules[] | select(.alert == "OhmlabStoreFull") | .expr' <<<"$s")" \
+  = 'max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~"rustfs-backups"} / kubelet_volume_stats_capacity_bytes{namespace=~"rustfs-backups"}) > 0.85' ] \
+  || fail "storage: OhmlabStoreFull must watch the stores' namespaces"
+[ -z "$(yq 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "ohmlab-storage") | .name' <<<"$out")" ] || fail "vault alone renders the storage alerts"
+# Mistakes fail the render, not the process.
+sexpect_fail() { # <message fragment> <stores json>
+  local out; out=$(render --namespace ohmlab-system --set "image=$IMAGE" --set targets.storage.enabled=true --set-json "targets.storage.stores=$2")
+  grep -qF "$1" <<<"$out" || fail "storage: want an error mentioning '$1', got: $(head -c 200 <<<"$out")"
+}
+sexpect_fail 'targets.storage.stores lists nothing: the instance-manager sets it from instance.yaml storage.stores' '[]'
+sexpect_fail 'targets.storage.stores[0] needs name, type, endpoint, region, namespace, capacity and rootCredentials' '[{"name":"backups"}]'
+sexpect_fail 'targets.storage.stores[0] needs name, type, endpoint, region, namespace, capacity and rootCredentials' "$(jq -c '.[0].rootCredentials = {"path": "ohmlab/x"}' <<<"$STORE")"
+sexpect_fail 'targets.storage.stores[0].endpoint must be https://<host>:<port>' "$(jq -c '.[0].endpoint = "http://rustfs-svc.rustfs-backups.svc:9000"' <<<"$STORE")"
+sexpect_fail 'targets.storage.stores[0].endpoint must be https://<host>:<port>' "$(jq -c '.[0].endpoint = "https://rustfs-svc.rustfs-backups.svc"' <<<"$STORE")"
+sexpect_fail 'targets.storage.stores[0] has unknown keys: [pathstyle]' "$(jq -c '.[0].pathstyle = true' <<<"$STORE")"
+
 [ "$failures" -eq 0 ] && echo "ok: ohmlab-controller chart"
 exit "$failures"

@@ -30,9 +30,10 @@ spec:
       annotations:
         summary: An ohmlab object has not been reconciled for 15 minutes
         description: >-
-          Read its conditions: kubectl get vaultseeds -A. RefPending waits for
-          another path, BackendUnavailable and Forbidden are the backend's
-          answer, a Stalled object waits for its spec to change. For a
+          Read its conditions: kubectl get vaultseeds,s3buckets -A. RefPending
+          waits for another path, BackendUnavailable and Forbidden are the
+          backend's answer, OwnedByAnother is a path or a key another object
+          holds, a Stalled object waits for its spec to change. For a
           Certificate of the certificates target, read its events: a listed
           workload is missing, or the certificate is not issued yet.
     - alert: OhmlabReconcileStale
@@ -56,7 +57,7 @@ spec:
         summary: Requests from the ohmlab controller to a backend fail
         description: >-
           Errors that are neither a lost compare-and-set nor a refused
-          policy: the backend is down, sealed or unreachable. For the
+          policy: Vault or a store is down, sealed or unreachable. For the
           certificates target, read the controller's log: the API server, or
           its admission policy, refused a workload update.
     - alert: OhmlabBackendForbidden
@@ -108,4 +109,61 @@ spec:
         description: >-
           The catalog and the image pin were released apart. A custom
           resource may use a new field only after the image pin includes it.
+  {{- if .Values.targets.storage.enabled }}
+  {{- $storeNs := list }}
+  {{- range $s := (include "ohmlab-controller.stores" . | fromJsonArray) }}{{ $storeNs = append $storeNs $s.namespace }}{{ end }}
+  {{- $nsRe := $storeNs | uniq | sortAlpha | join "|" | quote }}
+  - name: ohmlab-storage
+    rules:
+    - alert: OhmlabStoreFilling
+      expr: max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~{{ $nsRe }}} / kubelet_volume_stats_capacity_bytes{namespace=~{{ $nsRe }}}) > 0.75
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: A store's volume is more than 75% full
+        description: >-
+          {{ "{{" }} $labels.namespace {{ "}}" }}/{{ "{{" }} $labels.persistentvolumeclaim {{ "}}" }}
+          holds a store's objects. The bucket quotas bound what apps write, so
+          a store that fills holds more than its quotas allow for: compare
+          ohmlab_storage_bucket_quota_bytes with the volume, then expand the
+          volume online or lower a quota.
+    - alert: OhmlabStoreFull
+      expr: max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~{{ $nsRe }}} / kubelet_volume_stats_capacity_bytes{namespace=~{{ $nsRe }}}) > 0.85
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: A store's volume is more than 85% full
+        description: >-
+          {{ "{{" }} $labels.namespace {{ "}}" }}/{{ "{{" }} $labels.persistentvolumeclaim {{ "}}" }}:
+          a full store refuses every write, and the backups that land in it
+          stop. Expand the volume now; the apps keep running.
+    - alert: OhmlabBucketNearQuota
+      # Every RustFS node exports the cluster's usage: max, never sum.
+      expr: max by (bucket) (rustfs_cluster_usage_buckets_total_bytes) / on (bucket) max by (bucket) (ohmlab_storage_bucket_quota_bytes) > 0.8
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: A bucket is above 80% of its quota
+        description: >-
+          Bucket {{ "{{" }} $labels.bucket {{ "}}" }}: its store refuses the
+          writes beyond the quota. The producer's pruning (a retention policy,
+          a backup job's retention) may have stopped, or the quota is too
+          small for it.
+    - alert: OhmlabStorageOvercommitted
+      # A bucket two controller pods expose during a rollout counts once.
+      expr: sum by (store) (max by (store, bucket) (ohmlab_storage_bucket_quota_bytes)) > on (store) 0.8 * max by (store) (ohmlab_storage_capacity_bytes)
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: A store's quotas exceed 80% of its capacity
+        description: >-
+          Store {{ "{{" }} $labels.store {{ "}}" }}: the sum of its bucket
+          quotas is above 80% of its volume, so the buckets could fill it
+          before their quotas stop them. Expand the store's volume and its
+          capacity, or lower a quota.
+  {{- end }}
 {{- end }}

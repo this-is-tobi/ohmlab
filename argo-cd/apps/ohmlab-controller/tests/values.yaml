@@ -5,3 +5,13 @@ image: ghcr.io/this-is-tobi/ohmlab/controller:0.0.0@sha256:000000000000000000000
 targets:
   vault:
     enabled: true
+  storage:
+    enabled: true
+    stores:
+    - name: backups
+      type: rustfs
+      endpoint: https://rustfs-svc.rustfs-backups.svc:9000
+      region: eu-west-1
+      capacity: 50Gi
+      namespace: rustfs-backups
+      rootCredentials: {path: ohmlab/platforms/test/core/rustfs-backups, key: admin}
