@@ -285,6 +285,9 @@ rustfs_values() {
 install_store() {
   helm --kube-context "$CTX" upgrade --install rustfs rustfs --repo "$RUSTFS_REPO" --version "$RUSTFS_VERSION" \
     -n "$NS_STORE" -f <(rustfs_values) --wait --timeout 5m >/dev/null || fail "RustFS did not install"
+  # Helm's --wait does not hold for the Deployment with every Helm release:
+  # wait for it as for the other workloads.
+  k -n "$NS_STORE" rollout status deploy/rustfs --timeout=300s >/dev/null || fail "RustFS did not become ready"
 }
 install_store
 # A client in the controller's namespace, which reads the stores' CA.
