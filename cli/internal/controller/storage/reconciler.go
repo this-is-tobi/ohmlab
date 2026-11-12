@@ -83,6 +83,10 @@ type Reconciler struct {
 	Resync time.Duration
 	// BackoffBase and BackoffMax bound the retries; 5s and 5m by default.
 	BackoffBase, BackoffMax time.Duration
+	// StoreTimeout bounds each store call, its clients' retries included; 15s
+	// by default. A store that does not answer then holds the one worker that
+	// long, not the minutes its clients would retry for.
+	StoreTimeout time.Duration
 	// Now is the clock; time.Now by default.
 	Now func() time.Time
 
@@ -103,6 +107,9 @@ type storeClient struct {
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager, skipNameValidation bool) error {
 	if r.Resync <= 0 {
 		r.Resync = 10 * time.Minute
+	}
+	if r.StoreTimeout <= 0 {
+		r.StoreTimeout = 15 * time.Second
 	}
 	r.backoff = newBackoff()
 	if r.BackoffBase > 0 {
@@ -410,7 +417,7 @@ func (r *Reconciler) storeFor(ctx context.Context, sc StoreConfig, ca string) (S
 	if err != nil {
 		return nil, fmt.Errorf("store %s: %w", sc.Name, err)
 	}
-	c := &storeClient{Store: &instrumentedStore{inner: s, m: r.Metrics}, ca: ca}
+	c := &storeClient{Store: &instrumentedStore{inner: s, m: r.Metrics, timeout: r.StoreTimeout}, ca: ca}
 	r.clients[sc.Name] = c
 	return c.Store, nil
 }

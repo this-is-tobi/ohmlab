@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -382,6 +383,46 @@ func TestAnUnknownStoreOrAQuotaOfZeroStalls(t *testing.T) {
 	if h.store.totalWrites() != 0 || h.dials.Load() != 0 {
 		t.Error("an invalid spec must not reach the store")
 	}
+}
+
+// hungStore stops answering InspectBucket while hung is set, as a store whose
+// packets are dropped: a call returns only when its context ends.
+type hungStore struct {
+	Store
+	hung *atomic.Bool
+}
+
+func (s hungStore) InspectBucket(ctx context.Context, name string) (rustfs.Bucket, error) {
+	if s.hung.Load() {
+		<-ctx.Done()
+		return rustfs.Bucket{}, ctx.Err()
+	}
+	return s.Store.InspectBucket(ctx, name)
+}
+
+func TestAHungStoreFailsEachCallAtItsDeadline(t *testing.T) {
+	var hung atomic.Bool
+	hung.Store(true)
+	h := start(t, func(r *Reconciler) {
+		r.StoreTimeout = 300 * time.Millisecond
+		sc := r.Stores["backups"]
+		dial := sc.Dial
+		sc.Dial = func(accessKey, secretKey string) (Store, error) {
+			s, err := dial(accessKey, secretKey)
+			if err != nil {
+				return nil, err
+			}
+			return hungStore{Store: s, hung: &hung}, nil
+		}
+		r.Stores["backups"] = sc
+	})
+	h.claim("a")
+	h.reason("a", v1alpha1.ConditionReady, v1alpha1.ReasonBackendUnavailable)
+	if msg := cond(h.get("a"), v1alpha1.ConditionReady).Message; !strings.Contains(msg, "deadline exceeded") {
+		t.Errorf("message = %q", msg)
+	}
+	hung.Store(false)
+	h.ready("a")
 }
 
 func TestAccessDeniedDropsTheStoreClient(t *testing.T) {
