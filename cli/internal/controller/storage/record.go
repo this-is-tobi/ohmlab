@@ -153,7 +153,11 @@ func planRecord(sec *vault.KVSecret, c claim, now time.Time, grace time.Duration
 		p.changes = append(p.changes, change{"adopt", c.key})
 	}
 
-	if c.token != "" && c.token != md[tokenPrefix+c.key] {
+	// A retiring marker naming the record's own key is a rotation whose new key
+	// was never written (the markers go first): it resumes, with a new grace.
+	retiringKey, _, _ := parseRetiring(md[retiringPrefix+c.key])
+	pending := ak != "" && retiringKey == ak
+	if (c.token != "" && c.token != md[tokenPrefix+c.key]) || pending {
 		if ak != "" && sk != "" {
 			if err := setKeys(); err != nil {
 				return recordPlan{}, err
@@ -161,7 +165,9 @@ func planRecord(sec *vault.KVSecret, c claim, now time.Time, grace time.Duration
 			meta[retiringPrefix+c.key] = ak + " " + now.Add(grace).UTC().Format(time.RFC3339)
 			p.changes = append(p.changes, change{"rotate", c.key})
 		}
-		meta[tokenPrefix+c.key] = c.token
+		if c.token != "" {
+			meta[tokenPrefix+c.key] = c.token
+		}
 		metaChanged = true
 	}
 	p.accessKey, p.secretKey = str(entry[fieldAccessKey]), str(entry[fieldSecretKey])

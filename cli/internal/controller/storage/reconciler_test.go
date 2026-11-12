@@ -377,6 +377,51 @@ func TestRotationSurvivesARestart(t *testing.T) {
 	}
 }
 
+func TestARotationWhoseMarkersFailedToWriteKeepsTheOldKey(t *testing.T) {
+	h := start(t)
+	h.claim("a")
+	h.ready("a")
+	old := h.entry(record1, "pg")["accessKey"]
+	h.kv.FailNextWrite("metadata", fmt.Errorf("write metadata: status 503"))
+	h.update("a", func(o *v1alpha1.S3Bucket) { o.Spec.Rotate = &v1alpha1.S3RotateSpec{Token: "r1"} })
+	h.rotationKeeps(old)
+}
+
+func TestARotationWhoseNewKeyFailedToWriteResumes(t *testing.T) {
+	h := start(t)
+	h.claim("a")
+	h.ready("a")
+	old := h.entry(record1, "pg")["accessKey"]
+	h.kv.FailNextWrite("data", fmt.Errorf("write: status 503"))
+	h.update("a", func(o *v1alpha1.S3Bucket) { o.Spec.Rotate = &v1alpha1.S3RotateSpec{Token: "r1"} })
+	h.rotationKeeps(old)
+}
+
+// rotationKeeps waits for claim a's rotation to settle, then checks that the
+// replaced key works until its grace ends and that the record took one
+// rotation.
+func (h *harness) rotationKeeps(old string) {
+	h.t.Helper()
+	h.eventually("the new key beside the old one", func() bool {
+		cur := h.entry(record1, "pg")["accessKey"]
+		_, meta, _, _ := h.kv.Get(record1)
+		keys := h.keys(bucket1)
+		return cur != old && meta["ohmlab.fr/rotation-token.pg"] == "r1" && len(keys) == 2 && slices.Contains(keys, cur) && slices.Contains(keys, old)
+	})
+	h.ready("a")
+	time.Sleep(400 * time.Millisecond)
+	_, meta, version, _ := h.kv.Get(record1)
+	if !strings.HasPrefix(meta["ohmlab.fr/retiring.pg"], old+" ") {
+		h.t.Error("the retiring marker must name the replaced key")
+	}
+	if _, ok := h.store.keyOf(old); !ok {
+		h.t.Error("the replaced key must work until its grace ends")
+	}
+	if version != 2 {
+		h.t.Errorf("record version %d, want 2: one rotation", version)
+	}
+}
+
 func TestRetainLeavesEverything(t *testing.T) {
 	h := start(t, allowDelete)
 	h.claim("a")
@@ -473,6 +518,7 @@ func TestTheAPIRefusesMalformedObjects(t *testing.T) {
 		"a path not ending in /s3":        func(o *v1alpha1.S3Bucket) { o.Spec.Credentials.Path = "ohmlab/platforms/e2e/core/app1/secrets" },
 		"a key with a dot":                func(o *v1alpha1.S3Bucket) { o.Spec.Credentials.Key = "p.g" },
 		"a rotation without token":        func(o *v1alpha1.S3Bucket) { o.Spec.Rotate = &v1alpha1.S3RotateSpec{} },
+		"a token Vault cannot keep":       func(o *v1alpha1.S3Bucket) { o.Spec.Rotate = &v1alpha1.S3RotateSpec{Token: strings.Repeat("r", 129)} },
 		"a noncurrent expiry under a day": func(o *v1alpha1.S3Bucket) { o.Spec.Lifecycle.NoncurrentDays = -1 },
 	} {
 		obj := &v1alpha1.S3Bucket{Spec: v1alpha1.S3BucketSpec{Store: "backups", Bucket: bucket1, Credentials: v1alpha1.S3CredentialsRef{Path: record1, Key: "pg"}, Quota: resource.MustParse("1Mi")}}
