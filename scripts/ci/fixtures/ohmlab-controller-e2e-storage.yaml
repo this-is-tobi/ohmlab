@@ -1,0 +1,29 @@
+# The S3Buckets the controller e2e creates. Names, records and keys are what
+# the checks in e2e-ohmlab-controller.sh look for.
+apiVersion: ohmlab.fr/v1alpha1
+kind: S3Bucket
+metadata: {name: ohmlab-app1-pg, namespace: ohmlab-system}
+spec:
+  store: e2e
+  bucket: ohmlab-app1-pg
+  credentials: {path: ohmlab/platforms/e2e/core/app1/s3, key: pg}
+  quota: 64Mi
+---
+apiVersion: ohmlab.fr/v1alpha1
+kind: S3Bucket
+metadata: {name: ohmlab-app2-pg, namespace: ohmlab-system}
+spec:
+  store: e2e
+  bucket: ohmlab-app2-pg
+  credentials: {path: ohmlab/platforms/e2e/core/app2/s3, key: pg}
+  quota: 64Mi
+---
+apiVersion: ohmlab.fr/v1alpha1
+kind: S3Bucket
+metadata: {name: ohmlab-app1-files, namespace: ohmlab-system}
+spec:
+  store: e2e
+  bucket: ohmlab-app1-files
+  credentials: {path: ohmlab/platforms/e2e/core/app1/s3, key: files}
+  quota: 64Mi
+  deletionPolicy: Delete
