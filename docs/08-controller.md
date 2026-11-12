@@ -165,13 +165,13 @@ spec:
 | Field | Meaning |
 | --- | --- |
 | `store` | A store of the target's configuration. Where to connect and as whom is the controller's business, never the object's. |
-| `bucket` | The store's `bucketPrefix` (empty on RustFS), then the record's mount, app and claim joined by dashes. An object can only name the bucket its record implies, so no object gives one app's key another app's bucket. At most 63 characters. |
+| `bucket` | The store's `bucketPrefix` (empty on RustFS), then the record's mount, app and claim joined by dashes. An object can only name the bucket its record implies. The name leaves the record's env and scope out, and its parts may hold dashes, so two records can imply one bucket: the younger of their objects waits at `OwnedByAnother` and writes nothing. A bucket kept with its data goes to the next claim whose record implies its name. At most 63 characters. |
 | `credentials.path`, `credentials.key` | The app's record, `<mount>/platforms/<env>/<scope>/<app>/s3`, and the claim's key in it. |
 | `access` | `readWrite` lists, reads, writes and deletes objects; `readOnly` lists and reads. Neither may delete an object version or change the bucket's configuration (versioning, lifecycle, policy, object lock, replication), so an app that is taken over cannot erase its history faster than the lifecycle does. |
 | `quota` | The bucket's hard quota: the store refuses the writes beyond it. |
 | `lifecycle` | Noncurrent versions expire after `noncurrentDays`, and objects after `expireDays` unless it is 0: a backstop for a producer that stops pruning. |
 | `replicate` | Reserved for a cloud replica; nothing acts on it yet. |
-| `rotate.token` | Make a new key once per distinct token (see [Rotation](#rotation)). |
+| `rotate.token` | Make a new key once per distinct token (see [Rotation](#rotation)). At most 128 characters. |
 | `deletionPolicy` | `Retain` or `Delete` (see [Deleting a claim](#deleting-a-claim)). |
 
 ### The record
@@ -198,7 +198,7 @@ On a `rustfs` store, each claim has:
 
 ### Vault first, then the store
 
-Every reconcile writes the record first (with compare-and-set) and then makes the store match it. Vault is the source of truth:
+Every reconcile reads the store, writes the record (its data with compare-and-set; on a path that exists, its custom metadata first) and then makes the store match it. Vault is the source of truth:
 
 - A key is generated into the record before the store knows it, so a crash never leaves the store with a key that Vault does not hold.
 - A store rebuilt empty gets every bucket, policy, user and key back at the next resync, with the same keys. The objects in the buckets are not restored: that is the replica's job.
@@ -211,7 +211,7 @@ A resync that finds nothing to do writes nothing to Vault, the store or the Kube
 
 ### Rotation
 
-A new `rotate.token` writes a new pair into the record and keeps the old access key in `ohmlab.fr/retiring.<claim>`, with a deadline. Both keys work until then: VSO's refresh delivers the new one, and a job that started with the old one finishes. The first reconcile after the deadline removes the old service account. The grace is `targets.storage.rotationGrace`, 26 hours by default: VSO's hour plus a day's backup cycle. The deadline lives in the record, so a restart of the controller changes nothing. A claim keeps one old key: a second rotation within the grace replaces it, and the first old key goes at the next reconcile.
+A new `rotate.token` writes a new pair into the record and keeps the old access key in `ohmlab.fr/retiring.<claim>`, with a deadline. Both keys work until then: VSO's refresh delivers the new one, and a job that started with the old one finishes. The first reconcile after the deadline removes the old service account. The grace is `targets.storage.rotationGrace`, 26 hours by default: VSO's hour plus a day's backup cycle. The deadline lives in the record, so a restart of the controller changes nothing. The marker is written before the new pair, so a rotation that Vault interrupts between the two writes resumes at the next reconcile, with a new deadline. A claim keeps one old key: a second rotation within the grace replaces it, and the first old key goes at the next reconcile.
 
 ### Deleting a claim
 
@@ -289,7 +289,8 @@ kubectl -n vault-operator-system describe vaultseed production-core-keycloak
 kubectl -n ohmlab-system describe s3bucket ohmlab-keycloak-pg
 ```
 
-- **An `S3Bucket` is `OwnedByAnother`.** Another `S3Bucket` holds the record's key (the record's `ohmlab.fr/claim.<claim>` names it), or the record belongs to something else, such as a `VaultSeed` whose owner marker is on the path. Delete the duplicate object. To hand a key over, remove its claim marker by hand.
+- **An `S3Bucket` is `OwnedByAnother`.** Another `S3Bucket` holds the record's key (the record's `ohmlab.fr/claim.<claim>` names it) or, through another record, the same bucket (the message names it); or the record belongs to something else, such as a `VaultSeed` whose owner marker is on the path. Delete the duplicate object. To hand a key over, remove its claim marker by hand. Deleting the waiting object removes nothing from the store.
+- **An `S3Bucket` is `BackendUnavailable` with `context deadline exceeded`.** The store does not answer. Each store call ends after 15 seconds, its retries included, so a store that is down holds the target only that long per attempt, and the claims of the other stores carry on.
 - **An `S3Bucket` is `Stalled` with `InvalidSpec`.** The message says why: a store the target does not know, a quota of zero, or a bucket that is not the one its record implies, with the expected name.
 - **An `S3Bucket` is `Forbidden`.** The message says whether Vault refused (the target's role, or a record path its policy does not cover) or the store did (root keys in Vault that the store does not hold, for example after they changed in Vault only). The target reads the root keys again after a refusal, so a fix in Vault is picked up at the next attempt.
 
