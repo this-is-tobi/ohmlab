@@ -1,9 +1,9 @@
 dependencies:
 - name: sops-secrets-operator
   repository: https://isindir.github.io/sops-secrets-operator
-  version: 0.29.3
+  version: 0.30.0
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.4.0
-digest: sha256:09a5b13c5bef501a5c9dcc429682681d1f9a213512488ce54042086549989b67
-generated: "2026-11-11T16:03:59.459342434Z"
+digest: sha256:401cde88f6bb3bfe8c818ce36741bb4e686bc3b29f409efed0058f49e00bbaf7
+generated: "2026-11-12T22:28:10.022198328Z"
