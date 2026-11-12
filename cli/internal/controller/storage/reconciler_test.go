@@ -296,6 +296,62 @@ func TestTwoClaimsOnOneKeyTheSecondIsRefused(t *testing.T) {
 	}
 }
 
+// record2 is app1's record in another scope: its pg claim implies bucket1 too.
+const record2 = "ohmlab/platforms/e2e/tenant/app1/s3"
+
+func TestTwoRecordsNamingOneBucketTheYoungerWaits(t *testing.T) {
+	h := start(t)
+	h.claim("first")
+	h.ready("first")
+	e := h.entry(record1, "pg")
+
+	h.claim("second", func(o *v1alpha1.S3Bucket) { o.Spec.Credentials.Path = record2 })
+	h.reason("second", v1alpha1.ConditionReady, v1alpha1.ReasonOwnedByAnother)
+	if msg := cond(h.get("second"), v1alpha1.ConditionReady).Message; !strings.Contains(msg, h.ns+"/first") {
+		t.Errorf("message = %q, want the holder named", msg)
+	}
+	time.Sleep(400 * time.Millisecond)
+	if _, _, _, exists := h.kv.Get(record2); exists {
+		t.Error("the younger claim wrote its record")
+	}
+	if keys := h.keys(bucket1); len(keys) != 1 || keys[0] != e["accessKey"] {
+		t.Errorf("the store holds %d keys, want the first claim's only", len(keys))
+	}
+	for _, op := range h.store.opsLog() {
+		if strings.HasPrefix(op, "remove-service-account") {
+			t.Fatal("a key of the shared bucket was removed")
+		}
+	}
+	h.ready("first")
+}
+
+func TestDeletingAWaitingClaimLeavesTheHolderAlone(t *testing.T) {
+	h := start(t, allowDelete)
+	del := func(o *v1alpha1.S3Bucket) { o.Spec.DeletionPolicy = v1alpha1.DeletionPolicyDelete }
+	h.claim("first", del)
+	h.ready("first")
+	e := h.entry(record1, "pg")
+	// As when the cache lagged: the younger claim wrote its markers and holds
+	// the finalizer.
+	h.kv.Put(record2, map[string]any{}, map[string]string{ownerKey: PathOwner, claimPrefix + "pg": h.ns + "/second"})
+	h.claim("second", del, func(o *v1alpha1.S3Bucket) {
+		o.Spec.Credentials.Path = record2
+		o.Finalizers = []string{v1alpha1.S3BucketFinalizer}
+	})
+	h.reason("second", v1alpha1.ConditionReady, v1alpha1.ReasonOwnedByAnother)
+
+	h.remove("second")
+	if _, ok := h.store.keyOf(e["accessKey"]); !ok {
+		t.Error("deleting the younger claim removed the holder's key")
+	}
+	if _, ok := h.store.user(bucket1); !ok {
+		t.Error("deleting the younger claim removed the holder's user")
+	}
+	if _, ok := h.store.bucket(bucket1); !ok {
+		t.Error("deleting the younger claim removed the holder's bucket")
+	}
+}
+
 func TestABucketThatDoesNotMatchItsRecordIsRefused(t *testing.T) {
 	h := start(t)
 	h.claim("a", func(o *v1alpha1.S3Bucket) { o.Spec.Bucket = "ohmlab-app2-pg" })
