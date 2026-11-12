@@ -5,6 +5,7 @@
 {{- range $t := list "vault" "storage" }}{{ if has $t $targets }}{{ $backend = (index $.Values.targets $t).backend }}{{ end }}{{ end }}
 {{- $audience := dig "auth" "audience" "" $backend }}
 {{- $storeCA := and (has "storage" $targets) $.Values.targets.storage.storeCA.configMap }}
+{{- $resources := ternary $.Values.targets.storage.resources $.Values.resources (has "storage" $targets) }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -66,7 +67,7 @@ spec:
           httpGet: {path: /readyz, port: probes}
           periodSeconds: 10
         resources:
-          {{- toYaml $.Values.resources | nindent 10 }}
+          {{- toYaml $resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

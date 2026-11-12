@@ -95,6 +95,17 @@ targets:
     # How long the key a rotation replaces keeps working: VSO's refresh plus a
     # day's backup cycle. At least 1m.
     rotationGrace: 26h
+    # Its own, instead of `resources`: every admin call that creates a user or
+    # a key, or attaches a policy, encrypts its request with a 64 MiB argon2id
+    # key (madmin-go), and two can be in memory at once. The target idles near
+    # 40 MiB and peaks near 190 MiB while it writes, however many claims.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 320Mi
     # The target's own Vault identity, as for the vault target. Its policy
     # writes the claims' records and reads each store's root keys, nothing
     # else (vault-operator renders it).
@@ -157,7 +168,7 @@ monitoring:
   enabled: true
   # Series per scrape; the controller exposes controller-runtime's metrics and
   # the ohmlab_* ones, about 350 per process for one target (vault or
-  # certificates). Re-measure when a target is added.
+  # certificates) and 400 for storage. Re-measure when a target is added.
   sampleLimit: 1500
   prometheusRule:
     enabled: true

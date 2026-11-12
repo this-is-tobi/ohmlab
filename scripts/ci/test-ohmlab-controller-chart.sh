@@ -186,6 +186,11 @@ cexpect_fail 'workloads[0] has unknown keys: [namespace]' '[{"namespace":"a","ce
 # --- the storage target ------------------------------------------------------
 STORE='[{"name":"backups","type":"rustfs","endpoint":"https://rustfs-svc.rustfs-backups.svc:9000","region":"eu-west-1","pathStyle":true,"capacity":"50Gi","namespace":"rustfs-backups","rootCredentials":{"path":"ohmlab/platforms/production/core/rustfs-backups","key":"admin"}}]'
 STORAGE=(--set targets.storage.enabled=true --set-json "targets.storage.stores=$STORE")
+# Vault alone, for what storage must not change.
+vonly=$(render "${BASE[@]}")
+vnp=$(render "${BASE[@]}" --set networkPolicy.enabled=true)
+[ "$(yq 'select(.kind == "Deployment") | .metadata.name' <<<"$vonly")" = ohmlab-controller-vault ] || fail "the vault-only render failed"
+[ -n "$(yq 'select(.kind == "NetworkPolicy") | .metadata.name' <<<"$vnp")" ] || fail "the vault-only render with a network policy failed"
 s=$(render --namespace ohmlab-system --set "image=$IMAGE" --api-versions monitoring.coreos.com/v1 "${STORAGE[@]}")
 for k in Deployment ServiceAccount ConfigMap; do
   [ "$(k=$k yq 'select(.kind == strenv(k) and .metadata.name == "ohmlab-controller-storage") | .metadata.name' <<<"$s")" = "ohmlab-controller-storage" ] || fail "storage: want $k ohmlab-controller-storage"
@@ -198,6 +203,11 @@ scfg=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "ohmlab-controller-
 [ "$(yq '.storage.rotationGrace' <<<"$scfg")" = "26h" ] || fail "storage: want the rotation grace"
 [ "$(yq '.vault' <<<"$scfg")" = null ] || fail "storage: the process received the vault section"
 sspec=$(yq -o=json 'select(.kind == "Deployment") | .spec.template.spec' <<<"$s")
+# Its admin calls each derive a 64 MiB argon2id key: it has resources of its own.
+[ "$(jq -cS '.containers[0].resources' <<<"$sspec")" = "$(yq -o=json -I=0 '.targets.storage.resources' "$CHART/values.yaml" | jq -cS .)" ] \
+  || fail "storage: the Deployment must take targets.storage.resources"
+[ "$(yq -o=json -I=0 'select(.kind == "Deployment" and .metadata.name == "ohmlab-controller-vault") | .spec.template.spec.containers[0].resources' <<<"$vonly" | jq -cS .)" \
+  = "$(yq -o=json -I=0 '.resources' "$CHART/values.yaml" | jq -cS .)" ] || fail "vault: the Deployment must keep the shared resources"
 jq -e '([.containers[0].volumeMounts[] | {(.name): .mountPath}] | add) as $m
        | $m["vault-ca"] == "/etc/ohmlab/vault-ca" and $m["vault-token"] == "/var/run/secrets/ohmlab/vault" and $m["store-ca"] == "/etc/ohmlab/store-ca"
        and ([.volumes[] | select(.name == "store-ca") | .configMap] == [{"name": "ohmlab-internal-ca", "items": [{"key": "ca.crt", "path": "ca.crt"}]}])
@@ -227,12 +237,12 @@ want_np='{"podSelector":{"matchLabels":{"app.kubernetes.io/name":"ohmlab-control
   || fail "storage: allow-storage-egress must reach the store's pods on 9000"
 nodeny=$(render --namespace ohmlab-system --set "image=$IMAGE" "${STORAGE[@]}" --set networkPolicy.enabled=true --set networkPolicy.egressDeny=false)
 [ -z "$(yq 'select(.metadata.name == "allow-storage-egress") | .kind' <<<"$nodeny")" ] || fail "storage: no egress rule when egress is not denied"
-[ -z "$(yq 'select(.metadata.name == "allow-storage-egress") | .kind' <<<"$out")" ] || fail "vault alone renders the storage egress"
+[ -z "$(yq 'select(.metadata.name == "allow-storage-egress") | .kind' <<<"$vnp")" ] || fail "vault alone renders the storage egress"
 # The alerts follow the stores' namespaces.
 [ "$(yq 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "ohmlab-storage") | .rules[] | select(.alert == "OhmlabStoreFull") | .expr' <<<"$s")" \
   = 'max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~"rustfs-backups"} / kubelet_volume_stats_capacity_bytes{namespace=~"rustfs-backups"}) > 0.85' ] \
   || fail "storage: OhmlabStoreFull must watch the stores' namespaces"
-[ -z "$(yq 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "ohmlab-storage") | .name' <<<"$out")" ] || fail "vault alone renders the storage alerts"
+[ -z "$(yq 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "ohmlab-storage") | .name' <<<"$vonly")" ] || fail "vault alone renders the storage alerts"
 # Mistakes fail the render, not the process.
 sexpect_fail() { # <message fragment> <stores json>
   local out; out=$(render --namespace ohmlab-system --set "image=$IMAGE" --set targets.storage.enabled=true --set-json "targets.storage.stores=$2")
