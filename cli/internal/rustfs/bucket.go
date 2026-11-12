@@ -95,13 +95,17 @@ func (c *Client) SetQuota(ctx context.Context, name string, bytes uint64) error 
 }
 
 // BucketEmpty reports whether a bucket holds no object version and no delete
-// marker.
+// marker. A missing bucket holds nothing.
 func (c *Client) BucketEmpty(ctx context.Context, name string) (bool, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for o := range c.s3.ListObjects(ctx, name, minio.ListObjectsOptions{Recursive: true, WithVersions: true, MaxKeys: 1}) {
 		if o.Err != nil {
-			return false, wrapErr("bucket-empty "+name, o.Err)
+			err := wrapErr("bucket-empty "+name, o.Err)
+			if errors.Is(err, ErrNotFound) {
+				return true, nil
+			}
+			return false, err
 		}
 		return false, nil
 	}
