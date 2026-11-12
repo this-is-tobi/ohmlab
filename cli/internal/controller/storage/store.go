@@ -35,11 +35,13 @@ type Store interface {
 
 var _ Store = (*rustfs.Client)(nil)
 
-// instrumentedStore counts and times every call, and counts the writes: a
-// write loop shows as a rate of ohmlab_backend_writes_total, as for Vault.
+// instrumentedStore bounds, counts and times every call, and counts the
+// writes: a write loop shows as a rate of ohmlab_backend_writes_total, as for
+// Vault.
 type instrumentedStore struct {
-	inner Store
-	m     *metrics.Metrics
+	inner   Store
+	m       *metrics.Metrics
+	timeout time.Duration
 }
 
 func (s *instrumentedStore) observe(op string, start time.Time, err error, write bool) {
@@ -59,95 +61,98 @@ func (s *instrumentedStore) observe(op string, start time.Time, err error, write
 	}
 }
 
-func (s *instrumentedStore) read(op string, f func() error) error {
+func (s *instrumentedStore) call(ctx context.Context, op string, write bool, f func(context.Context) error) error {
+	ctx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
 	start := time.Now()
-	err := f()
-	s.observe(op, start, err, false)
+	err := f(ctx)
+	s.observe(op, start, err, write)
 	return err
 }
 
-func (s *instrumentedStore) write(op string, f func() error) error {
-	start := time.Now()
-	err := f()
-	s.observe(op, start, err, true)
-	return err
+func (s *instrumentedStore) read(ctx context.Context, op string, f func(context.Context) error) error {
+	return s.call(ctx, op, false, f)
+}
+
+func (s *instrumentedStore) write(ctx context.Context, op string, f func(context.Context) error) error {
+	return s.call(ctx, op, true, f)
 }
 
 func (s *instrumentedStore) InspectBucket(ctx context.Context, name string) (b rustfs.Bucket, err error) {
-	err = s.read("inspect-bucket", func() error { b, err = s.inner.InspectBucket(ctx, name); return err })
+	err = s.read(ctx, "inspect-bucket", func(ctx context.Context) error { b, err = s.inner.InspectBucket(ctx, name); return err })
 	return b, err
 }
 
 func (s *instrumentedStore) CreateBucket(ctx context.Context, name string) error {
-	return s.write("create-bucket", func() error { return s.inner.CreateBucket(ctx, name) })
+	return s.write(ctx, "create-bucket", func(ctx context.Context) error { return s.inner.CreateBucket(ctx, name) })
 }
 
 func (s *instrumentedStore) SetVersioning(ctx context.Context, name string, on bool) error {
-	return s.write("set-versioning", func() error { return s.inner.SetVersioning(ctx, name, on) })
+	return s.write(ctx, "set-versioning", func(ctx context.Context) error { return s.inner.SetVersioning(ctx, name, on) })
 }
 
 func (s *instrumentedStore) SetLifecycle(ctx context.Context, name string, noncurrentDays, expireDays int) error {
-	return s.write("set-lifecycle", func() error { return s.inner.SetLifecycle(ctx, name, noncurrentDays, expireDays) })
+	return s.write(ctx, "set-lifecycle", func(ctx context.Context) error { return s.inner.SetLifecycle(ctx, name, noncurrentDays, expireDays) })
 }
 
 func (s *instrumentedStore) SetQuota(ctx context.Context, name string, bytes uint64) error {
-	return s.write("set-quota", func() error { return s.inner.SetQuota(ctx, name, bytes) })
+	return s.write(ctx, "set-quota", func(ctx context.Context) error { return s.inner.SetQuota(ctx, name, bytes) })
 }
 
 func (s *instrumentedStore) BucketEmpty(ctx context.Context, name string) (empty bool, err error) {
-	err = s.read("bucket-empty", func() error { empty, err = s.inner.BucketEmpty(ctx, name); return err })
+	err = s.read(ctx, "bucket-empty", func(ctx context.Context) error { empty, err = s.inner.BucketEmpty(ctx, name); return err })
 	return empty, err
 }
 
 func (s *instrumentedStore) RemoveBucket(ctx context.Context, name string) error {
-	return s.write("remove-bucket", func() error { return s.inner.RemoveBucket(ctx, name) })
+	return s.write(ctx, "remove-bucket", func(ctx context.Context) error { return s.inner.RemoveBucket(ctx, name) })
 }
 
 func (s *instrumentedStore) Policy(ctx context.Context, name string) (doc []byte, err error) {
-	err = s.read("policy", func() error { doc, err = s.inner.Policy(ctx, name); return err })
+	err = s.read(ctx, "policy", func(ctx context.Context) error { doc, err = s.inner.Policy(ctx, name); return err })
 	return doc, err
 }
 
 func (s *instrumentedStore) PutPolicy(ctx context.Context, name string, doc []byte) error {
-	return s.write("put-policy", func() error { return s.inner.PutPolicy(ctx, name, doc) })
+	return s.write(ctx, "put-policy", func(ctx context.Context) error { return s.inner.PutPolicy(ctx, name, doc) })
 }
 
 func (s *instrumentedStore) RemovePolicy(ctx context.Context, name string) error {
-	return s.write("remove-policy", func() error { return s.inner.RemovePolicy(ctx, name) })
+	return s.write(ctx, "remove-policy", func(ctx context.Context) error { return s.inner.RemovePolicy(ctx, name) })
 }
 
 func (s *instrumentedStore) User(ctx context.Context, name string) (u rustfs.User, err error) {
-	err = s.read("user", func() error { u, err = s.inner.User(ctx, name); return err })
+	err = s.read(ctx, "user", func(ctx context.Context) error { u, err = s.inner.User(ctx, name); return err })
 	return u, err
 }
 
 func (s *instrumentedStore) CreateUser(ctx context.Context, name, secret string) error {
-	return s.write("create-user", func() error { return s.inner.CreateUser(ctx, name, secret) })
+	return s.write(ctx, "create-user", func(ctx context.Context) error { return s.inner.CreateUser(ctx, name, secret) })
 }
 
 func (s *instrumentedStore) AttachPolicy(ctx context.Context, policy, user string) error {
-	return s.write("attach-policy", func() error { return s.inner.AttachPolicy(ctx, policy, user) })
+	return s.write(ctx, "attach-policy", func(ctx context.Context) error { return s.inner.AttachPolicy(ctx, policy, user) })
 }
 
 func (s *instrumentedStore) DetachPolicy(ctx context.Context, policy, user string) error {
-	return s.write("detach-policy", func() error { return s.inner.DetachPolicy(ctx, policy, user) })
+	return s.write(ctx, "detach-policy", func(ctx context.Context) error { return s.inner.DetachPolicy(ctx, policy, user) })
 }
 
 func (s *instrumentedStore) RemoveUser(ctx context.Context, name string) error {
-	return s.write("remove-user", func() error { return s.inner.RemoveUser(ctx, name) })
+	return s.write(ctx, "remove-user", func(ctx context.Context) error { return s.inner.RemoveUser(ctx, name) })
 }
 
 func (s *instrumentedStore) ServiceAccounts(ctx context.Context, user string) (keys []string, err error) {
-	err = s.read("service-accounts", func() error { keys, err = s.inner.ServiceAccounts(ctx, user); return err })
+	err = s.read(ctx, "service-accounts", func(ctx context.Context) error { keys, err = s.inner.ServiceAccounts(ctx, user); return err })
 	return keys, err
 }
 
 func (s *instrumentedStore) AddServiceAccount(ctx context.Context, user, accessKey, secretKey string) error {
-	return s.write("add-service-account", func() error { return s.inner.AddServiceAccount(ctx, user, accessKey, secretKey) })
+	return s.write(ctx, "add-service-account", func(ctx context.Context) error { return s.inner.AddServiceAccount(ctx, user, accessKey, secretKey) })
 }
 
 func (s *instrumentedStore) RemoveServiceAccount(ctx context.Context, accessKey string) error {
-	return s.write("remove-service-account", func() error { return s.inner.RemoveServiceAccount(ctx, accessKey) })
+	return s.write(ctx, "remove-service-account", func(ctx context.Context) error { return s.inner.RemoveServiceAccount(ctx, accessKey) })
 }
 
 // storeWant is what one claim needs of its store.
