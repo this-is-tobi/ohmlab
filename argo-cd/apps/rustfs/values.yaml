@@ -180,3 +180,13 @@ certificate:
     kind: ClusterIssuer
     name: ohmlab-internal-ca
   caConfigMap: ohmlab-internal-ca
+
+# A store of instance.yaml's storage block (docs/10-object-storage.md) sets
+# enabled in its values file. Its volume and region come from the
+# instance-manager, which sets wired; until then the chart does not render, so
+# a store whose Application syncs before its ApplicationSet carries that wiring
+# waits instead of creating its volume, whose class and size cannot change
+# afterwards, from the defaults (templates/store.yaml).
+store:
+  enabled: false
+  wired: false

@@ -226,7 +226,7 @@ jobs:
         run: scripts/ci/test-keycloak-chart.sh
       - name: Test the trust-manager chart's bundle targets
         run: scripts/ci/test-trust-manager-chart.sh
-      - name: Test the rustfs chart's TLS
+      - name: Test the rustfs chart's TLS and a store's wait for its wiring
         run: scripts/ci/test-rustfs-chart.sh
       - name: Test the oauth2-proxies' TLS
         run: scripts/ci/test-sso-proxy-charts.sh

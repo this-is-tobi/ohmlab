@@ -383,7 +383,8 @@ with (list . <scope>).
 The merge list of a scope's ApplicationSet, as YAML: {app, storageValues} for
 each app with values to receive, sorted by app; empty when none. The core
 scope gives the controller its stores, vault-operator the path of each
-store's root keys, and each store's app its volume and region. With
+store's root keys, and each store's app its volume and region, and that it is
+wired. With
 wireConsumers, each claim gives its app global.ohmlab.storage.<claim> and its
 wiring. Called with (list . <scope>).
 */}}
@@ -401,7 +402,8 @@ wiring. Called with (list . <scope>).
 {{- $paths = append $paths (dict "name" $name "path" $st.rootPath) -}}
 {{- $class := dict "dataStorageSize" $st.size -}}
 {{- with $st.storageClass }}{{ $_ := set $class "name" . }}{{ end -}}
-{{- $_ := set $els $st.app (dict "rustfs" (dict "storageclass" $class "config" (dict "rustfs" (dict "region" $st.region)))) -}}
+{{- /* wired: the store's chart renders only with it (argo-cd/apps/rustfs, store). */ -}}
+{{- $_ := set $els $st.app (dict "rustfs" (dict "storageclass" $class "config" (dict "rustfs" (dict "region" $st.region))) "store" (dict "wired" true)) -}}
 {{- end -}}
 {{- $_ := set $els "ohmlab-controller" (dict "targets" (dict "storage" (dict "enabled" true "stores" $targetStores))) -}}
 {{- $_ := set $els "vault-operator" (dict "ohmlab" (dict "controller" (dict "storage" (dict "stores" $paths)))) -}}
