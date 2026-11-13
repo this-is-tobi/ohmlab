@@ -109,3 +109,65 @@ progressiveSync:
   - [20]
   - [30, 40]
   - [50, 55, 60]
+
+# Object storage (docs/10). Each role names the store its claims go to; while
+# no role names one, nothing of this renders. Every enabled app with an
+# enabled claim then gets a bucket of its own, a key in its record
+# (<mount>/platforms/<env>/<scope>/<app>/s3) and, with wireConsumers, the
+# values that point it at the bucket.
+storage:
+  # <name>: a store the controller runs claims in.
+  #   type: rustfs          the only type so far (default)
+  #   app: rustfs-backups   the core.yaml entry that runs it; its root keys are
+  #                         that app's record, <ohmlab mount>/platforms/<env>/core/<app>, key admin
+  #   namespace: rustfs-backups
+  #   endpoint: https://rustfs-svc.rustfs-backups.svc:9000
+  #   region: us-east-1     (default) set on the store as well, so both agree
+  #   size: 50Gi            its data volume, which the quotas are counted against
+  #   storageClass: ""      that volume's class (empty: the app's own)
+  stores: {}
+  # The store of each role; empty leaves that role's claims out.
+  backups: ""
+  data: ""
+  # false renders the claims, the store and the controller's target but wires
+  # no consumer: a first rollout writes every record before an app reads one.
+  wireConsumers: true
+  # What a claim takes unless the registry or instance.yaml sets it.
+  claimDefaults:
+    enabled: true
+    access: readWrite
+    versioning: true
+    lifecycle:
+      noncurrentDays: 7
+      expireDays: 0
+    replicate: true
+  # The catalog's registry, <app>: {<claim>: {...}}: the claim's role, its
+  # quota, how the app is pointed at its bucket (wiring: cnpg, backup-utils,
+  # or none for an app that reads global.ohmlab.storage.<claim> itself) and
+  # the labels of the pods that talk to the store (clients). instance.yaml
+  # overrides any field (storage.claims.gitea.pg.quota: 3Gi, enabled: false).
+  claims:
+    coder:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: coder-pg-cluster}}
+    crowdsec:
+      pg: {role: backups, quota: 5Gi, wiring: cnpg, clients: {cnpg.io/cluster: crowdsec-pg-cluster}}
+    gitea:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: gitea-pg-cluster}}
+    harbor:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: harbor-pg-cluster}}
+    keycloak:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: keycloak-pg-cluster}}
+    mattermost:
+      pg: {role: backups, quota: 4Gi, wiring: cnpg, clients: {cnpg.io/cluster: mattermost-pg-cluster}}
+    mlflow:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: mlflow-pg-cluster}}
+    outline:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: outline-pg-cluster}}
+    prometheus-stack:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: prometheus-stack-pg-cluster}}
+    sonarqube:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: sonarqube-pg-cluster}}
+    vault-operator:
+      vault: {role: backups, quota: 3Gi, wiring: backup-utils, clients: {ohmlab.fr/storage-client: vault}}
+    vaultwarden:
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: vaultwarden-pg-cluster}}
