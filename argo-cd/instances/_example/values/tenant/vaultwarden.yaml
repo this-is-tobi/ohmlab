@@ -11,7 +11,3 @@ cnpg:
     initdb:
       secret:
         name: vaultwarden-pg-cluster-app
-  backups:
-    enabled: true
-    endpointURL: "https://s3.example.com"
-    destinationPath: "s3://backups/cnpg"

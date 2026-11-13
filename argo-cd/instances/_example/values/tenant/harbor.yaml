@@ -16,15 +16,11 @@ harbor:
       username: harbor
       password: ""
 
-cnpg:
-  # Operator-generated credentials by default; to bootstrap from
-  # pre-existing (e.g. VSO-managed) secrets instead:
-  # cluster:
-  #   superuserSecret: harbor-pg-cluster-admin
-  #   initdb:
-  #     secret:
-  #       name: harbor-pg-cluster-app
-  backups:
-    enabled: false
-    endpointURL: "https://s3.example.com"
-    destinationPath: "s3://backups/cnpg"
+# Operator-generated credentials by default; to bootstrap from
+# pre-existing (e.g. VSO-managed) secrets instead:
+# cnpg:
+#   cluster:
+#     superuserSecret: harbor-pg-cluster-admin
+#     initdb:
+#       secret:
+#         name: harbor-pg-cluster-app

@@ -140,7 +140,7 @@ kubectl -n gitea patch certificate gitea-tls --subresource=status --type=json -p
 
 ## Object storage (S3Bucket)
 
-The `storage` target gives each app the bucket it claims. One `S3Bucket` is one claim: a bucket in a store, with its quota, versioning and lifecycle, an identity confined to it, and the app's key in the claim's Vault record. The app reads its key from the record through a VaultStaticSecret, like any other secret.
+The `storage` target gives each app the bucket it claims. One `S3Bucket` is one claim: a bucket in a store, with its quota, versioning and lifecycle, an identity confined to it, and the app's key in the claim's Vault record. The app reads its key from the record through a VaultStaticSecret, like any other secret. The instance-manager renders the objects from the catalog's claims and the instance's stores, and wires each app to its claim: see [10-object-storage.md](10-object-storage.md).
 
 ```yaml
 apiVersion: ohmlab.fr/v1alpha1

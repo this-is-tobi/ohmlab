@@ -25,6 +25,7 @@ __Table of Contents__ *- md sources*:
 - [Cheat sheet](./docs/07-cheat-sheet.md)
 - [Controller](./docs/08-controller.md)
 - [Topologies](./docs/09-topologies/README.md)
+- [Object storage](./docs/10-object-storage.md)
 
 ## Quickstart
 

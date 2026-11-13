@@ -118,6 +118,16 @@ apps:
   namespace: ohmlab-system
   syncWave: 11
 
+  # The backups store (docs/10-object-storage.md): a second RustFS of the
+  # catalog's rustfs chart, named in instance.yaml's storage.stores. After the
+  # controller, whose storage target fills it.
+- app: rustfs-backups
+  enabled: "false"
+  chart: rustfs
+  releaseName: rustfs
+  namespace: rustfs-backups
+  syncWave: 12
+
   # trust-manager — publishes the Vault CA as a ConfigMap (BackendTLSPolicy
   # only accepts ConfigMap CA references). Needs cert-manager.
 - app: trust-manager

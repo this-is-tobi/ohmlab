@@ -1,0 +1,49 @@
+# The backups store (docs/10-object-storage.md): the catalog's rustfs chart
+# again, as core.yaml's rustfs-backups entry. The instance-manager sets its
+# volume's size and class and its region from instance.yaml's storage.stores.
+# Admin only: no console, no route; the controller's storage target and the
+# claims' pods reach its S3 API inside the cluster.
+rustfs:
+  tls:
+    enabled: true
+  config:
+    rustfs:
+      console_enable: "false"
+      obs_endpoint:
+        enabled: true
+        metrics:
+          enabled: true
+          endpoint: http://prometheus-stack-alloy.prometheus-stack.svc.cluster.local:4318/v1/metrics
+  # Labels of its volumes alone (the chart's PVC template is the only one
+  # that takes them): Longhorn's trim group, out of the daily snapshots.
+  commonLabels:
+    recurring-job.longhorn.io/source: enabled
+    recurring-job-group.longhorn.io/trim: enabled
+
+# Its own Vault role and record, not the tenant store's; no SSO.
+vso:
+  vaultAuth:
+    default:
+      login:
+        role: rustfs-backups
+  vaultStaticSecretDefaults:
+    path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/rustfs-backups{{ end }}'
+  vaultStaticSecrets:
+    rustfsOidc:
+      enabled: false
+
+networkPolicy:
+  enabled: true
+  extraEgress:
+  - name: otlp-metrics
+    rules:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: prometheus-stack
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: alloy
+      ports:
+      - protocol: TCP
+        port: 4318
