@@ -85,13 +85,13 @@ To create admin access to the machines, provide admin user information in `group
 Applications are managed by a **two-level** ApplicationSet hierarchy:
 
 1. The root `manager` ApplicationSet (shipped by `ohmlab`) discovers every folder under [./argo-cd/instances/](../argo-cd/instances/) and emits one Application per instance pointing at the [./argo-cd/apps/instance-manager](../argo-cd/apps/instance-manager) chart.
-2. That chart in turn renders **two child ApplicationSets per instance** — `core-<instance>` and `tenant-<instance>` — that fan out into the actual leaf Applications.
+2. That chart in turn renders **two child ApplicationSets per instance** — `core-<instance>` and `tenant-<instance>` — that fan out into the actual leaf Applications. With object storage declared, a third per tier, `storage-<tier>-<instance>`, renders the apps' claims ([10-object-storage.md](10-object-storage.md)).
 
 Configuration is split per instance and per scope:
 
 | Path                                                                                                             | Purpose                                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [./argo-cd/instances/\<instance\>/instance.yaml](../argo-cd/instances/_example/instance.yaml)                     | Per-instance metadata: cluster destination, env, repos, AppProject bindings.                                  |
+| [./argo-cd/instances/\<instance\>/instance.yaml](../argo-cd/instances/_example/instance.yaml)                     | Per-instance metadata: cluster destination, env, repos, AppProject bindings, object storage.                                  |
 | [./argo-cd/instances/\<instance\>/core.yaml](../argo-cd/instances/_example/core.yaml)                             | Core tier app catalog (platform/infra/identity/observability/security).                                       |
 | [./argo-cd/instances/\<instance\>/tenant.yaml](../argo-cd/instances/_example/tenant.yaml)                         | Tenant tier app catalog (user-facing services).                                                               |
 | [./argo-cd/instances/\<instance\>/values/core/\<app\>.yaml](../argo-cd/instances/_example/values/core/)           | Per-instance Helm values for each core app.                                                                   |

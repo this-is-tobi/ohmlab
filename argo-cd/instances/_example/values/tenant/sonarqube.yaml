@@ -21,7 +21,3 @@ cnpg:
     initdb:
       secret:
         name: sonarqube-pg-cluster-app
-  backups:
-    enabled: true
-    endpointURL: "https://s3.example.com"
-    destinationPath: "s3://backups/cnpg"

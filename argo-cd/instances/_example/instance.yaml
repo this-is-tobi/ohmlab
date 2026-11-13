@@ -88,6 +88,25 @@ targetRevision: main
 # vault:
 #   hub: platform
 
+# Object storage for backups and app data (docs/10-object-storage.md): the
+# stores, the store of each role, and overrides of the catalog's claims. Nothing
+# of it renders until a role names a store. A first rollout sets wireConsumers
+# false, so every record exists before an app reads one.
+# storage:
+#   stores:
+#     rustfs-backups:
+#       app: rustfs-backups          # its entry in core.yaml
+#       namespace: rustfs-backups
+#       endpoint: https://rustfs-svc.rustfs-backups.svc:9000
+#       region: us-east-1
+#       size: 50Gi                   # the claims' quotas stay under 80 % of it
+#   backups: rustfs-backups
+#   wireConsumers: true
+#   networkPolicies: false           # true when the apps and the store deny by default
+#   claims:
+#     gitea:
+#       pg: {quota: 3Gi}
+
 # AppProject bindings for the two child AppSets. Both projects are created by
 # the `ohmlab` chart at bootstrap time.
 projects:

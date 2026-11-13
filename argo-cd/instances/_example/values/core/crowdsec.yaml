@@ -1,9 +1,2 @@
 # CrowdSec instance values — override defaults from argo-cd/apps/crowdsec/values.yaml
 # Secrets are managed by Vault via VSO (VaultStaticSecret).
-
-# CloudNativePG backups of the CrowdSec database (S3-compatible object store).
-# Set your own endpoint and bucket, or disable them with `backups.enabled: false`.
-cnpg:
-  backups:
-    endpointURL: "https://s3.example.com"
-    destinationPath: "s3://example-backups/cnpg"

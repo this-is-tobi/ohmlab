@@ -63,6 +63,13 @@ ohmlab:
     seeds:
       enabled: false
     secrets: []
+    # The backups store's root keys (docs/10-object-storage.md), which the
+    # store and the controller's storage target read:
+    # - path: ohmlab/platforms/production/core/rustfs-backups
+    #   data:
+    #     admin:
+    #       accessKey: "<random:20>"
+    #       secretKey: "<random:40>"
     # - path: example/platforms/production/tenant/actions-runner-controller
     #   data:
     #     githubApp:

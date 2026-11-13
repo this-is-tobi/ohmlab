@@ -2,3 +2,11 @@
 # cert-manager.yaml).
 internalCaBundle:
   enabled: true
+
+trust-manager:
+  app:
+    # The chart's own, and ohmlab-system: the controller's storage target
+    # verifies the stores with the internal CA (docs/10-object-storage.md).
+    targetNamespaces:
+    - vault-operator-system
+    - ohmlab-system
