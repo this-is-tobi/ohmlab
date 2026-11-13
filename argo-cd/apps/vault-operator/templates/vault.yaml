@@ -151,18 +151,36 @@ spec:
     {{- end }}
     {{- $auth := deepCopy (.Values.vault.externalConfig.auth | default list) }}
     {{- $spokes := include "vault-operator.spokes" (dict "Values" .Values "kv" $kv "auth" $auth) | fromYamlArray }}
+    {{- $roles := list }}
     {{- if .Values.ohmlab.controller.enabled }}
     {{- $policies = append $policies (dict "name" "ohmlab-controller-vault" "rules" (include "vault-operator.controllerPolicy" .)) }}
     {{- $role := dict "name" "ohmlab-controller-vault" "bound_service_account_names" (list .Values.ohmlab.controller.serviceAccount) "bound_service_account_namespaces" (list .Values.ohmlab.controller.namespace) "policies" (list "ohmlab-controller-vault") "ttl" "15m" }}
     {{- with .Values.ohmlab.controller.audience }}{{ $_ := set $role "audience" . }}{{ end }}
+    {{- $roles = append $roles $role }}
+    {{- end }}
+    {{- if .Values.ohmlab.controller.storage.stores }}
+    {{- $policies = append $policies (dict "name" "ohmlab-controller-storage" "rules" (include "vault-operator.storagePolicy" .)) }}
+    {{- $role := dict "name" "ohmlab-controller-storage" "bound_service_account_names" (list .Values.ohmlab.controller.storage.serviceAccount) "bound_service_account_namespaces" (list .Values.ohmlab.controller.namespace) "policies" (list "ohmlab-controller-storage") "ttl" "15m" }}
+    {{- with .Values.ohmlab.controller.audience }}{{ $_ := set $role "audience" . }}{{ end }}
+    {{- $roles = append $roles $role }}
+    {{- end }}
+    {{- /* The snapshot job reads the raft snapshot and nothing else. */}}
+    {{- if (index .Values "backup-utils").enabled }}
+    {{- $policies = append $policies (dict "name" "vault-backup" "rules" "path \"sys/storage/raft/snapshot\" { capabilities = [\"read\"] }\n") }}
+    {{- $roles = append $roles (dict "name" "vault-backup" "bound_service_account_names" (list "vault-backup") "bound_service_account_namespaces" (list .Release.Namespace) "policies" (list "vault-backup") "ttl" "15m" "audience" "vault") }}
+    {{- end }}
+    {{- if $roles }}
     {{- $placed := false }}
     {{- range $a := $auth }}
     {{- if eq $a.type "kubernetes" }}
-    {{- $_ := set $a "roles" (append ($a.roles | default list) $role) }}
+    {{- $_ := set $a "roles" (concat ($a.roles | default list) $roles) }}
     {{- $placed = true }}
     {{- end }}
     {{- end }}
-    {{- if not $placed }}{{ fail "ohmlab.controller.enabled needs a kubernetes entry in vault.externalConfig.auth to hold the controller's role" }}{{ end }}
+    {{- if not $placed }}
+    {{- $names := list }}{{ range $roles }}{{ $names = append $names .name }}{{ end }}
+    {{- fail (printf "the roles %s need a kubernetes entry in vault.externalConfig.auth" (join ", " $names)) }}
+    {{- end }}
     {{- end }}
     {{- if or $policies $spokes }}
     policies:

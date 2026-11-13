@@ -127,5 +127,65 @@ want="https://vault.core.\$(env:ROOT_DOMAIN)/ui/vault/auth/$mount/oidc/callback"
 got=$(yq '[.realms.system.clients[] | select(.clientId == "vault-core") | .redirectUris[]] | join(" ")' "$ROOT/argo-cd/apps/keycloak/values.yaml")
 [ "$got" = "$want" ] || fail "the Keycloak vault-core client must allow Vault's UI callback alone ($want), got '$got'"
 
-[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path; VSO alone for a remote Vault; routes admit gateway.sourceRange; Keycloak allows Vault's UI callback alone"
+# Object storage. The vault target leaves the claims' records alone; the
+# storage target gets a policy and a role once the instance-manager gives it
+# stores; the snapshot job logs in as a ServiceAccount of its own and writes
+# to the vault-operator claim.
+# policy <render> <name>: the policy's rules, without comments, indentation or repeated spaces.
+policy() {
+  yq -o=json -I=0 "select(.kind == \"Vault\") | .spec.externalConfig.policies[] | select(.name == \"$2\") | .rules" "$1" | jq -r . \
+    | sed -e 's/#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]][[:space:]]*/ /g' | sed '/^$/d'
+}
+role() { yq -o=json -I=0 "select(.kind == \"Vault\") | .spec.externalConfig.auth[] | select(.type == \"kubernetes\") | .roles[] | select(.name == \"$2\")" "$1" | jq -cS .; }
+
+render "$work/nostores.yaml" --set ohmlab.controller.enabled=true
+[ -z "$(policy "$work/nostores.yaml" ohmlab-controller-storage)$(role "$work/nostores.yaml" ohmlab-controller-storage)" ] \
+  || fail "the storage target's policy or role renders without stores"
+got=$(policy "$work/nostores.yaml" ohmlab-controller-vault | jq -Rsc 'split("\n") | map(select(test("deny")))')
+want='["capabilities = [\"deny\"]","capabilities = [\"deny\"]","capabilities = [\"deny\"]","capabilities = [\"deny\"]"]'
+[ "$got" = "$want" ] || fail "the vault target's policy must deny the claims' records, data and metadata, on both mounts, got $got"
+grep -q '^path "example/metadata/platforms/+/+/+/s3" {$' <(policy "$work/nostores.yaml" ohmlab-controller-vault) \
+  || fail "the vault target's policy must deny the instance mount's claim metadata"
+
+render "$work/stores.yaml" --set-json 'ohmlab.controller.storage.stores=[{"name":"rustfs-backups","path":"ohmlab/platforms/production/core/rustfs-backups"}]'
+want='path "ohmlab/data/platforms/+/+/+/s3" { capabilities = ["create", "update", "read"] }
+path "ohmlab/metadata/platforms/+/+/+/s3" { capabilities = ["read", "update"] }
+path "example/data/platforms/+/+/+/s3" { capabilities = ["create", "update", "read"] }
+path "example/metadata/platforms/+/+/+/s3" { capabilities = ["read", "update"] }
+path "ohmlab/data/platforms/production/core/rustfs-backups" { capabilities = ["read"] }'
+got=$(policy "$work/stores.yaml" ohmlab-controller-storage)
+[ "$got" = "$want" ] || fail "the storage target's policy must write the records on both mounts and read the store's root keys, got: $got"
+got=$(role "$work/stores.yaml" ohmlab-controller-storage)
+want='{"audience":"vault","bound_service_account_names":["ohmlab-controller-storage"],"bound_service_account_namespaces":["ohmlab-system"],"name":"ohmlab-controller-storage","policies":["ohmlab-controller-storage"],"ttl":"15m"}'
+[ "$got" = "$want" ] || fail "the storage target's role must be bound to ohmlab-controller-storage, got $got"
+
+render "$work/backup.yaml" --set backup-utils.enabled=true --set global.ohmlab.storage.vault.enabled=true
+got=$(yq -o=json -I=0 'select(.kind == "ServiceAccount" and .metadata.name == "vault-backup") | .automountServiceAccountToken' "$work/backup.yaml")
+[ "$got" = false ] || fail "the ServiceAccount vault-backup must not mount its token, got '$got'"
+got=$(policy "$work/backup.yaml" vault-backup)
+[ "$got" = 'path "sys/storage/raft/snapshot" { capabilities = ["read"] }' ] || fail "the vault-backup policy must read the raft snapshot alone, got: $got"
+got=$(role "$work/backup.yaml" vault-backup)
+want='{"audience":"vault","bound_service_account_names":["vault-backup"],"bound_service_account_namespaces":["vault-operator-system"],"name":"vault-backup","policies":["vault-backup"],"ttl":"15m"}'
+[ "$got" = "$want" ] || fail "the vault-backup role must be bound to vault-backup in the release's namespace, got $got"
+got=$(yq -o=json -I=0 'select(.kind == "VaultStaticSecret" and .metadata.name == "vault-backup") | .spec' "$work/backup.yaml" \
+  | jq -c '{path, secret: .destination.name, keys: (.destination.transformation.templates | keys | sort)}')
+want='{"path":"platforms/production/core/vault-operator/s3","secret":"vault-backup","keys":["S3_ACCESS_KEY","S3_BUCKET_NAME","S3_ENDPOINT","S3_PATH_STYLE","S3_SECRET_KEY","ca.crt"]}'
+[ "$(jq -cS . <<<"$got")" = "$(jq -cS . <<<"$want")" ] || fail "the VaultStaticSecret vault-backup must read the claim's record into Secret vault-backup's six keys, got $got"
+render "$work/backup-off.yaml" --set backup-utils.enabled=true
+[ -z "$(yq 'select(.kind == "VaultStaticSecret" and .metadata.name == "vault-backup") | .kind' "$work/backup-off.yaml")" ] \
+  || fail "the VaultStaticSecret vault-backup renders without the vault claim"
+cron=$(yq -o=json -I=0 'select(.kind == "CronJob" and .metadata.name == "backup-vault-snapshot") | .spec' "$work/backup.yaml")
+got=$(jq -c '{schedule, sa: .jobTemplate.spec.template.spec.serviceAccountName, token: .jobTemplate.spec.template.spec.automountServiceAccountToken,
+  client: .jobTemplate.spec.template.metadata.labels["ohmlab.fr/storage-client"], command: .jobTemplate.spec.template.spec.containers[0].command}' <<<"$cron")
+want='{"schedule":"0 22 * * *","sa":"vault-backup","token":false,"client":"vault","command":["/bin/bash","-c","export VAULT_TOKEN=\"$(vault write -field=token auth/kubernetes/login role=vault-backup jwt=@/var/run/secrets/ohmlab/vault/token)\" && exec ./scripts/vault-backup.sh"]}'
+[ "$got" = "$want" ] || fail "the snapshot CronJob must run at 22:00 as vault-backup, labelled a storage client, logging in first, got $got"
+got=$(jq -c '[.jobTemplate.spec.template.spec as $p | $p.containers[0].volumeMounts[] | .name as $n | {path: .mountPath, readOnly, from: ($p.volumes[] | select(.name == $n) | (.secret // .projected) | if .secretName then "\(.secretName)/\(.items | map(.key) | join(","))" else (.sources[0].serviceAccountToken | "token:\(.audience)/\(.path)") end)}] | sort_by(.path)' <<<"$cron")
+want='[{"path":"/etc/ohmlab/store-ca","readOnly":true,"from":"vault-backup/ca.crt"},{"path":"/etc/ohmlab/vault-ca","readOnly":true,"from":"vault-tls/ca.crt"},{"path":"/var/run/secrets/ohmlab/vault","readOnly":true,"from":"token:vault/token"}]'
+[ "$got" = "$want" ] || fail "the snapshot CronJob must mount Vault's CA, the store's CA and a vault-audience token, got $got"
+got=$(yq -o=json -I=0 'select(.kind == "ConfigMap" and .metadata.name == "backup-vault-snapshot") | .data | keys' "$work/backup.yaml")
+[ "$got" = '["RCLONE_CA_CERT","RETENTION","VAULT_ADDR","VAULT_CACERT"]' ] || fail "the snapshot job's settings must name both CAs and drop VAULT_SKIP_VERIFY, got $got"
+got=$(yq -o=json -I=0 'select(.kind == "ConfigMap" and .metadata.name == "backup-vault-snapshot") | .data' "$work/backup.yaml" | jq -c '[.VAULT_CACERT, .RCLONE_CA_CERT, .RETENTION]')
+[ "$got" = '["/etc/ohmlab/vault-ca/ca.crt","/etc/ohmlab/store-ca/ca.crt","30d"]' ] || fail "the snapshot job's CA paths and retention, got $got"
+
+[ "$failures" -eq 0 ] && echo "ok   vault-operator chart: monitors gated on the Prometheus Operator API, each selecting its Service and port; each Argo CD reads its own tier's path; VSO alone for a remote Vault; routes admit gateway.sourceRange; Keycloak allows Vault's UI callback alone; the storage target's policy and role, the vault target kept off the claims' records, the snapshot job's identity, record and CA mounts"
 exit "$failures"

@@ -101,8 +101,8 @@ for inst in dev preprod; do
       and .[0].bound_claims[\"/kubernetes.io/namespace\"] == \"$inst-gitea\"
       and .[0].bound_audiences == [\"vault\"] and .[0].token_policies == [\"$inst-gitea\"]
       and .[0].token_ttl == \"1h\" and .[0].token_max_ttl == \"4h\"" "$got"
-  check "$inst: policy $inst-gitea reads its own mount only, under platforms/+/" \
-    "[$(policy "$inst-gitea") | scan(\"path \\\"([^\\\"]*)\\\"\") | .[0]] as \$p | (\$p | length) == 2 and all(\$p[]; startswith(\"$inst/data/platforms/+/\"))" "$got"
+  check "$inst: policy $inst-gitea reads its own mount only: its paths and its claim's record, under platforms/+/" \
+    "[$(policy "$inst-gitea") | scan(\"path \\\"([^\\\"]*)\\\"\") | .[0]] | sort == ([\"core/gitea\", \"tenant/gitea\", \"core/gitea/s3\", \"tenant/gitea/s3\"] | map(\"$inst/data/platforms/+/\" + .) | sort)" "$got"
 done
 check "an entry's namespace and service account override the derived ones" \
   "[$(role dev keycloak)] | length == 1 and .[0].bound_subject == \"system:serviceaccount:dev-sso:vso\" and .[0].bound_claims[\"/kubernetes.io/namespace\"] == \"dev-sso\"" "$got"

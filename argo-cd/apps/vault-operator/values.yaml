@@ -207,6 +207,10 @@ vault:
         path "{{ .kvMount }}/data/platforms/+/tenant/keycloak" {
           capabilities = ["read", "list"]
         }
+        # The snapshot job's key: vault-operator's claim record.
+        path "{{ .systemMount }}/data/platforms/+/core/vault-operator/s3" {
+          capabilities = ["read"]
+        }
     - name: cert-manager
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/cert-manager" {
@@ -223,6 +227,12 @@ vault:
         path "{{ .kvMount }}/data/platforms/+/tenant/coder" {
           capabilities = ["read", "list"]
         }
+        path "{{ .systemMount }}/data/platforms/+/core/coder/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/coder/s3" {
+          capabilities = ["read"]
+        }
     - name: gitea
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/gitea" {
@@ -231,6 +241,12 @@ vault:
         path "{{ .kvMount }}/data/platforms/+/tenant/gitea" {
           capabilities = ["read", "list"]
         }
+        path "{{ .systemMount }}/data/platforms/+/core/gitea/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/gitea/s3" {
+          capabilities = ["read"]
+        }
     - name: harbor
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/harbor" {
@@ -238,6 +254,12 @@ vault:
         }
         path "{{ .kvMount }}/data/platforms/+/tenant/harbor" {
           capabilities = ["read", "list"]
+        }
+        path "{{ .systemMount }}/data/platforms/+/core/harbor/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/harbor/s3" {
+          capabilities = ["read"]
         }
     - name: keycloak
       rules: |
@@ -249,6 +271,12 @@ vault:
         path "{{ .kvMount }}/data/platforms/+/tenant/keycloak" {
           capabilities = ["read", "list"]
         }
+        path "{{ .systemMount }}/data/platforms/+/core/keycloak/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/keycloak/s3" {
+          capabilities = ["read"]
+        }
     - name: mattermost
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/mattermost" {
@@ -257,12 +285,25 @@ vault:
         path "{{ .kvMount }}/data/platforms/+/tenant/mattermost" {
           capabilities = ["read", "list"]
         }
+        path "{{ .systemMount }}/data/platforms/+/core/mattermost/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/mattermost/s3" {
+          capabilities = ["read"]
+        }
     - name: rustfs
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/rustfs" {
           capabilities = ["read", "list"]
         }
         path "{{ .kvMount }}/data/platforms/+/tenant/rustfs" {
+          capabilities = ["read", "list"]
+        }
+    # The backups store (docs/10): a core app of the rustfs chart, whose root
+    # keys the storage target reads too.
+    - name: rustfs-backups
+      rules: |
+        path "{{ .systemMount }}/data/platforms/+/core/rustfs-backups" {
           capabilities = ["read", "list"]
         }
     - name: outline
@@ -273,6 +314,12 @@ vault:
         path "{{ .kvMount }}/data/platforms/+/tenant/outline" {
           capabilities = ["read", "list"]
         }
+        path "{{ .systemMount }}/data/platforms/+/core/outline/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/outline/s3" {
+          capabilities = ["read"]
+        }
     - name: prometheus-stack
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/prometheus-stack" {
@@ -280,6 +327,12 @@ vault:
         }
         path "{{ .kvMount }}/data/platforms/+/tenant/prometheus-stack" {
           capabilities = ["read", "list"]
+        }
+        path "{{ .systemMount }}/data/platforms/+/core/prometheus-stack/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/prometheus-stack/s3" {
+          capabilities = ["read"]
         }
     - name: argo-workflows
       rules: |
@@ -297,6 +350,12 @@ vault:
         path "{{ .kvMount }}/data/platforms/+/tenant/mlflow" {
           capabilities = ["read", "list"]
         }
+        path "{{ .systemMount }}/data/platforms/+/core/mlflow/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/mlflow/s3" {
+          capabilities = ["read"]
+        }
     - name: vaultwarden
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/vaultwarden" {
@@ -305,6 +364,12 @@ vault:
         path "{{ .kvMount }}/data/platforms/+/tenant/vaultwarden" {
           capabilities = ["read", "list"]
         }
+        path "{{ .systemMount }}/data/platforms/+/core/vaultwarden/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/vaultwarden/s3" {
+          capabilities = ["read"]
+        }
     - name: sonarqube
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/sonarqube" {
@@ -312,6 +377,12 @@ vault:
         }
         path "{{ .kvMount }}/data/platforms/+/tenant/sonarqube" {
           capabilities = ["read", "list"]
+        }
+        path "{{ .systemMount }}/data/platforms/+/core/sonarqube/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/sonarqube/s3" {
+          capabilities = ["read"]
         }
     - name: actions-runner-controller
       rules: |
@@ -336,6 +407,12 @@ vault:
         }
         path "{{ .kvMount }}/data/platforms/+/tenant/crowdsec" {
           capabilities = ["read", "list"]
+        }
+        path "{{ .systemMount }}/data/platforms/+/core/crowdsec/s3" {
+          capabilities = ["read"]
+        }
+        path "{{ .kvMount }}/data/platforms/+/tenant/crowdsec/s3" {
+          capabilities = ["read"]
         }
     - name: longhorn
       rules: |
@@ -437,6 +514,12 @@ vault:
         bound_service_account_namespaces: [rustfs]
         audience: vault
         policies: [rustfs]
+        ttl: 1h
+      - name: rustfs-backups
+        bound_service_account_names: [vso]
+        bound_service_account_namespaces: [rustfs-backups]
+        audience: vault
+        policies: [rustfs-backups]
         ttl: 1h
       - name: outline
         bound_service_account_names: [vso]
@@ -713,6 +796,9 @@ vso:
         audiences: [vault]
       vaultConnectionRef: default
 
+# Vault's raft snapshot, daily, to vault-operator's claim (docs/10): the
+# instance-manager turns it on with the claim, whose record VaultStaticSecret
+# vault-backup copies into Secret vault-backup (key, bucket, endpoint, CA).
 backup-utils:
   fullnameOverride: backup
   enabled: false
@@ -721,31 +807,59 @@ backup-utils:
       enabled: true
       type: vault
       job:
-        schedule: "0 0 * * *"
+        schedule: "0 22 * * *"
         successfulJobsHistoryLimit: 3
+      # Logs in as ServiceAccount vault-backup (role and policy vault-backup:
+      # the raft snapshot alone) with a projected token of the vault audience,
+      # then runs the image's script, which reads VAULT_TOKEN.
+      serviceAccountName: vault-backup
+      automountServiceAccountToken: false
+      podLabels:
+        ohmlab.fr/storage-client: vault
       env:
         VAULT_ADDR: "https://vault.vault-operator-system.svc.cluster.local:8200"
-        # VAULT_EXTRA_ARGS: ""
-        # ⚠ Known gap: the backup-utils chart has no volume mounts, so the
-        # vault-tls secret (the CA copy bank-vaults writes into each
-        # namespace) cannot be mounted and VAULT_CACERT cannot point at it.
-        # Skip-verify is bounded here by in-cluster svc DNS + the namespace
-        # NetworkPolicy, but the right fix is extraVolumes support in
-        # backup-utils, then flip this to "false" +
-        # VAULT_CACERT=/vault/tls/ca.crt.
-        VAULT_SKIP_VERIFY: "true"
-        S3_PATH_STYLE: "true"
+        VAULT_CACERT: /etc/ohmlab/vault-ca/ca.crt
+        RCLONE_CA_CERT: /etc/ohmlab/store-ca/ca.crt
         RETENTION: 30d
       secrets: {}
-      # VAULT_TOKEN: ""
-      # S3_ENDPOINT: "https://s3.fr-par.scw.cloud"
-      # S3_BUCKET_NAME: "ohmlab-backups"
-      # S3_BUCKET_PREFIX: "vault"
-      # S3_ACCESS_KEY: ""
-      # S3_SECRET_KEY: ""
       envFrom:
       - secretRef:
           name: vault-backup
+      extraVolumes:
+      - name: vault-ca
+        secret:
+          secretName: vault-tls
+          items:
+          - key: ca.crt
+            path: ca.crt
+      - name: store-ca
+        secret:
+          secretName: vault-backup
+          items:
+          - key: ca.crt
+            path: ca.crt
+      - name: vault-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: vault
+              expirationSeconds: 600
+              path: token
+      extraVolumeMounts:
+      - name: vault-ca
+        mountPath: /etc/ohmlab/vault-ca
+        readOnly: true
+      - name: store-ca
+        mountPath: /etc/ohmlab/store-ca
+        readOnly: true
+      - name: vault-token
+        mountPath: /var/run/secrets/ohmlab/vault
+        readOnly: true
+      container:
+        command:
+        - /bin/bash
+        - -c
+        - export VAULT_TOKEN="$(vault write -field=token auth/kubernetes/login role=vault-backup jwt=@/var/run/secrets/ohmlab/vault/token)" && exec ./scripts/vault-backup.sh
 
 # Hierarchical configuration structure for ohmlab utilities
 # Used to configure Vault and other services declaratively in Git
@@ -799,6 +913,15 @@ ohmlab:
     # so the pod's API token, or any other token of the ServiceAccount, cannot
     # log in. Empty accepts a token of any audience.
     audience: vault
+    # The controller's storage target, in its own Deployment of the namespace
+    # above. With stores (the instance-manager gives them from instance.yaml's
+    # storage block, docs/10), it gets the policy ohmlab-controller-storage,
+    # the claims' records on the mounts above and each store's root keys, and
+    # a role of that name for its ServiceAccount, with the same audience.
+    storage:
+      serviceAccount: ohmlab-controller-storage
+      # [{name, path}]: each store and its root keys, <mount>/<path>.
+      stores: []
 
 # Grafana dashboards shipped with this app (templates/dashboards.yaml).
 monitoring:
