@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/this-is-tobi/ohmlab/compare/v0.9.0...v0.10.0) (2026-11-13)
+
+
+### Features
+
+* **vault-operator:** set up Vault for the storage target and the snapshot job ([63dbb20](https://github.com/this-is-tobi/ohmlab/commit/63dbb20dace69511d90a06340d341f409b0d0114))
+
 ## [0.9.0](https://github.com/this-is-tobi/ohmlab/compare/v0.8.0...v0.9.0) (2026-11-12)
 
 
