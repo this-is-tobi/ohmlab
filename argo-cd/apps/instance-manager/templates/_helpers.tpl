@@ -458,7 +458,7 @@ namespace, port and size, and the scope's claims. Called with (list . <scope>).
 {{- range $app, $cs := include "instance-manager.tierClaims" (list $root $scope) | fromYaml -}}
 {{- $appClaims := dict -}}
 {{- range $claim, $c := $cs -}}
-{{- $_ := set $appClaims $claim (pick $c "store" "bucket" "record" "key" "quota" "versioning" "lifecycle" "replicate" "access" "clients") -}}
+{{- $_ := set $appClaims $claim (pick $c "store" "bucket" "record" "key" "quota" "versioning" "lifecycle" "replicate" "access" "clients" "networkPolicy") -}}
 {{- end -}}
 {{- $_ := set $claims $app $appClaims -}}
 {{- end -}}

@@ -11,12 +11,13 @@ namespaceSuffix: ""
 controller:
   namespace: ohmlab-system
 # The egress NetworkPolicies from each claim's pods to its store
-# (instance-manager's storage.networkPolicies, which says when they are safe).
-# The store's own, admitting them, always renders.
+# (instance-manager's storage.networkPolicies, which says when they are safe),
+# except for a claim whose networkPolicy is false. The store's own, admitting
+# them, always renders.
 networkPolicies: false
 # <name>: {namespace, port, size}
 stores: {}
-# <app>: {<claim>: {store, bucket, record, key, quota, versioning, lifecycle, replicate, access, clients}}
+# <app>: {<claim>: {store, bucket, record, key, quota, versioning, lifecycle, replicate, access, clients, networkPolicy}}
 claims: {}
 # The tier file's entries: {app, enabled, namespace, ...}.
 apps: []

@@ -108,6 +108,15 @@ check "tenant renders nothing with no claim" "[]" "$(render tenant "$work/no-cla
 nonp=$(render core "$work/core-apps.yaml" --set networkPolicies=false)
 check "without networkPolicies, no client policy, and the store still admits the clients and the controller" \
   '["rustfs-backups/ohmlab-storage-core"] 4' "$(names "$nonp" NetworkPolicy) $(admitted "$nonp" ohmlab-storage-core | jq length)"
+noclient=$(render core "$work/core-apps.yaml" --set claims.crowdsec.pg.networkPolicy=false)
+check "a claim with networkPolicy false gets no client policy, and the store still admits its pods" \
+  '["keycloak/ohmlab-storage-pg","rustfs-backups/ohmlab-storage-core","vault-operator-system/ohmlab-storage-vault"] true' \
+  "$(names "$noclient" NetworkPolicy) $(admitted "$noclient" ohmlab-storage-core | jq 'any(startswith("crowdsec "))')"
+printf 'apps:\n- {app: prometheus-stack, enabled: "true"}\n' >"$work/prometheus.yaml"
+prom=$(render core "$work/prometheus.yaml")
+check "prometheus-stack, whose namespace keeps its egress open, gets no client policy" \
+  '["rustfs-backups/ohmlab-storage-core"] true' \
+  "$(names "$prom" NetworkPolicy) $(admitted "$prom" ohmlab-storage-core | jq 'any(startswith("prometheus-stack "))')"
 check "the chart's defaults render nothing" "" "$(helm template s "$CHART" | yq ea 'select(.kind != null) | .kind' -)"
 
 exit "$fail"

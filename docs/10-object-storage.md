@@ -62,7 +62,7 @@ The example instance carries every piece, commented or disabled ([argo-cd/instan
 
 ## Claims
 
-The catalog's registry is `storage.claims` in the [instance-manager's values](../argo-cd/apps/instance-manager/values.yaml): per app, each claim's role, quota, wiring and client pods. Today:
+The catalog's registry is `storage.claims` in the [instance-manager's values](../argo-cd/apps/instance-manager/values.yaml): per app, each claim's role, quota, wiring and client pods, and whether those pods get an egress policy to the store (`networkPolicy`, below). Today:
 
 | App | Claim | Quota | Wiring |
 | --- | --- | --- | --- |
@@ -93,7 +93,7 @@ An enabled claim gives its app, in the Application's inline values:
 
 The app's key is in its record, `<mount>/platforms/<env>/<scope>/<app>/s3`, one key per claim holding `accessKey`, `secretKey`, `endpoint`, `region`, `pathStyle`, `bucket` and `ca`. The storage target writes it, and the app's VaultStaticSecret reads it.
 
-The claims chart also renders the store's NetworkPolicy, `ohmlab-storage-<tier>` in the store's namespace. It admits each claim's pods and, from the core tier, the storage target, on the S3 port: a store with no policy of its own admits no one else. With `storage.networkPolicies: true`, it renders as well the egress policies from each claim's pods to the store, for an instance whose apps deny egress by default (`networkPolicy.enabled`). On a pod that no other egress policy selects, the claim's would deny the rest of its egress, DNS and the API server included: it is off by default, and CI fails a render where a claim's egress policy would be the only one of its pods (`scripts/ci/check-storage-egress.sh`).
+The claims chart also renders the store's NetworkPolicy, `ohmlab-storage-<tier>` in the store's namespace. It admits each claim's pods and, from the core tier, the storage target, on the S3 port: a store with no policy of its own admits no one else. With `storage.networkPolicies: true`, it renders as well the egress policies from each claim's pods to the store, for an instance whose apps deny egress by default (`networkPolicy.enabled`). On a pod that no other egress policy selects, the claim's would deny the rest of its egress, DNS and the API server included: it is off by default, and CI fails a render where a claim's egress policy would be the only one of its pods (`scripts/ci/check-storage-egress.sh`). A claim whose app keeps its namespace's egress open needs no such policy, its pods reach the store anyway: `networkPolicy: false` on the claim leaves it out. The registry sets it for prometheus-stack, whose chart never denies egress.
 
 ## Rolling out
 

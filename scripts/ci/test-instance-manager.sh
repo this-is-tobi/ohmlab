@@ -443,7 +443,7 @@ check "wireConsumers false: the claims still render" "homelab-gitea-pg" "$(claim
 # Overrides in instance.yaml, per field.
 base=$(claims_values tenant)
 check "the claims values carry the tier, the store and each claim" \
-  "{\"access\":\"readWrite\",\"bucket\":\"homelab-gitea-pg\",\"clients\":{\"cnpg.io/cluster\":\"gitea-pg-cluster\"},\"key\":\"pg\",\"lifecycle\":{\"expireDays\":0,\"noncurrentDays\":7},\"quota\":\"2Gi\",\"record\":\"homelab/platforms/production/tenant/gitea/s3\",\"replicate\":true,\"store\":\"rustfs-backups\",\"versioning\":true}" \
+  "{\"access\":\"readWrite\",\"bucket\":\"homelab-gitea-pg\",\"clients\":{\"cnpg.io/cluster\":\"gitea-pg-cluster\"},\"key\":\"pg\",\"lifecycle\":{\"expireDays\":0,\"noncurrentDays\":7},\"networkPolicy\":true,\"quota\":\"2Gi\",\"record\":\"homelab/platforms/production/tenant/gitea/s3\",\"replicate\":true,\"store\":\"rustfs-backups\",\"versioning\":true}" \
   "$(jq -cS '.claims.gitea.pg' <<<"$base")"
 check "the claims values name the scope, the controller's namespace and the store" \
   '{"controller":{"namespace":"ohmlab-system"},"namespacePrefix":"","namespaceSuffix":"","networkPolicies":false,"scope":"tenant","stores":{"rustfs-backups":{"namespace":"rustfs-backups","port":9000,"size":"50Gi"}}}' \
@@ -454,6 +454,10 @@ check "an override of one claim's quota changes only that claim" '[["claims","gi
 check "an override of a nested field keeps its siblings" '[["claims","gitea","pg","lifecycle","noncurrentDays"]]' \
   "$(changed "$base" "$(claims_values tenant --set storage.claims.gitea.pg.lifecycle.noncurrentDays=14)")"
 check "a claim turned off leaves the claims values" "null" "$(claims_values tenant --set storage.claims.gitea.pg.enabled=false | jq -c '.claims.gitea')"
+check "a claim's pods get an egress policy unless the registry (prometheus-stack) or instance.yaml turns it off" \
+  '{"gitea":true,"gitea-off":false,"prometheus-stack":false}' \
+  "$(jq -cn --argjson t "$base" --argjson off "$(claims_values tenant --set storage.claims.gitea.pg.networkPolicy=false)" --argjson c "$(claims_values core)" \
+    '{gitea: $t.claims.gitea.pg.networkPolicy, "gitea-off": $off.claims.gitea.pg.networkPolicy, "prometheus-stack": $c.claims["prometheus-stack"].pg.networkPolicy}')"
 im tenant-homelab -f "$work/storage.yaml" --set storage.claims.gitea.pg.enabled=false
 check "a claim turned off leaves its app unwired" "" "$(app_values "$work/tenant-homelab.yaml" '{"app":"gitea"}')"
 check "a claim's false and 0 override the defaults, which its siblings keep" '{"gitea":30,"keycloak":{"expireDays":0,"versioning":false}}' \

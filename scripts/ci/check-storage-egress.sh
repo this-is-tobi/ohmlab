@@ -51,7 +51,7 @@ for inst in "$dir"/*/; do
     | .[] | select(claim and .egress) | . as $c
     | if any($all[]; (claim | not) and .egress and .ns == $c.ns and (.selector | covers($c.selector)))
       then "ok\tok   \($instance): \($c.ns)/\($c.name) adds to its pods'"'"' egress policies"
-      else "fail\tFAIL \($instance): \($c.ns)/\($c.name) would be the only egress policy of its pods, which would reach the store and nothing else (not the API server or DNS): deny egress by default in \($c.ns), or turn storage.networkPolicies off" end' <<<"$policies")
+      else "fail\tFAIL \($instance): \($c.ns)/\($c.name) would be the only egress policy of its pods, which would reach the store and nothing else (not the API server or DNS): deny egress by default in \($c.ns), or set networkPolicy: false on its claim (instance.yaml'"'"'s storage.claims) where that namespace keeps its egress open" end' <<<"$policies")
   while IFS=$'\t' read -r verdict line; do
     [ -n "$line" ] || continue
     echo "$line"
