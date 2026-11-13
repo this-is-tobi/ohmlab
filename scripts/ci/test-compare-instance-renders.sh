@@ -44,6 +44,16 @@ render base app 'Deployment/a/x aaaa'
 render head app 'Deployment/a/x aaaa' 'Service/a/y bbbb'
 expect "an added object passes and is listed" 0 "Added (1)"
 
+render base app 'Deployment/a/x aaaa'
+render head app 'Deployment/a/x aaaa'
+render head store 'Deployment/s/rustfs bbbb' 'Service/s/rustfs-svc cccc'
+expect "a new app's objects are listed as added" 0 "lab/core/store: Service/s/rustfs-svc"
+
+render base app 'Deployment/a/x aaaa'
+render head app 'Deployment/a/x aaaa'
+render head store 'Deployment/s/rustfs bbbb' 'Service/s/rustfs-svc cccc'
+expect "a new app's objects are counted" 0 "(0 changed, 2 added)"
+
 render base app 'Role/a/x aaaa' 'Deployment/a/y bbbb'
 render head app 'Deployment/a/y bbbb'
 ALLOWED='lab/core/app: Role/a/x' expect "a removal the change acknowledges passes and is listed" 0 "acknowledged by the change (1)"
