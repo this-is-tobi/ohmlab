@@ -75,11 +75,11 @@ keep() {
 
 # record_cluster <manifest> <server> <namespace> <app path> <CRD scopes file>:
 # what check-shared-clusters.sh reads: the app's destination in
-# <app path>.destination, the objects it renders without a namespace in
-# <app path>.unnamespaced, and the scopes of its CRDs added to the instance's
-# file.
+# <app path>.destination (an empty namespace is left out), the objects it
+# renders without a namespace in <app path>.unnamespaced, and the scopes of its
+# CRDs added to the instance's file.
 record_cluster() {
-  printf '%s %s\n' "$2" "$3" >"$4.destination"
+  printf '%s\n' "$2${3:+ $3}" >"$4.destination"
   yq -r 'select(. != null and .kind != null and (.metadata.namespace // "") == "") | .kind + "/" + .metadata.name' "$1" \
     | grep -v '^---$' | sort -u >"$4.unnamespaced"
   yq -r 'select(.kind == "CustomResourceDefinition") | .spec.names.kind + " " + .spec.scope' "$1" | grep -v '^---$' >>"$5"
@@ -123,7 +123,9 @@ storage_values() {
 
 # render_claims <instance folder> <tier> <server>: the tier's storage-claims
 # Application, from its claims and the tier file's apps as Argo CD merges
-# them, reported and recorded as <instance>/<tier>/storage-claims.
+# them, reported and recorded as <instance>/<tier>/storage-claims. Recorded
+# without a namespace: it deploys to the controller's, and each of its objects
+# names its own.
 render_claims() {
   local dir="$1" tier="$2" server="$3" instance id out
   [ -s "$work/storage/$tier.claims.json" ] || return 0
@@ -137,7 +139,7 @@ render_claims() {
     if [ -n "${RENDER_OUT:-}" ]; then
       record "$work/manifest" ohmlab-system "$RENDER_OUT/$id.objects"
       keep "$work/manifest" "$RENDER_OUT/$id.yaml"
-      record_cluster "$work/manifest" "$server" ohmlab-system "$RENDER_OUT/$id" "$RENDER_OUT/$instance/crd-scopes"
+      record_cluster "$work/manifest" "$server" "" "$RENDER_OUT/$id" "$RENDER_OUT/$instance/crd-scopes"
     fi
   else
     fail "$id: $(grep -m1 -i 'error' <<<"$out" | cut -c1-240)"

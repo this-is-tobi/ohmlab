@@ -6,7 +6,9 @@
 # projects allow each instance its own namespaces only.
 #
 # Reads a render directory of render-instance.sh (RENDER_OUT): per app
-# <instance>/<tier>/<app>.destination ("<server> <namespace>") and
+# <instance>/<tier>/<app>.destination ("<server> <namespace>"; an app recorded
+# without a namespace, as the storage-claims Applications whose objects each
+# name theirs, takes none) and
 # .unnamespaced ("<Kind>/<name>" of the objects without a namespace), per
 # instance crd-scopes ("<Kind> Cluster|Namespaced" of the CRDs its apps
 # render). A kind is cluster-scoped when it is one of the API's own below or a
@@ -63,6 +65,7 @@ out=$(
     }
     $1 == "D" {
       apps[$2]++
+      if ($4 == "") next
       k = $2 SUBSEP $4
       if (!((k, $3) in seen_ns)) { seen_ns[k, $3] = 1; ns[k] = ns[k] (ns[k] == "" ? "" : " ") $3; nns[k]++ }
     }

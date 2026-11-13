@@ -32,6 +32,9 @@ vso:
     rustfsOidc:
       enabled: false
 
+# Zero-trust: egress to Alloy for its metrics, plus DNS (added by the chart).
+# Who reaches its S3 API is the claims' policy (ohmlab-storage-core and
+# ohmlab-storage-tenant).
 networkPolicy:
   enabled: true
   extraEgress:

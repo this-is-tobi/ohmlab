@@ -102,7 +102,7 @@ targetRevision: main
 #       size: 50Gi                   # the claims' quotas stay under 80 % of it
 #   backups: rustfs-backups
 #   wireConsumers: true
-#   networkPolicies: false           # true when the apps and the store deny by default
+#   networkPolicies: false           # true when the apps deny egress by default
 #   claims:
 #     gitea:
 #       pg: {quota: 3Gi}

@@ -323,4 +323,25 @@ tests:
     - exp_labels: {severity: warning, namespace: vault-operator-system, cronjob: backup-vault-snapshot}
       exp_annotations:
         summary: Vault has no snapshot of the last day
-        description: "vault-operator-system/backup-vault-snapshot last succeeded more than 26 hours ago. Look at the logs of its last Job."
+        description: "vault-operator-system/backup-vault-snapshot has not succeeded in more than 26 hours, counted from its creation if it never did. Look at the logs of its last Job."
+# A Vault snapshot CronJob that never succeeded has no last success: it warns
+# 26 hours after its creation; one that succeeded since is quiet.
+- interval: 1m
+  input_series:
+  - series: 'kube_cronjob_created{namespace="vault-operator-system", cronjob="backup-vault-snapshot"}'
+    values: '0+0x1700'
+  - series: 'kube_cronjob_created{namespace="other-vault", cronjob="backup-vault-snapshot"}'
+    values: '0+0x1700'
+  - series: 'kube_cronjob_status_last_successful_time{namespace="other-vault", cronjob="backup-vault-snapshot"}'
+    values: '90000+0x1700'
+  alert_rule_test:
+  - eval_time: 26h20m
+    alertname: OhmlabVaultSnapshotStale
+    exp_alerts: []
+  - eval_time: 26h40m
+    alertname: OhmlabVaultSnapshotStale
+    exp_alerts:
+    - exp_labels: {severity: warning, namespace: vault-operator-system, cronjob: backup-vault-snapshot}
+      exp_annotations:
+        summary: Vault has no snapshot of the last day
+        description: "vault-operator-system/backup-vault-snapshot has not succeeded in more than 26 hours, counted from its creation if it never did. Look at the logs of its last Job."

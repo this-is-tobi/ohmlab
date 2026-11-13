@@ -169,8 +169,11 @@ want='{"audience":"vault","bound_service_account_names":["vault-backup"],"bound_
 [ "$got" = "$want" ] || fail "the vault-backup role must be bound to vault-backup in the release's namespace, got $got"
 got=$(yq -o=json -I=0 'select(.kind == "VaultStaticSecret" and .metadata.name == "vault-backup") | .spec' "$work/backup.yaml" \
   | jq -c '{path, secret: .destination.name, keys: (.destination.transformation.templates | keys | sort)}')
-want='{"path":"platforms/production/core/vault-operator/s3","secret":"vault-backup","keys":["S3_ACCESS_KEY","S3_BUCKET_NAME","S3_ENDPOINT","S3_PATH_STYLE","S3_SECRET_KEY","ca.crt"]}'
-[ "$(jq -cS . <<<"$got")" = "$(jq -cS . <<<"$want")" ] || fail "the VaultStaticSecret vault-backup must read the claim's record into Secret vault-backup's six keys, got $got"
+want='{"path":"platforms/production/core/vault-operator/s3","secret":"vault-backup","keys":["RCLONE_S3_REGION","S3_ACCESS_KEY","S3_BUCKET_NAME","S3_ENDPOINT","S3_PATH_STYLE","S3_SECRET_KEY","ca.crt"]}'
+[ "$(jq -cS . <<<"$got")" = "$(jq -cS . <<<"$want")" ] || fail "the VaultStaticSecret vault-backup must read the claim's record into Secret vault-backup's seven keys, got $got"
+# The image configures rclone without a region; its environment overrides that.
+got=$(yq -o=json -I=0 'select(.kind == "VaultStaticSecret" and .metadata.name == "vault-backup") | .spec.destination.transformation.templates.RCLONE_S3_REGION.text' "$work/backup.yaml")
+[ "$got" = '"{{ get .Secrets \"vault\" | dig \"region\" \"\" }}"' ] || fail "rclone must sign with the record's region, got $got"
 render "$work/backup-off.yaml" --set backup-utils.enabled=true
 [ -z "$(yq 'select(.kind == "VaultStaticSecret" and .metadata.name == "vault-backup") | .kind' "$work/backup-off.yaml")" ] \
   || fail "the VaultStaticSecret vault-backup renders without the vault claim"
@@ -182,6 +185,11 @@ want='{"schedule":"0 22 * * *","sa":"vault-backup","token":false,"client":"vault
 got=$(jq -c '[.jobTemplate.spec.template.spec as $p | $p.containers[0].volumeMounts[] | .name as $n | {path: .mountPath, readOnly, from: ($p.volumes[] | select(.name == $n) | (.secret // .projected) | if .secretName then "\(.secretName)/\(.items | map(.key) | join(","))" else (.sources[0].serviceAccountToken | "token:\(.audience)/\(.path)") end)}] | sort_by(.path)' <<<"$cron")
 want='[{"path":"/etc/ohmlab/store-ca","readOnly":true,"from":"vault-backup/ca.crt"},{"path":"/etc/ohmlab/vault-ca","readOnly":true,"from":"vault-tls/ca.crt"},{"path":"/var/run/secrets/ohmlab/vault","readOnly":true,"from":"token:vault/token"}]'
 [ "$got" = "$want" ] || fail "the snapshot CronJob must mount Vault's CA, the store's CA and a vault-audience token, got $got"
+# The kyverno chart's require-non-root (Enforce) admits a pod with a non-zero
+# user, and the image's user is a name the kubelet cannot check.
+got=$(jq -cS '.jobTemplate.spec.template.spec | {pod: .securityContext, container: .containers[0].securityContext}' <<<"$cron")
+want='{"container":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"pod":{"fsGroup":1000,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}}'
+[ "$got" = "$want" ] || fail "the snapshot pod must run as the image's user 1000, without privilege escalation, got $got"
 got=$(yq -o=json -I=0 'select(.kind == "ConfigMap" and .metadata.name == "backup-vault-snapshot") | .data | keys' "$work/backup.yaml")
 [ "$got" = '["RCLONE_CA_CERT","RETENTION","VAULT_ADDR","VAULT_CACERT"]' ] || fail "the snapshot job's settings must name both CAs and drop VAULT_SKIP_VERIFY, got $got"
 got=$(yq -o=json -I=0 'select(.kind == "ConfigMap" and .metadata.name == "backup-vault-snapshot") | .data' "$work/backup.yaml" | jq -c '[.VAULT_CACERT, .RCLONE_CA_CERT, .RETENTION]')

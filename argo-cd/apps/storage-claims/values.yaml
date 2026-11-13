@@ -10,8 +10,9 @@ namespaceSuffix: ""
 # The namespace the storage target watches, where the S3Buckets go.
 controller:
   namespace: ohmlab-system
-# NetworkPolicies between each claim's pods and its store (instance-manager's
-# storage.networkPolicies, which says when they are safe).
+# The egress NetworkPolicies from each claim's pods to its store
+# (instance-manager's storage.networkPolicies, which says when they are safe).
+# The store's own, admitting them, always renders.
 networkPolicies: false
 # <name>: {namespace, port, size}
 stores: {}

@@ -1,8 +1,10 @@
-{{- if .Values.networkPolicies }}
 {{- /* Per store: the namespaces and pods of this tier's claims on it. */}}
 {{- $admit := dict }}
 {{- range $app := include "storage-claims.apps" . | fromYamlArray }}
 {{- range $claim, $c := $app.claims }}
+{{- $_ := set $admit $c.store (append (get $admit $c.store | default list) (dict "namespace" $app.namespace "clients" $c.clients)) }}
+{{- /* Only with networkPolicies: on pods no other egress policy selects, it would deny the rest of their egress. */}}
+{{- if $.Values.networkPolicies }}
 {{- $store := get $.Values.stores $c.store }}
 ---
 # The claim's pods reach the store, on top of the app's own policies.
@@ -31,7 +33,7 @@ spec:
     ports:
     - protocol: TCP
       port: {{ $store.port }}
-{{- $_ := set $admit $c.store (append (get $admit $c.store | default list) (dict "namespace" $app.namespace "clients" $c.clients)) }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- /* The core tier admits the controller into every store, claims or not. */}}
@@ -78,5 +80,4 @@ spec:
     ports:
     - protocol: TCP
       port: {{ $store.port }}
-{{- end }}
 {{- end }}

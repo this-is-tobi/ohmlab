@@ -67,6 +67,37 @@ for entry in crowdsec:0 gitea:5 keycloak:10 mattermost:15 prometheus-stack:20 ou
   check "$app: a daily ScheduledBackup at 20:$(printf '%02d' "$minute") UTC" "0 $minute 20 * * *" \
     "$(yq 'select(.kind == "ScheduledBackup") | .spec.schedule' "$work/wired.yaml")"
   check "$app: the backup Secret reads the claim's record" "true" "$(secret "$work/wired.yaml" | jq --arg a "/$app/s3" '.path | endswith($a)')"
+  # The backup alerts read the series of the cluster's PodMonitor.
+  mon=$(yq ea -o=json -I=0 'select(.kind == "PodMonitor" or .kind == "PrometheusRule")' "$work/wired.yaml" \
+    | jq -sc --arg p "$app-pg-cluster-" '[.[] | select(.metadata.name | startswith($p))]')
+  check "$app: with its claim, the cluster's PodMonitor and alerts, without the HA and zone-spread warnings" \
+    "[\"PodMonitor/$app-pg-cluster-cluster-podmonitor\",\"PrometheusRule/$app-pg-cluster-alert-rules\"] 0" \
+    "$(jq -c '[.[] | .kind + "/" + .metadata.name] | sort' <<<"$mon") $(jq '[.[] | select(.kind == "PrometheusRule") | .spec.groups[].rules[] | select(.alert == "CNPGClusterHAWarning" or .alert == "CNPGClusterZoneSpreadWarning")] | length' <<<"$mon")"
 done
+
+# The Postgres restore runbook of docs/10, as written, on gitea with its claim:
+# the new cluster recovers from the claim's ObjectStore, with no credentials of
+# its own, and archives there under a server name of its own.
+awk '/^\*\*Postgres\.\*\* A cluster restores/ {on = 1} on && /^```yaml$/ {y = 1; next} y && /^```$/ {exit} y' \
+  "$ROOT/docs/10-object-storage.md" | sed 's/<app>/gitea/g' >"$work/runbook.yaml"
+vf=$(values_file gitea)
+args=()
+app_args "$vf"
+yq 'del(.cnpg.backups)' "$vf" >"$work/values.yaml"
+args[1]="$work/values.yaml"
+jq -c 'select(.app == "gitea") | .storageValues' "$work/elements.jsonl" >"$work/wiring.json"
+if [ -s "$work/runbook.yaml" ] && helm template gitea "$ROOT/argo-cd/apps/gitea" "${args[@]}" -f "$work/wiring.json" -f "$work/runbook.yaml" >"$work/restore.yaml" 2>"$work/err"; then
+  cluster=$(yq -o=json -I=0 'select(.kind == "Cluster")' "$work/restore.yaml")
+  check "the restore runbook: the cluster recovers from the claim's ObjectStore, under the server name of the backups" \
+    '{"barmanObjectName":"gitea-pg-cluster-backups","serverName":"gitea-pg-cluster","source":"pluginRecoveryCluster"}' \
+    "$(jq -cS '{source: .spec.bootstrap.recovery.source, barmanObjectName: .spec.externalClusters[0].plugin.parameters.barmanObjectName, serverName: .spec.externalClusters[0].plugin.parameters.serverName}' <<<"$cluster")"
+  check "the restore runbook: the restored cluster archives to the claim's ObjectStore under a new server name" \
+    '{"barmanObjectName":"gitea-pg-cluster-backups","isWALArchiver":true,"serverName":"gitea-pg-cluster-2"}' \
+    "$(jq -cS '.spec.plugins[] | select(.name == "barman-cloud.cloudnative-pg.io") | {isWALArchiver, barmanObjectName: .parameters.barmanObjectName, serverName: .parameters.serverName}' <<<"$cluster")"
+  check "the restore runbook: no ObjectStore or recovery Secret beyond the claim's" '["ObjectStore/gitea-pg-cluster-backups"]' \
+    "$(yq ea -o=json -I=0 'select(.kind == "ObjectStore" or (.kind == "Secret" and (.metadata.name | test("recovery"))))' "$work/restore.yaml" | jq -sc '[.[] | .kind + "/" + .metadata.name]')"
+else
+  echo "FAIL the restore runbook renders for gitea: $(grep -m1 -i error "$work/err" | cut -c1-200)"; fail=1
+fi
 
 exit "$fail"

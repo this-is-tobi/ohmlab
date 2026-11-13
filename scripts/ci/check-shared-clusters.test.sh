@@ -70,6 +70,14 @@ app "$r" hub/core/a https://kubernetes.default.svc a
 app "$r" hub/tenant/b https://10.0.0.1:6443 a
 check "two server strings are two clusters" 0 "ok   https://10.0.0.1:6443: 1 app(s)" "$r"
 
+# The storage-claims Applications deploy to the controller's namespace, and
+# each of their objects names its own: they are recorded without one.
+r="$work/claims"
+app "$r" hub/core/ohmlab-controller "$S" ohmlab-system
+app "$r" hub/core/storage-claims "$S" ""
+app "$r" hub/tenant/storage-claims "$S" ""
+check "an app recorded without a namespace takes none" 0 "ok   $S: 3 app(s)" "$r"
+
 check "a directory without renders has nothing to check" 0 "no rendered app, nothing to check" "$work/empty"
 
 # An exit status is taken modulo 256: 256 failures must not read as success.
