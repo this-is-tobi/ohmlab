@@ -62,15 +62,15 @@ oidc='select(.kind == "VaultStaticSecret" and .metadata.name == "vault-oidc-cred
 vault=(--set vault.enabled=true --set ohmlab.controller.enabled=true)
 render vault-operator "${vault[@]}"
 check "the Vault KV mount falls back to ohmlab" ohmlab "$(field "$kv")"
-check "an app's policy reads both tiers in ohmlab" "ohmlab/data/platforms/+/core/gitea,ohmlab/data/platforms/+/tenant/gitea" "$(policy_paths gitea)"
-check "the controller's policy covers the ohmlab mount once" "ohmlab/data/platforms/+/+/*,ohmlab/metadata/platforms/+/+/*" "$(policy_paths ohmlab-controller-vault)"
+check "an app's policy reads both tiers in ohmlab, its claims' records too" "ohmlab/data/platforms/+/core/gitea,ohmlab/data/platforms/+/tenant/gitea,ohmlab/data/platforms/+/core/gitea/s3,ohmlab/data/platforms/+/tenant/gitea/s3" "$(policy_paths gitea)"
+check "the controller's policy covers the ohmlab mount once, and its claims' records" "ohmlab/data/platforms/+/+/*,ohmlab/metadata/platforms/+/+/*,ohmlab/data/platforms/+/+/+/s3,ohmlab/metadata/platforms/+/+/+/s3" "$(policy_paths ohmlab-controller-vault)"
 render vault-operator "${vault[@]}" --set-string global.ohmlab.names.vaultMount=lab
 check "the Vault KV mounts are the system's, then the instance's" "ohmlab,lab" "$(field "$kv")"
-check "an app's policy reads the core tier in ohmlab and the tenant tier in the instance's mount" "ohmlab/data/platforms/+/core/gitea,lab/data/platforms/+/tenant/gitea" "$(policy_paths gitea)"
+check "an app's policy reads the core tier in ohmlab and the tenant tier in the instance's mount, their claims' records too" "ohmlab/data/platforms/+/core/gitea,lab/data/platforms/+/tenant/gitea,ohmlab/data/platforms/+/core/gitea/s3,lab/data/platforms/+/tenant/gitea/s3" "$(policy_paths gitea)"
 check "Vault's OIDC credentials are read from the system mount" ohmlab "$(field "$oidc")"
 render vault-operator "${vault[@]}" --set-string global.ohmlab.names.vaultMount=lab --set-string systemMount=lab
 check "a system mount equal to the instance's is one KV mount" lab "$(field "$kv")"
-check "the controller's policy covers that mount once" "lab/data/platforms/+/+/*,lab/metadata/platforms/+/+/*" "$(policy_paths ohmlab-controller-vault)"
+check "the controller's policy covers that mount once, and its claims' records" "lab/data/platforms/+/+/*,lab/metadata/platforms/+/+/*,lab/data/platforms/+/+/+/s3,lab/metadata/platforms/+/+/+/s3" "$(policy_paths ohmlab-controller-vault)"
 
 # A chart's VaultStaticSecrets read the mount the manager gives its tier
 # (global.ohmlab.vault.mount), under the manager's path prefix and the app's own

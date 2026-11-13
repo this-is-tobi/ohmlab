@@ -56,6 +56,7 @@ The example instance carries every piece, commented or disabled ([argo-cd/instan
 
    From it, the instance-manager sizes the store's volume and sets its region, gives the controller's storage target the store, and gives `vault-operator` the policy and role of that target.
 5. The internal CA in `ohmlab-system`: trust-manager's `targetNamespaces` lists it, since the storage target verifies the store with that CA.
+6. The store's namespace in Kyverno's `exceptionNamespaces`, under `rustfs-init-step-limits`, as for any RustFS outside its default namespace ([security policies](05-services.md#security-policies)).
 
 ## Claims
 
@@ -86,11 +87,11 @@ For each tier, the instance-manager renders an Application `<instance>-storage-<
 An enabled claim gives its app, in the Application's inline values:
 
 - `global.ohmlab.storage.<claim>`: `enabled`, `bucket`, `endpoint`, `region` and `pathStyle`;
-- its wiring: `cnpg` turns the CNPG cluster's backups on with the store's endpoint, the bucket and the store's CA; `backup-utils` turns the Vault snapshot job on.
+- its wiring: `cnpg` turns the CNPG cluster's backups on with the store's endpoint, the bucket and the store's CA, and its monitoring, whose PodMonitor the backup alerts read (the Prometheus Operator's CRDs must exist); `backup-utils` turns the Vault snapshot job on.
 
 The app's key is in its record, `<mount>/platforms/<env>/<scope>/<app>/s3`, one key per claim holding `accessKey`, `secretKey`, `endpoint`, `region`, `pathStyle`, `bucket` and `ca`. The storage target writes it, and the app's VaultStaticSecret reads it.
 
-With `storage.networkPolicies: true`, the claims chart also renders the NetworkPolicies from each claim's pods to the store, and into the store from them and from the storage target. They widen the apps' own, so they are for an instance whose apps and store deny by default (`networkPolicy.enabled`). On a pod that no other egress policy selects, the claim's would deny the rest of its egress, DNS and the API server included: it is off by default.
+The claims chart also renders the store's NetworkPolicy, `ohmlab-storage-<tier>` in the store's namespace. It admits each claim's pods and, from the core tier, the storage target, on the S3 port: a store with no policy of its own admits no one else. With `storage.networkPolicies: true`, it renders as well the egress policies from each claim's pods to the store, for an instance whose apps deny egress by default (`networkPolicy.enabled`). On a pod that no other egress policy selects, the claim's would deny the rest of its egress, DNS and the API server included: it is off by default.
 
 ## Rolling out
 
@@ -115,33 +116,40 @@ With the storage target on:
 | --- | --- | --- |
 | `OhmlabPostgresBackupStale` | a cluster's newest base backup is more than 26 hours old, for 1h | its ObjectStore's status, the `plugin-barman-cloud` sidecar of its pods |
 | `OhmlabWALArchivingFailing` | a cluster's last WAL archive attempt failed after its last success, for 15m | the same |
-| `OhmlabVaultSnapshotStale` | the snapshot job has not succeeded in 26 hours, for 30m | the logs of its last Job |
+| `OhmlabVaultSnapshotStale` | the snapshot job has not succeeded in 26 hours (counted from its creation if it never did), for 30m | the logs of its last Job |
 
 The store's own alerts (`OhmlabStoreFilling`, `OhmlabStoreFull`, `OhmlabBucketNearQuota`, `OhmlabStorageOvercommitted`) are in [08-controller.md](08-controller.md#metrics-and-alerts).
 
 ## Restoring
 
-Neither runbook has been drilled on a cluster yet.
+Neither runbook has been drilled on a cluster yet; CI renders the Postgres one (`scripts/ci/test-cnpg-backups.sh`).
 
-**Postgres.** A cluster restores into a new cluster, from its claim's ObjectStore. In the app's values, point the cluster at the backups and sync:
+**Postgres.** A cluster restores into a new cluster of the same name, from its claim's ObjectStore: keep the claim on. The old cluster must be gone first, lost with its volumes or deleted by hand for a point-in-time restore (deleting a CNPG Cluster deletes its volumes). Then, in the app's values, point the cluster at the backups and sync:
 
 ```yaml
 cnpg:
   mode: recovery
   recovery:
     method: plugin
-    clusterName: <app>-pg-cluster                # the cluster that took the backups
+    clusterName: <app>-pg-cluster                # the server name of the backups
     pluginConfiguration:
       name: barman-cloud.cloudnative-pg.io
       parameters:
         barmanObjectName: <app>-pg-cluster-backups   # the claim's ObjectStore
     objectStore:
       create: false                              # use that ObjectStore as it is
+    secret:
+      create: false                              # and its credentials
     pitrTarget:
-      time: ""                                   # empty: replay every WAL
+      time: ""                                   # RFC 3339; empty: replay every WAL
+  cluster:
+    plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      parameters:
+        serverName: <app>-pg-cluster-2           # no archive in the bucket under it yet
 ```
 
-The new cluster starts from the newest base backup before the target and replays the WAL after it. Keep its own backups off until the restore is checked (`storage.claims.<app>.pg.enabled: false`): a second cluster archiving under the same server name would write over the history it came from.
+The new cluster starts from the newest base backup before the target and replays the WAL after it. It archives under a server name of its own, so its WAL never mixes with the history it came from. Keep both in the values: the bootstrap runs only when the cluster is created, and a later restore takes the last server name as `clusterName`.
 
 **Vault.** A snapshot opens only with the unseal keys of the Vault that took it: keep them outside the cluster, never in the store. Take the newest snapshot from the `vault` claim's bucket with its record's key, then, on that Vault with a root token, `vault operator raft snapshot restore -force <snapshot>`, and unseal with those keys.
 

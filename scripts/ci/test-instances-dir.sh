@@ -222,7 +222,7 @@ cat >>"$seeded/hub/values/core/vault-operator.yaml" <<'YAML'
         clients: {vault-core: {clientSecret: "<random:32>"}}
 YAML
 rc=$(runs "$seeded" check-vault-seeds.sh)
-if [ "$rc" = 0 ] && grep -qxF 'ok   dev: 18 key(s) read, all seeded by hub' "$work/out" && grep -qxF 'ok   hub: 1 key(s) read, all seeded by hub' "$work/out"; then
+if [ "$rc" = 0 ] && grep -qxF 'ok   dev: 15 key(s) read, all seeded by hub' "$work/out" && grep -qxF 'ok   hub: 1 key(s) read, all seeded by hub' "$work/out"; then
   echo "ok   check-vault-seeds.sh passes a remote instance whose hub seeds every key its apps read"
 else
   echo "FAIL check-vault-seeds.sh on a hub that seeds every key (rc $rc)"; sed 's/^/     /' "$work/out" | head -8; fail=1

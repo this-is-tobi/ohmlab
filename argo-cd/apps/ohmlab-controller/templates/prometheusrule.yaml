@@ -166,8 +166,8 @@ spec:
           before their quotas stop them. Expand the store's volume and its
           capacity, or lower a quota.
     # The backups the claims carry (docs/10). The barman-cloud plugin exports
-    # each cluster's newest base backup; a cluster that never backed up has no
-    # series yet.
+    # each cluster's newest base backup, 0 while it has none: a cluster whose
+    # first backup never completes alerts too.
     - alert: OhmlabPostgresBackupStale
       expr: time() - max by (namespace) (barman_cloud_cloudnative_pg_io_last_available_backup_timestamp) > 26 * 3600
       for: 1h
@@ -193,8 +193,11 @@ spec:
           archive a WAL segment after its last success, so a recovery cannot
           reach past that point. Look at its ObjectStore's status and at the
           plugin-barman-cloud sidecar of its instance pods.
+    # A CronJob that never succeeded has no last success: its creation counts.
     - alert: OhmlabVaultSnapshotStale
-      expr: time() - max by (namespace, cronjob) (kube_cronjob_status_last_successful_time{cronjob=~".+-vault-snapshot"}) > 26 * 3600
+      expr: >-
+        time() - max by (namespace, cronjob) (kube_cronjob_status_last_successful_time{cronjob=~".+-vault-snapshot"}
+        or kube_cronjob_created{cronjob=~".+-vault-snapshot"}) > 26 * 3600
       for: 30m
       labels:
         severity: warning
@@ -202,7 +205,7 @@ spec:
         summary: Vault has no snapshot of the last day
         description: >-
           {{ "{{" }} $labels.namespace {{ "}}" }}/{{ "{{" }} $labels.cronjob {{ "}}" }}
-          last succeeded more than 26 hours ago. Look at the logs of its last
-          Job.
+          has not succeeded in more than 26 hours, counted from its creation if
+          it never did. Look at the logs of its last Job.
   {{- end }}
 {{- end }}

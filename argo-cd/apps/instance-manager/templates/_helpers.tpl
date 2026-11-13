@@ -421,6 +421,8 @@ wiring. Called with (list . <scope>).
 {{- if eq (toString $c.wiring) "cnpg" -}}
 {{- $cnpg := get $v "cnpg" | default dict -}}
 {{- $_ := set $cnpg "backups" (dict "enabled" true "endpointURL" $st.endpoint "destinationPath" (printf "s3://%s/" $c.bucket) "endpointCA" (dict "name" (printf "%s-pg-cluster-backup" $app) "key" "ca.crt")) -}}
+{{- /* The backup alerts read the series of the cluster's PodMonitor. */ -}}
+{{- $_ := set $cnpg "cluster" (dict "monitoring" (dict "enabled" true)) -}}
 {{- $_ := set $v "cnpg" $cnpg -}}
 {{- else if eq (toString $c.wiring) "backup-utils" -}}
 {{- $_ := set $v "backup-utils" (dict "enabled" true) -}}

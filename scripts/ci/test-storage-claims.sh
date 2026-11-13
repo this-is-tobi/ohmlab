@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The storage-claims chart: from the claims the instance-manager gives a tier
-# and the tier file's apps, the S3Buckets of the enabled apps and, with
-# networkPolicies, the NetworkPolicies between their clients and the store.
+# and the tier file's apps, the S3Buckets of the enabled apps, the store's
+# NetworkPolicy admitting their clients and, with networkPolicies, their
+# clients' egress to it.
 # The claims come from the instance-manager itself, in the homelab's shape.
 # Needs helm, yq and jq.
 set -uo pipefail
@@ -104,7 +105,9 @@ check "core admits the controller into the store with no claim to render" \
   '["ohmlab-system app.kubernetes.io/component=storage,app.kubernetes.io/name=ohmlab-controller"]' \
   "$(admitted "$(render core "$work/no-claims.yaml")" ohmlab-storage-core)"
 check "tenant renders nothing with no claim" "[]" "$(render tenant "$work/no-claims.yaml" | jq -sc 'map(.kind)')"
-check "without networkPolicies, no NetworkPolicy" "[]" "$(names "$(render core "$work/core-apps.yaml" --set networkPolicies=false)" NetworkPolicy)"
+nonp=$(render core "$work/core-apps.yaml" --set networkPolicies=false)
+check "without networkPolicies, no client policy, and the store still admits the clients and the controller" \
+  '["rustfs-backups/ohmlab-storage-core"] 4' "$(names "$nonp" NetworkPolicy) $(admitted "$nonp" ohmlab-storage-core | jq length)"
 check "the chart's defaults render nothing" "" "$(helm template s "$CHART" | yq ea 'select(.kind != null) | .kind' -)"
 
 exit "$fail"

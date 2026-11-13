@@ -267,7 +267,12 @@ mkdir -p "$work/apps/keycloak/templates"
 printf 'apiVersion: v2\nname: keycloak\nversion: 0.1.0\n' >"$work/apps/keycloak/Chart.yaml"
 printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: probe}\ndata: {bucket: {{ .Values.global.ohmlab.storage.pg.bucket | quote }}, own: {{ .Values.own | quote }}}\n' \
   >"$work/apps/keycloak/templates/cm.yaml"
-d=$(instance s "" '- {app: keycloak, enabled: "true"}')
+mkdir -p "$work/apps/ctl/templates"
+printf 'apiVersion: v2\nname: ctl\nversion: 0.1.0\n' >"$work/apps/ctl/Chart.yaml"
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: ctl}\n' >"$work/apps/ctl/templates/cm.yaml"
+d=$(instance s "" '- {app: keycloak, enabled: "true"}
+- {app: ctl, enabled: "true", namespace: ohmlab-system}')
+printf '{}\n' >"$d/values/core/ctl.yaml"
 cat >"$d/instance.yaml" <<'YAML'
 instance: {name: s, env: production}
 repoURL: https://git.example/x.git
@@ -277,9 +282,11 @@ storage:
   backups: backups
 YAML
 printf 'own: kept\nglobal: {ohmlab: {storage: {pg: {bucket: from-the-values-file}}}}\n' >"$d/values/core/keycloak.yaml"
-out=$(APPS_DIR="$work/apps" INSTANCES_DIR="$(dirname "$d")" RENDER_OUT="$work/out-s" "$SCRIPT" 2>&1)
+out=$(APPS_DIR="$work/apps" INSTANCES_DIR="$(dirname "$d")" RENDER_OUT="$work/out-st" "$SCRIPT" 2>&1)
 expect "each tier's claims render as <instance>/<tier>/storage-claims" 0 "ok   s/core/storage-claims" "$out" $?
-o="$work/out-s/s"
+out=$("$ROOT/scripts/ci/check-shared-clusters.sh" "$work/out-st" 2>&1)
+expect "the claims share the controller's namespace without a collision" 0 "ok   https://kubernetes.default.svc:" "$out" $?
+o="$work/out-st/s"
 if [ "$(yq -r 'select(.kind == "ConfigMap") | .data.bucket + " " + .data.own' "$o/core/keycloak.yaml" 2>/dev/null)" = "ohmlab-keycloak-pg kept" ]; then
   echo "ok   an app's storage values come after its values file"
 else

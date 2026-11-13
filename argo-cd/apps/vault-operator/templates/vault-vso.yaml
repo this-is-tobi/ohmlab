@@ -69,7 +69,8 @@ spec:
 ---
 # The snapshot job's key to its bucket: vault-operator's claim record, which
 # the controller's storage target writes, into Secret vault-backup. The job
-# reads its S3_* keys and mounts its ca.crt as the store's CA.
+# reads its S3_* keys and rclone's region (the image configures none), and
+# mounts its ca.crt as the store's CA.
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret
 metadata:
@@ -108,6 +109,9 @@ spec:
         S3_PATH_STYLE:
           text: >-
             {{`{{ get .Secrets "vault" | dig "pathStyle" "" }}`}}
+        RCLONE_S3_REGION:
+          text: >-
+            {{`{{ get .Secrets "vault" | dig "region" "" }}`}}
         ca.crt:
           text: >-
             {{`{{ get .Secrets "vault" | dig "ca" "" }}`}}

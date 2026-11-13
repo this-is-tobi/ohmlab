@@ -798,7 +798,8 @@ vso:
 
 # Vault's raft snapshot, daily, to vault-operator's claim (docs/10): the
 # instance-manager turns it on with the claim, whose record VaultStaticSecret
-# vault-backup copies into Secret vault-backup (key, bucket, endpoint, CA).
+# vault-backup copies into Secret vault-backup (key, bucket, endpoint, region,
+# CA).
 backup-utils:
   fullnameOverride: backup
   enabled: false
@@ -816,6 +817,16 @@ backup-utils:
       automountServiceAccountToken: false
       podLabels:
         ohmlab.fr/storage-client: vault
+      # The image's user alpine by number, which the kubelet can check as
+      # non-root (kyverno's require-non-root). Its root stays writable: the
+      # script writes the snapshot and rclone's config in its home.
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       env:
         VAULT_ADDR: "https://vault.vault-operator-system.svc.cluster.local:8200"
         VAULT_CACERT: /etc/ohmlab/vault-ca/ca.crt
@@ -856,6 +867,11 @@ backup-utils:
         mountPath: /var/run/secrets/ohmlab/vault
         readOnly: true
       container:
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         command:
         - /bin/bash
         - -c

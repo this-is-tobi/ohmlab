@@ -65,6 +65,16 @@ instance other '{"backups": {"size": "1Gi"}}'
 buckets other core backups=1Gi
 check "the exit code is the number of failing stores" 2 "FAIL lab/data: the claims' quotas add up to 11Gi, above 80 % of 10Gi" "FAIL other/backups: the claims' quotas add up to 1Gi, above 80 % of 1Gi"
 
+# A quantity the check cannot read fails its store, rather than leaving it
+# unchecked (the S3Bucket CRD takes any Kubernetes quantity).
+rm -rf "$work/instances" "$work/render"
+instance lab '{"backups": {"size": "50Gi"}}'
+buckets lab core backups=45Gi backups=3GB
+check "a quota the check cannot read fails its store" 1 "FAIL lab/backups: the quota 3GB is not a quantity this check reads: write it as a number and a unit, such as 2Gi"
+instance lab '{"backups": {"size": "5e10"}}'
+buckets lab core backups=2Gi
+check "a size the check cannot read fails its store" 1 "FAIL lab/backups: the size 5e10 is not a quantity this check reads: write it as a number and a unit, such as 2Gi"
+
 rm -rf "$work/instances" "$work/render"
 instance plain '{}'
 check "an instance without stores passes, silently" 0

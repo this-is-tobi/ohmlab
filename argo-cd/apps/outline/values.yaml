@@ -165,7 +165,15 @@ cnpg:
         memory: 1Gi
     affinity:
       topologyKey: kubernetes.io/hostname
+    # Off until the instance-manager turns it on with the app's pg claim
+    # (docs/10): the backup alerts read its PodMonitor.
     monitoring:
+      prometheusRule:
+        # HAWarning fires permanently below 3 instances, and ZoneSpread
+        # needs topology.kubernetes.io/zone labels the nodes don't carry.
+        excludeRules:
+        - CNPGClusterHAWarning
+        - CNPGClusterZoneSpreadWarning
       instrumentation:
         # The chart renders this queries ConfigMap but never wires it into
         # the Cluster, so it would only sit there unused.

@@ -23,19 +23,29 @@ while IFS= read -r dir; do
   [ "$(jq length <<<"$stores")" -gt 0 ] || continue
   buckets=$(cat "$out/$instance"/*/storage-claims.yaml 2>/dev/null \
     | yq ea -o=json -I=0 'select(.kind == "S3Bucket") | {"store": .spec.store, "quota": .spec.quota}' - | jq -sc .)
-  while IFS=$'\t' read -r verdict line; do
-    echo "$line"
-    [ "$verdict" = ok ] || failures=$((failures + 1))
-  done < <(jq -rn --argjson stores "$stores" --argjson buckets "${buckets:-[]}" --arg instance "$instance" '
-    def bytes: (capture("^(?<n>[0-9]+(\\.[0-9]+)?)(?<u>[KMGTPE]i|[kMGTPE])?$") // error("not a quantity: \(.)"))
+  # A quantity it cannot read fails its store; any other jq error fails the
+  # instance: a store is never left unchecked.
+  if ! lines=$(jq -rn --argjson stores "$stores" --argjson buckets "${buckets:-[]}" --arg instance "$instance" '
+    def bytes($what): (capture("^(?<n>[0-9]+(\\.[0-9]+)?)(?<u>[KMGTPE]i|[kMGTPE])?$")
+        // error("the \($what) \(.) is not a quantity this check reads: write it as a number and a unit, such as 2Gi"))
       | (.n | tonumber) * {"": 1, "k": 1e3, "M": 1e6, "G": 1e9, "T": 1e12, "P": 1e15, "E": 1e18,
           "Ki": 1024, "Mi": 1048576, "Gi": 1073741824, "Ti": 1099511627776, "Pi": 1125899906842624, "Ei": 1152921504606846976}[.u // ""];
     def human: if . % 1073741824 == 0 then "\(. / 1073741824)Gi" elif . % 1048576 == 0 then "\(. / 1048576)Mi" else "\(.)" end;
     $stores | to_entries[] | .key as $store | (.value.size | tostring) as $size
-    | ([$buckets[] | select(.store == $store) | .quota | tostring | bytes] | add // 0) as $sum
-    | if $sum * 100 <= ($size | bytes) * 80
-      then "ok\tok   \($instance)/\($store): \($sum | human) of \($size)"
-      else "fail\tFAIL \($instance)/\($store): the claims'"'"' quotas add up to \($sum | human), above 80 % of \($size)" end')
+    | try (
+        ([$buckets[] | select(.store == $store) | .quota | tostring | bytes("quota")] | add // 0) as $sum
+        | if $sum * 100 <= ($size | bytes("size")) * 80
+          then "ok\tok   \($instance)/\($store): \($sum | human) of \($size)"
+          else "fail\tFAIL \($instance)/\($store): the claims'"'"' quotas add up to \($sum | human), above 80 % of \($size)" end
+      ) catch "fail\tFAIL \($instance)/\($store): \(.)"' 2>&1); then
+    echo "FAIL $instance: cannot check the quotas: $lines"
+    failures=$((failures + 1))
+    continue
+  fi
+  while IFS=$'\t' read -r verdict line; do
+    echo "$line"
+    [ "$verdict" = ok ] || failures=$((failures + 1))
+  done <<<"$lines"
 done < <(instance_dirs)
 
 exit "$failures"

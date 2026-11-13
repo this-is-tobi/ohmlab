@@ -1,1 +1,7 @@
 kyverno: {}
+
+# The backups store (core.yaml's rustfs-backups) runs the rustfs chart outside
+# its default namespace.
+exceptionNamespaces:
+  rustfs-init-step-limits:
+  - rustfs-backups
