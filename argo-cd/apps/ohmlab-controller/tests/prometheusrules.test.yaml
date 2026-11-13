@@ -245,3 +245,82 @@ tests:
       exp_annotations:
         summary: A store's quotas exceed 80% of its capacity
         description: "Store backups: the sum of its bucket quotas is above 80% of its volume, so the buckets could fill it before their quotas stop them. Expand the store's volume and its capacity, or lower a quota."
+# The store's logs volume holds no store data: no store alert, full or not.
+- interval: 1m
+  input_series:
+  - series: 'kubelet_volume_stats_used_bytes{namespace="rustfs-backups", persistentvolumeclaim="rustfs-logs", node="pi1"}'
+    values: '95+0x30'
+  - series: 'kubelet_volume_stats_capacity_bytes{namespace="rustfs-backups", persistentvolumeclaim="rustfs-logs", node="pi1"}'
+    values: '100+0x30'
+  - series: 'kubelet_volume_stats_used_bytes{namespace="rustfs-backups", persistentvolumeclaim="logs-rustfs-0", node="pi1"}'
+    values: '95+0x30'
+  - series: 'kubelet_volume_stats_capacity_bytes{namespace="rustfs-backups", persistentvolumeclaim="logs-rustfs-0", node="pi1"}'
+    values: '100+0x30'
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: OhmlabStoreFull
+    exp_alerts: []
+  - eval_time: 25m
+    alertname: OhmlabStoreFilling
+    exp_alerts: []
+# A Postgres cluster without a base backup in the last 26 hours warns after an
+# hour; one backed up within them is quiet.
+- interval: 1m
+  input_series:
+  - series: 'barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="gitea", pod="gitea-pg-cluster-1"}'
+    values: '0+0x1700'
+  - series: 'barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="keycloak", pod="keycloak-pg-cluster-1"}'
+    values: '86400+0x1700'
+  alert_rule_test:
+  - eval_time: 26h30m
+    alertname: OhmlabPostgresBackupStale
+    exp_alerts: []
+  - eval_time: 27h30m
+    alertname: OhmlabPostgresBackupStale
+    exp_alerts:
+    - exp_labels: {severity: warning, namespace: gitea}
+      exp_annotations:
+        summary: A Postgres cluster has no base backup of the last day
+        description: "The newest base backup of the cluster in gitea is more than 26 hours old. Look at its ObjectStore's status and at the plugin-barman-cloud sidecar of its instance pods."
+# WAL archiving whose last failure is newer than its last archive warns after
+# 15m; a failure older than the last archive is quiet.
+- interval: 1m
+  input_series:
+  - series: 'cnpg_pg_stat_archiver_last_failed_time{namespace="gitea", pod="gitea-pg-cluster-1"}'
+    values: '600+0x30'
+  - series: 'cnpg_pg_stat_archiver_last_archived_time{namespace="gitea", pod="gitea-pg-cluster-1"}'
+    values: '300+0x30'
+  - series: 'cnpg_pg_stat_archiver_last_failed_time{namespace="keycloak", pod="keycloak-pg-cluster-1"}'
+    values: '300+0x30'
+  - series: 'cnpg_pg_stat_archiver_last_archived_time{namespace="keycloak", pod="keycloak-pg-cluster-1"}'
+    values: '600+0x30'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: OhmlabWALArchivingFailing
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: OhmlabWALArchivingFailing
+    exp_alerts:
+    - exp_labels: {severity: warning, namespace: gitea}
+      exp_annotations:
+        summary: A Postgres cluster fails to archive its WAL
+        description: "The cluster in gitea failed to archive a WAL segment after its last success, so a recovery cannot reach past that point. Look at its ObjectStore's status and at the plugin-barman-cloud sidecar of its instance pods."
+# A Vault snapshot CronJob that last succeeded more than 26 hours ago warns
+# after 30m; another CronJob never alerts here.
+- interval: 1m
+  input_series:
+  - series: 'kube_cronjob_status_last_successful_time{namespace="vault-operator-system", cronjob="backup-vault-snapshot"}'
+    values: '0+0x1700'
+  - series: 'kube_cronjob_status_last_successful_time{namespace="x", cronjob="other"}'
+    values: '0+0x1700'
+  alert_rule_test:
+  - eval_time: 26h20m
+    alertname: OhmlabVaultSnapshotStale
+    exp_alerts: []
+  - eval_time: 26h40m
+    alertname: OhmlabVaultSnapshotStale
+    exp_alerts:
+    - exp_labels: {severity: warning, namespace: vault-operator-system, cronjob: backup-vault-snapshot}
+      exp_annotations:
+        summary: Vault has no snapshot of the last day
+        description: "vault-operator-system/backup-vault-snapshot last succeeded more than 26 hours ago. Look at the logs of its last Job."
