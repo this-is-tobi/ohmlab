@@ -147,6 +147,10 @@ storage:
       noncurrentDays: 7
       expireDays: 0
     replicate: true
+    # With networkPolicies, the claim's pods get their egress policy to the
+    # store. false for an app whose namespace keeps its egress open: its pods
+    # reach the store without one, and it would be their only egress policy.
+    networkPolicy: true
   # The catalog's registry, <app>: {<claim>: {...}}: the claim's role, its
   # quota, how the app is pointed at its bucket (wiring: cnpg, backup-utils,
   # or none for an app that reads global.ohmlab.storage.<claim> itself) and
@@ -169,8 +173,10 @@ storage:
       pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: mlflow-pg-cluster}}
     outline:
       pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: outline-pg-cluster}}
+    # Its chart never denies egress (Prometheus scrapes every namespace): no
+    # egress policy for its claim.
     prometheus-stack:
-      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: prometheus-stack-pg-cluster}}
+      pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: prometheus-stack-pg-cluster}, networkPolicy: false}
     sonarqube:
       pg: {role: backups, quota: 2Gi, wiring: cnpg, clients: {cnpg.io/cluster: sonarqube-pg-cluster}}
     vault-operator:

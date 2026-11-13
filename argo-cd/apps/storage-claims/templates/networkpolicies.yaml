@@ -3,8 +3,8 @@
 {{- range $app := include "storage-claims.apps" . | fromYamlArray }}
 {{- range $claim, $c := $app.claims }}
 {{- $_ := set $admit $c.store (append (get $admit $c.store | default list) (dict "namespace" $app.namespace "clients" $c.clients)) }}
-{{- /* Only with networkPolicies: on pods no other egress policy selects, it would deny the rest of their egress. */}}
-{{- if $.Values.networkPolicies }}
+{{- /* Only with networkPolicies, and not for a claim whose namespace keeps its egress open (networkPolicy false): on pods no other egress policy selects, it would deny the rest of their egress. */}}
+{{- if and $.Values.networkPolicies (ne (toString $c.networkPolicy) "false") }}
 {{- $store := get $.Values.stores $c.store }}
 ---
 # The claim's pods reach the store, on top of the app's own policies.
