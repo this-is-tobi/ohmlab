@@ -191,7 +191,11 @@ got=$(jq -cS '.jobTemplate.spec.template.spec | {pod: .securityContext, containe
 want='{"container":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"pod":{"fsGroup":1000,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}}'
 [ "$got" = "$want" ] || fail "the snapshot pod must run as the image's user 1000, without privilege escalation, got $got"
 got=$(yq -o=json -I=0 'select(.kind == "ConfigMap" and .metadata.name == "backup-vault-snapshot") | .data | keys' "$work/backup.yaml")
-[ "$got" = '["RCLONE_CA_CERT","RETENTION","VAULT_ADDR","VAULT_CACERT"]' ] || fail "the snapshot job's settings must name both CAs and drop VAULT_SKIP_VERIFY, got $got"
+[ "$got" = '["RCLONE_CA_CERT","RCLONE_S3_PROVIDER","RETENTION","VAULT_ADDR","VAULT_CACERT"]' ] || fail "the snapshot job's settings must name both CAs and rclone's provider, and drop VAULT_SKIP_VERIFY, got $got"
+# The image's remote says provider AWS, with which rclone puts the bucket in the
+# host name (bucket.endpoint) whatever force_path_style says.
+got=$(yq -I=0 'select(.kind == "ConfigMap" and .metadata.name == "backup-vault-snapshot") | .data.RCLONE_S3_PROVIDER' "$work/backup.yaml")
+[ "$got" = Other ] || fail "rclone must address the store's buckets by path (provider Other), got '$got'"
 got=$(yq -o=json -I=0 'select(.kind == "ConfigMap" and .metadata.name == "backup-vault-snapshot") | .data' "$work/backup.yaml" | jq -c '[.VAULT_CACERT, .RCLONE_CA_CERT, .RETENTION]')
 [ "$got" = '["/etc/ohmlab/vault-ca/ca.crt","/etc/ohmlab/store-ca/ca.crt","30d"]' ] || fail "the snapshot job's CA paths and retention, got $got"
 
