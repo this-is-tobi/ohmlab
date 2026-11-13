@@ -1,0 +1,9 @@
+{{- /*
+A store (store.enabled) renders only once the instance-manager's wiring of its
+volume and region has reached its Application (store.wired): see values.yaml.
+*/}}
+{{- with .Values.store }}
+{{- if and .enabled (not .wired) }}
+{{- fail "store.enabled: this RustFS is a store of instance.yaml's storage block, waiting for the instance-manager's wiring of its volume and region (docs/10-object-storage.md)" }}
+{{- end }}
+{{- end }}

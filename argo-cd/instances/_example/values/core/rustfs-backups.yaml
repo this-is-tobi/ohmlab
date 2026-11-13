@@ -3,6 +3,13 @@
 # volume's size and class and its region from instance.yaml's storage.stores.
 # Admin only: no console, no route; the controller's storage target and the
 # claims' pods reach its S3 API inside the cluster.
+
+# A store: its chart renders only once the instance-manager's wiring of its
+# volume and region has reached it, so that its first sync waits for it.
+# Uncomment with instance.yaml's storage block.
+# store:
+#   enabled: true
+
 rustfs:
   tls:
     enabled: true

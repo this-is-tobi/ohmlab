@@ -37,7 +37,7 @@ The claims' quotas add up to at most 80 % of the store's size, so that a store n
 The example instance carries every piece, commented or disabled ([argo-cd/instances/_example](../argo-cd/instances/_example/)):
 
 1. An entry in `core.yaml`, after the controller: `app: rustfs-backups`, `chart: rustfs`, `releaseName: rustfs`, `namespace: rustfs-backups`.
-2. Its values, `values/core/rustfs-backups.yaml`: TLS on, the console off, no route, its own Vault role and record (`rustfs-backups`), no OIDC secret, its network policy, and the labels that put its volumes in Longhorn's `trim` group, out of the daily snapshots.
+2. Its values, `values/core/rustfs-backups.yaml`: `store.enabled: true` (below), TLS on, the console off, no route, its own Vault role and record (`rustfs-backups`), no OIDC secret, its network policy, and the labels that put its volumes in Longhorn's `trim` group, out of the daily snapshots.
 3. Its root keys, seeded by the `vault-operator` values at `<ohmlab mount>/platforms/<env>/core/<app>`, key `admin` (`accessKey`, `secretKey`). The store reads them, and so does the storage target, which needs no copy in a Secret.
 4. The store in `instance.yaml`:
 
@@ -55,6 +55,8 @@ The example instance carries every piece, commented or disabled ([argo-cd/instan
    ```
 
    From it, the instance-manager sizes the store's volume and sets its region, gives the controller's storage target the store, and gives `vault-operator` the policy and role of that target.
+
+   The store's Application can appear, and sync, a few seconds before its ApplicationSet carries that wiring, and a volume's class and size cannot change once created. With `store.enabled: true`, the store's chart does not render until the wiring arrives (`store.wired`), so its first sync waits for it instead of creating the volume from the chart's defaults.
 5. The internal CA in `ohmlab-system`: trust-manager's `targetNamespaces` lists it, since the storage target verifies the store with that CA.
 6. The store's namespace in Kyverno's `exceptionNamespaces`, under `rustfs-init-step-limits`, as for any RustFS outside its default namespace ([security policies](05-services.md#security-policies)).
 

@@ -407,6 +407,8 @@ check "storage: the controller gets the store, its root keys and capacity" \
 check "storage: the store's app gets its size, class and region" \
   '{"config":{"rustfs":{"region":"us-east-1"}},"storageclass":{"dataStorageSize":"50Gi","name":"longhorn-two-replicas"}}' \
   "$(app_values "$work/core-homelab.yaml" '{"app":"rustfs-backups"}' | jq -cS '.rustfs')"
+check "storage: the store's app is told it is wired, which its chart waits for" '{"wired":true}' \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"rustfs-backups"}' | jq -cS '.store')"
 kc=$(app_values "$work/core-homelab.yaml" '{"app":"keycloak"}')
 check "storage: keycloak's claim" \
   "{\"bucket\":\"ohmlab-keycloak-pg\",\"enabled\":true,\"endpoint\":\"$STORE\",\"pathStyle\":true,\"region\":\"us-east-1\"}" \

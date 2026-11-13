@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Tests of the rustfs app's TLS: one certificate serves the S3 API and the
-# console, and the gateway verifies both once a route reaches the Service.
+# Tests of the rustfs app: its TLS, where one certificate serves the S3 API and
+# the console and the gateway verifies both once a route reaches the Service,
+# and a store's wait for its wiring.
 #
 #   test-rustfs-chart.sh
 #
@@ -108,5 +109,11 @@ check "the names follow another release name" "check-rustfs-svc check-rustfs-svc
 fails "TLS with the distributed mode fails" "rustfs.mode.distributed" "${tls[@]}" \
   --set rustfs.mode.standalone.enabled=false --set rustfs.mode.distributed.enabled=true
 fails "TLS without existingSecret fails" "existingSecret" "${tls[@]}" --set rustfs.tls.existingSecret=
+
+# A store of instance.yaml's storage block: its Application can sync once
+# before its ApplicationSet carries the instance-manager's wiring.
+fails "a store does not render before its wiring" "waiting for the instance-manager's wiring" --set store.enabled=true
+render --set store.enabled=true --set store.wired=true
+check "a wired store renders" "1" "$(q '[select(.kind == "Deployment")] | length')"
 
 exit "$failures"
