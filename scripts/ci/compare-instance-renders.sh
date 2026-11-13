@@ -3,9 +3,9 @@
 # RENDER_OUT): the product at a pull request's base and at its head. An object
 # of the base that the head no longer renders would be deleted, or recreated
 # under another name, when the change reaches that instance's cluster: that
-# fails. Objects whose content changes, and new ones, are listed for review
-# (in the job summary on GitHub Actions); a name kept inside an object, such
-# as a Vault mount, shows up there.
+# fails. Objects whose content changes, and new ones (a new app's included),
+# are listed for review (in the job summary on GitHub Actions); a name kept
+# inside an object, such as a Vault mount, shows up there.
 #
 # A removal the change means is acknowledged in ALLOWED_REMOVALS, one
 # "<app>: <object>" per line as reported below (validate-instance.yml reads
@@ -34,6 +34,12 @@ while IFS= read -r file; do
     grep -q "^$id " "$file" || added+=("$app: $id")
   done <"$head/$app.objects"
 done < <(cd / && command find "$base" -name '*.objects' | sort)
+# An app only the head renders: every object of it is new.
+while IFS= read -r file; do
+  app="${file#"$head"/}"; app="${app%.objects}"
+  [ -f "$base/$app.objects" ] && continue
+  while IFS=' ' read -r id _; do added+=("$app: $id"); done <"$file"
+done < <(cd / && command find "$head" -name '*.objects' | sort)
 
 report() { # report <title> <items...>
   local title="$1"; shift
