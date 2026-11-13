@@ -14,7 +14,8 @@ cat >"$work/seeds.json" <<'JSON'
   {"path": "dev/platforms/dev/tenant/gitea", "data": {"admin": {"username": "gitea", "password": "<random:32>"}, "token": "", "url": null}},
   {"path": "dev/platforms/dev/core/keycloak", "data": {"clients": {"grafana": {"clientSecret": "<random:32>"}}, "admin": "<random:32>"}},
   {"path": "ohmlab/platforms/dev/tenant/outline", "data": {"secret": "<random:32>"}},
-  {"path": "ohmlab/platforms/production/core/argo-cd", "data": {"clusters": {"nonprod": {"bearerToken": "", "caData": ""}}}}
+  {"path": "ohmlab/platforms/production/core/argo-cd", "data": {"clusters": {"nonprod": {"bearerToken": "", "caData": ""}}}},
+  {"path": "dev/platforms/dev/tenant/mattermost", "data": {"pg": {"accessKey": ""}}}
 ]
 JSON
 
@@ -87,6 +88,27 @@ check "a get kept in a variable cannot be followed" 1 "$(reads $r s $gitea '{{ $
 check "a field piped to dig cannot be followed" 1 "$(reads $r s $gitea '{{ .Secrets.admin | dig "password" "" }}')" -- "$cannot"
 check "an action left open cannot be followed" 1 "$(reads $r s $gitea '{{ get .Secrets "token"')" -- "$cannot"
 check "a printf of strings and gets reads each get" 0 "$(reads $r s $gitea '{{ printf "%s:%s/%s" "u" (get .Secrets "admin" | dig "username" "") (get .Secrets "token") }}')" -- '2 key(s) read'
+
+# A storage claim's key: the claim's record when the app's path has the claim
+# key, else a fallback, which the seed must have. A path that ends in /s3 is a
+# claim's record, which the controller's storage target writes, not a seed: a
+# read there is <claim>.<one of the record's keys>.
+claim='{{ with get .Secrets "pg" }}{{ dig "accessKey" "" . }}{{ else }}{{ get .Secrets "admin" | dig "password" "" }}{{ end }}'
+check "a claim read takes its fallback while the path has no claim key" 0 "$(reads $r s $gitea "$claim")" -- '1 key(s) read'
+check "a claim read whose fallback is not seeded is refused" 1 \
+  "$(reads $r s $gitea '{{ with get .Secrets "pg" }}{{ dig "accessKey" "" . }}{{ else }}{{ get .Secrets "missing" }}{{ end }}')" -- "$gitea key missing is not seeded"
+check "a claim read without a fallback reads nothing while the path has no claim key" 0 \
+  "$(reads $r s $gitea '{{ with get .Secrets "pg" }}{{ dig "ca" "" . }}{{ end }}')" -- '0 key(s) read'
+mm=dev/platforms/dev/tenant/mattermost
+check "a claim read takes the claim key when the path has it" 0 "$(reads dev/tenant/mattermost s $mm "$claim")" -- '1 key(s) read'
+check "a claim key's field the seed does not have is refused" 1 \
+  "$(reads dev/tenant/mattermost s $mm '{{ with get .Secrets "pg" }}{{ dig "secretKey" "" . }}{{ end }}')" -- "$mm key pg.secretKey is not seeded"
+record=dev/platforms/dev/tenant/gitea/s3
+check "a claim's record serves the claim's keys" 0 \
+  "$(reads $r s $record "$claim" '{{ get .Secrets "vault" | dig "endpoint" "" }}' '{{ with get .Secrets "pg" }}{{ dig "ca" "" . }}{{ end }}')" -- '3 key(s) read'
+check "a key a claim's record does not have is refused" 1 \
+  "$(reads $r s $record '{{ get .Secrets "pg" | dig "password" "" }}')" -- "$record is a claim's record: pg.password is not one of its keys"
+check "a claim's record read without templates passes" 0 "$(reads $r s $record)"
 
 # The loop reports what it cannot read rather than passing.
 check "a secret that did not render fails, and no ok line follows" 1 "$(jq -cn '{label: "dev/tenant/x", fail: "does not render: boom"}')" -- 'FAIL dev/tenant/x: does not render: boom'

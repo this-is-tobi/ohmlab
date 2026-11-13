@@ -418,16 +418,12 @@ cnpg:
         # The chart renders this queries ConfigMap but never wires it into
         # the Cluster, so it would only sit there unused.
         logicalReplication: false
-  # Disabled: the S3 credentials at this Vault path are still empty
-  # placeholders (same as every other app's backup config in this repo).
-  # For an already-bootstrapped cluster that's harmless, but the
-  # barman-cloud plugin's pre-reconcile hook validates the ObjectStore
-  # BEFORE allowing initial bootstrap — with empty credentials it blocks
-  # the cluster from ever coming up at all ("Pre-reconcile hook stopped
-  # the reconciliation loop" / barman-cloud.cloudnative-pg.io, zero pods
-  # created until fixed). Re-enable once real S3 credentials are added to
-  # Vault.
+  # The barman-cloud plugin's pre-reconcile hook validates the ObjectStore
+  # before the initial bootstrap and blocks the cluster (zero pods) on an
+  # empty backup Secret: the pg claim turns backups on once its record
+  # exists.
   backups:
+    # The instance-manager turns it on with the app's pg claim (docs/10).
     enabled: false
     method: plugin
     pluginConfiguration:
@@ -448,16 +444,24 @@ cnpg:
           secretKeyRef:
             name: prometheus-stack-pg-cluster-backup
             key: S3_REGION
+    # A plain resource synced before the Cluster: as a Helm hook, Argo CD runs
+    # it as an untracked PreSync hook that outlives a disabled backup.
+    objectStore:
+      helmHook: false
+      annotations:
+        argocd.argoproj.io/sync-wave: "-1"
     # Chart default requests AES256 server-side encryption, which not every
     # S3-compatible store implements — defer to the bucket's own default.
     wal:
       encryption: ""
+      compression: gzip
     data:
       encryption: ""
+      compression: gzip
     retentionPolicy: 30d
     scheduledBackups:
     - name: daily
-      schedule: "0 0 0 * * *"
+      schedule: "0 20 20 * * *"
       backupOwnerReference: self
       method: plugin
       pluginConfiguration:
@@ -585,8 +589,11 @@ vso:
               text: '{{ get .Secrets "postgres" | dig "app" "username" "" }}'
             password:
               text: '{{ get .Secrets "postgres" | dig "app" "password" "" }}'
+    # The plugin's key: the pg claim's record once the claim is on
+    # (global.ohmlab.storage.pg), else postgres.s3 at the app's own path.
     grafanaPgBackup:
       type: kv-v2
+      path: '{{ with dig "ohmlab" "vault" "pathPrefix" "" (.Values.global | default dict) }}{{ . }}/prometheus-stack{{ if dig "ohmlab" "storage" "pg" "enabled" false ($.Values.global | default dict) }}/s3{{ end }}{{ end }}'
       vaultAuthRef: prometheus-stack-vso-default
       refreshAfter: 1h
       hmacSecretData: true
@@ -599,18 +606,14 @@ vso:
           excludes:
           - ".*"
           templates:
-            S3_ENDPOINT:
-              text: '{{ get .Secrets "postgres" | dig "s3" "endpoint" "" }}'
-            S3_BUCKET_NAME:
-              text: '{{ get .Secrets "postgres" | dig "s3" "bucketName" "" }}'
-            S3_BUCKET_PREFIX:
-              text: '{{ get .Secrets "postgres" | dig "s3" "bucketPrefix" "" }}'
             ACCESS_KEY_ID:
-              text: '{{ get .Secrets "postgres" | dig "s3" "accessKey" "" }}'
+              text: '{{ with get .Secrets "pg" }}{{ dig "accessKey" "" . }}{{ else }}{{ get .Secrets "postgres" | dig "s3" "accessKey" "" }}{{ end }}'
             ACCESS_SECRET_KEY:
-              text: '{{ get .Secrets "postgres" | dig "s3" "secretKey" "" }}'
+              text: '{{ with get .Secrets "pg" }}{{ dig "secretKey" "" . }}{{ else }}{{ get .Secrets "postgres" | dig "s3" "secretKey" "" }}{{ end }}'
             S3_REGION:
-              text: '{{ get .Secrets "postgres" | dig "s3" "region" "" }}'
+              text: '{{ with get .Secrets "pg" }}{{ dig "region" "" . }}{{ else }}{{ get .Secrets "postgres" | dig "s3" "region" "" }}{{ end }}'
+            ca.crt:
+              text: '{{ with get .Secrets "pg" }}{{ dig "ca" "" . }}{{ end }}'
 
 # Centralized log aggregation, off by default — enable per-instance.
 # This chart's own switches for Loki live here rather than under `loki:`:
