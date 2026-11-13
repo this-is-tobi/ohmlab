@@ -69,10 +69,17 @@ func (d *devVault) must(method, path string, body any) []byte {
 // client holding a token that has only the controller's policy on it.
 func (d *devVault) mount() (mount string, controller *vault.Client) {
 	d.t.Helper()
+	return d.mountWith("testdata/controller-policy.hcl")
+}
+
+// mountWith is mount with the policy of another file, its "ohmlab/" paths
+// moved to the test's mount.
+func (d *devVault) mountWith(policyFile string) (mount string, controller *vault.Client) {
+	d.t.Helper()
 	mount = fmt.Sprintf("it%d%d", time.Now().UnixNano()%1_000_000, mountCounter.Add(1))
 	d.must("POST", "sys/mounts/"+mount, map[string]any{"type": "kv", "options": map[string]string{"version": "2"}})
 
-	hcl, err := os.ReadFile("testdata/controller-policy.hcl")
+	hcl, err := os.ReadFile(policyFile)
 	if err != nil {
 		d.t.Fatal(err)
 	}

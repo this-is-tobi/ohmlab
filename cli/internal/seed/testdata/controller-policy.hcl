@@ -6,3 +6,10 @@ path "ohmlab/data/platforms/+/+/*" {
 path "ohmlab/metadata/platforms/+/+/*" {
   capabilities = ["read", "update"]
 }
+# The claims' records are the storage target's.
+path "ohmlab/data/platforms/+/+/+/s3" {
+  capabilities = ["deny"]
+}
+path "ohmlab/metadata/platforms/+/+/+/s3" {
+  capabilities = ["deny"]
+}

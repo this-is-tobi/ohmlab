@@ -17,28 +17,63 @@ cover it and the instance's mount; Vault's OIDC credentials are read from it.
 {{- end -}}
 
 {{/*
+The KV mounts the controller's policies cover, as a JSON list: the system
+mount, then the instance's when it is another one, or only
+ohmlab.controller.kvMount when set, then the mount of each spoke instance,
+whose secrets the controller seeds too.
+*/}}
+{{- define "vault-operator.controllerMounts" -}}
+{{- $mounts := list (include "vault-operator.systemMount" .) (include "vault-operator.kvMount" .) | uniq -}}
+{{- with .Values.ohmlab.controller.kvMount }}{{ $mounts = list . }}{{ end -}}
+{{- range $c := .Values.vault.externalConfig.spokeClusters | default list }}{{ range $i := $c.instances | default list }}{{ $mounts = append $mounts ($i.mount | default $i.name | toString) }}{{ end }}{{ end -}}
+{{- $mounts | uniq | toJson -}}
+{{- end -}}
+
+{{/*
 The Vault policy of the ohmlab controller's Vault target: KV data and metadata
 under platforms/+/+/*, nothing else. No identity, no sys, no policies, no
 mounts, no auth, no tokens. Delete is on the metadata path alone, because
 that is the one call the controller makes to remove a path (it removes every
-version and the metadata), and only when the chart allows deletion. The same
-two stanzas cover the system mount, then the instance's when it is another
-one, or only ohmlab.controller.kvMount when set, then the mount of each spoke
-instance, whose secrets the controller seeds too.
+version and the metadata), and only when the chart allows deletion. The
+claims' records, <app>/s3, are the storage target's: denied, which wins over
+the glob. The same stanzas cover each mount of vault-operator.controllerMounts.
 cli/internal/seed/testdata/controller-policy*.hcl hold the text for one mount,
 and scripts/ci/check-controller-policy.sh keeps the two equal.
 */}}
 {{- define "vault-operator.controllerPolicy" -}}
-{{- $mounts := list (include "vault-operator.systemMount" .) (include "vault-operator.kvMount" .) | uniq -}}
-{{- with .Values.ohmlab.controller.kvMount }}{{ $mounts = list . }}{{ end -}}
-{{- range $c := .Values.vault.externalConfig.spokeClusters | default list }}{{ range $i := $c.instances | default list }}{{ $mounts = append $mounts ($i.mount | default $i.name | toString) }}{{ end }}{{ end -}}
-{{- range $mounts | uniq -}}
+{{- range include "vault-operator.controllerMounts" . | fromJsonArray -}}
 path "{{ . }}/data/platforms/+/+/*" {
   capabilities = ["create", "update", "read"]
 }
 path "{{ . }}/metadata/platforms/+/+/*" {
   capabilities = ["read", "update"{{ if $.Values.ohmlab.controller.allowDelete }}, "delete"{{ end }}]
 }
+path "{{ . }}/data/platforms/+/+/+/s3" {
+  capabilities = ["deny"]
+}
+path "{{ . }}/metadata/platforms/+/+/+/s3" {
+  capabilities = ["deny"]
+}
+{{ end -}}
+{{- end -}}
+
+{{/*
+The Vault policy of the controller's storage target: the claims' records,
+<mount>/platforms/<env>/<scope>/<app>/s3, data and metadata on the mounts of
+the controller's policy, and read on the root keys of each store
+(ohmlab.controller.storage.stores, <mount>/<path>). No delete: removing a
+claim's key rewrites the record without it.
+cli/internal/controller/storage/testdata/storage-policy.hcl holds the text for
+one mount and one store, and scripts/ci/check-controller-policy.sh keeps the
+two equal.
+*/}}
+{{- define "vault-operator.storagePolicy" -}}
+{{- range include "vault-operator.controllerMounts" . | fromJsonArray -}}
+path "{{ . }}/data/platforms/+/+/+/s3" { capabilities = ["create", "update", "read"] }
+path "{{ . }}/metadata/platforms/+/+/+/s3" { capabilities = ["read", "update"] }
+{{ end -}}
+{{- range .Values.ohmlab.controller.storage.stores | default list -}}
+path "{{ regexReplaceAll "^([^/]+)/" (.path | toString) "${1}/data/" }}" { capabilities = ["read"] }
 {{ end -}}
 {{- end -}}
 

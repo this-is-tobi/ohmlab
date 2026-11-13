@@ -177,6 +177,56 @@ func TestVaultPolicyStopsAtThePlatformsTree(t *testing.T) {
 	}
 }
 
+// The storage target owns the claims' records: the vault target's grant on
+// platforms/+/+/* stops at <app>/s3, for data and metadata alike.
+func TestVaultPolicyLeavesTheStorageRecordsAlone(t *testing.T) {
+	d := devVaultOrSkip(t)
+	mount, c := d.mount()
+	record := "platforms/production/core/app/s3"
+	d.rootPut(mount, record, tree("pg", "x"))
+
+	if _, err := c.KVRead(background(), mount, record); !errors.Is(err, vault.ErrForbidden) {
+		t.Errorf("read a storage record: err = %v", err)
+	}
+	if _, err := c.KVWriteCAS(background(), mount, record, tree("pg", "y"), 1); !errors.Is(err, vault.ErrForbidden) {
+		t.Errorf("wrote a storage record: err = %v", err)
+	}
+	if err := c.KVSetCustomMetadata(background(), mount, record, map[string]string{"a": "b"}); !errors.Is(err, vault.ErrForbidden) {
+		t.Errorf("marked a storage record: err = %v", err)
+	}
+	if _, err := c.KVWriteCAS(background(), mount, "platforms/production/core/app", tree("a", "1"), 0); err != nil {
+		t.Errorf("the app's own path stays granted: %v", err)
+	}
+}
+
+// The storage target's policy, as the e2e and the chart give it: the claims'
+// records and the store's root keys, which it reads only.
+func TestStoragePolicyWritesTheRecordsAndReadsTheRootKeys(t *testing.T) {
+	d := devVaultOrSkip(t)
+	mount, c := d.mountWith("../controller/storage/testdata/storage-policy.hcl")
+	rootKeys, record := "platforms/e2e/core/rustfs", "platforms/e2e/core/app/s3"
+	d.rootPut(mount, rootKeys, tree("admin", "x"))
+
+	if _, err := c.KVRead(background(), mount, rootKeys); err != nil {
+		t.Errorf("read the store's root keys: %v", err)
+	}
+	if _, err := c.KVWriteCAS(background(), mount, record, tree("pg", "x"), 0); err != nil {
+		t.Errorf("wrote a record: %v", err)
+	}
+	if err := c.KVSetCustomMetadata(background(), mount, record, map[string]string{"a": "b"}); err != nil {
+		t.Errorf("marked a record: %v", err)
+	}
+	if _, err := c.KVWriteCAS(background(), mount, rootKeys, tree("admin", "y"), 1); !errors.Is(err, vault.ErrForbidden) {
+		t.Errorf("wrote the store's root keys: err = %v", err)
+	}
+	if _, err := c.KVRead(background(), mount, "platforms/e2e/core/app"); !errors.Is(err, vault.ErrForbidden) {
+		t.Errorf("read an app's own path: err = %v", err)
+	}
+	if err := c.KVDestroy(background(), mount, record); !errors.Is(err, vault.ErrForbidden) {
+		t.Errorf("destroyed a record: err = %v", err)
+	}
+}
+
 func TestVaultRevokedTokenIsReplacedByALogin(t *testing.T) {
 	d := devVaultOrSkip(t)
 	mount, _ := d.mount()
