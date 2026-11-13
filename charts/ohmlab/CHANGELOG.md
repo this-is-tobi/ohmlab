@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.7.2...chart-v0.8.0) (2026-11-13)
+
+
+### Features
+
+* **ohmlab:** add Argo CD health for S3Buckets ([553131f](https://github.com/this-is-tobi/ohmlab/commit/553131f876a6a56febbc4b96a2ad18d2566fe42c))
+
 ## [0.7.2](https://github.com/this-is-tobi/ohmlab/compare/chart-v0.7.1...chart-v0.7.2) (2026-11-11)
 
 
