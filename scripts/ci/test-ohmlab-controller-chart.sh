@@ -238,10 +238,10 @@ want_np='{"podSelector":{"matchLabels":{"app.kubernetes.io/name":"ohmlab-control
 nodeny=$(render --namespace ohmlab-system --set "image=$IMAGE" "${STORAGE[@]}" --set networkPolicy.enabled=true --set networkPolicy.egressDeny=false)
 [ -z "$(yq 'select(.metadata.name == "allow-storage-egress") | .kind' <<<"$nodeny")" ] || fail "storage: no egress rule when egress is not denied"
 [ -z "$(yq 'select(.metadata.name == "allow-storage-egress") | .kind' <<<"$vnp")" ] || fail "vault alone renders the storage egress"
-# The alerts follow the stores' namespaces.
+# The alerts follow the stores' namespaces, all but RustFS's logs volumes.
 [ "$(yq 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "ohmlab-storage") | .rules[] | select(.alert == "OhmlabStoreFull") | .expr' <<<"$s")" \
-  = 'max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~"rustfs-backups"} / kubelet_volume_stats_capacity_bytes{namespace=~"rustfs-backups"}) > 0.85' ] \
-  || fail "storage: OhmlabStoreFull must watch the stores' namespaces"
+  = 'max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~"rustfs-backups", persistentvolumeclaim!~".*-logs|logs-.*"} / kubelet_volume_stats_capacity_bytes{namespace=~"rustfs-backups", persistentvolumeclaim!~".*-logs|logs-.*"}) > 0.85' ] \
+  || fail "storage: OhmlabStoreFull must watch the stores' data volumes"
 [ -z "$(yq 'select(.kind == "PrometheusRule") | .spec.groups[] | select(.name == "ohmlab-storage") | .name' <<<"$vonly")" ] || fail "vault alone renders the storage alerts"
 # Mistakes fail the render, not the process.
 sexpect_fail() { # <message fragment> <stores json>

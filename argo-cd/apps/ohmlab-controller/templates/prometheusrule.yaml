@@ -116,7 +116,7 @@ spec:
   - name: ohmlab-storage
     rules:
     - alert: OhmlabStoreFilling
-      expr: max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~{{ $nsRe }}} / kubelet_volume_stats_capacity_bytes{namespace=~{{ $nsRe }}}) > 0.75
+      expr: max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~{{ $nsRe }}, persistentvolumeclaim!~".*-logs|logs-.*"} / kubelet_volume_stats_capacity_bytes{namespace=~{{ $nsRe }}, persistentvolumeclaim!~".*-logs|logs-.*"}) > 0.75
       for: 15m
       labels:
         severity: warning
@@ -129,7 +129,7 @@ spec:
           ohmlab_storage_bucket_quota_bytes with the volume, then expand the
           volume online or lower a quota.
     - alert: OhmlabStoreFull
-      expr: max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~{{ $nsRe }}} / kubelet_volume_stats_capacity_bytes{namespace=~{{ $nsRe }}}) > 0.85
+      expr: max by (namespace, persistentvolumeclaim) (kubelet_volume_stats_used_bytes{namespace=~{{ $nsRe }}, persistentvolumeclaim!~".*-logs|logs-.*"} / kubelet_volume_stats_capacity_bytes{namespace=~{{ $nsRe }}, persistentvolumeclaim!~".*-logs|logs-.*"}) > 0.85
       for: 5m
       labels:
         severity: critical
@@ -165,5 +165,44 @@ spec:
           quotas is above 80% of its volume, so the buckets could fill it
           before their quotas stop them. Expand the store's volume and its
           capacity, or lower a quota.
+    # The backups the claims carry (docs/10). The barman-cloud plugin exports
+    # each cluster's newest base backup; a cluster that never backed up has no
+    # series yet.
+    - alert: OhmlabPostgresBackupStale
+      expr: time() - max by (namespace) (barman_cloud_cloudnative_pg_io_last_available_backup_timestamp) > 26 * 3600
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: A Postgres cluster has no base backup of the last day
+        description: >-
+          The newest base backup of the cluster in {{ "{{" }} $labels.namespace {{ "}}" }}
+          is more than 26 hours old. Look at its ObjectStore's status and at
+          the plugin-barman-cloud sidecar of its instance pods.
+    # No "older than an hour": a quiet cluster switches a segment every few
+    # hours, so only a failure newer than the last success counts.
+    - alert: OhmlabWALArchivingFailing
+      expr: max by (namespace) (cnpg_pg_stat_archiver_last_failed_time) > max by (namespace) (cnpg_pg_stat_archiver_last_archived_time)
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: A Postgres cluster fails to archive its WAL
+        description: >-
+          The cluster in {{ "{{" }} $labels.namespace {{ "}}" }} failed to
+          archive a WAL segment after its last success, so a recovery cannot
+          reach past that point. Look at its ObjectStore's status and at the
+          plugin-barman-cloud sidecar of its instance pods.
+    - alert: OhmlabVaultSnapshotStale
+      expr: time() - max by (namespace, cronjob) (kube_cronjob_status_last_successful_time{cronjob=~".+-vault-snapshot"}) > 26 * 3600
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: Vault has no snapshot of the last day
+        description: >-
+          {{ "{{" }} $labels.namespace {{ "}}" }}/{{ "{{" }} $labels.cronjob {{ "}}" }}
+          last succeeded more than 26 hours ago. Look at the logs of its last
+          Job.
   {{- end }}
 {{- end }}
