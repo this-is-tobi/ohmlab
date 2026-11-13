@@ -168,17 +168,31 @@ each, for every generated Application.
 {{- end -}}
 
 {{/*
+The KV mount of a scope's secrets: the core tier reads the ohmlab system
+mount, the tenant tier the instance's (names.vaultMount), and an instance with
+vault.hub reads its own mount in both tiers. The literal ohmlab here and the
+default of the vault-operator chart's systemMount are the two places that name
+the system mount. Called with (list . <scope>).
+*/}}
+{{- define "instance-manager.vaultMount" -}}
+{{- $root := index . 0 -}}
+{{- $scope := index . 1 -}}
+{{- if or (dig "hub" "" ($root.Values.vault | default dict) | toString) (eq $scope "tenant") -}}
+{{- (include "instance-manager.names" $root | fromYaml).vaultMount -}}
+{{- else -}}
+ohmlab
+{{- end -}}
+{{- end -}}
+
+{{/*
 The KV mount and path prefix of a scope's secrets as Helm parameters
 (global.ohmlab.vault), from which every chart builds its secrets' mount and
-path: the core tier reads the ohmlab system mount, the tenant tier the
-instance's (names.vaultMount), under platforms/<instance.env>/<scope>, given
-only with instance.env. The literal ohmlab here and the default of the
-vault-operator chart's systemMount are the two places that name the system
-mount. An instance with vault.hub reads the Vault of that instance, whose
-spokeClusters declare it: both tiers read the instance's own mount, logging in
-with the jwt method at the mount jwt-<instance>, and every app gets the hub's
-name (a remote Keycloak leaves out the realm the hub serves). Called with
-(list . <scope>).
+path: the scope's mount (instance-manager.vaultMount), under
+platforms/<instance.env>/<scope>, given only with instance.env. An instance
+with vault.hub reads the Vault of that instance, whose spokeClusters declare
+it, logging in with the jwt method at the mount jwt-<instance>, and every app
+gets the hub's name (a remote Keycloak leaves out the realm the hub serves).
+Called with (list . <scope>).
 */}}
 {{- define "instance-manager.vaultParameters" -}}
 {{- $root := index . 0 -}}
@@ -197,8 +211,7 @@ name (a remote Keycloak leaves out the realm the hub serves). Called with
 {{- fail (printf "vault.hub %q is this instance: an instance that runs its own Vault leaves vault.hub empty" $hub) -}}
 {{- end -}}
 {{- end -}}
-{{- $mount := "ohmlab" -}}
-{{- if or $hub (eq $scope "tenant") }}{{ $mount = (include "instance-manager.names" $root | fromYaml).vaultMount }}{{ end }}
+{{- $mount := include "instance-manager.vaultMount" (list $root $scope) -}}
 - name: "global.ohmlab.vault.mount"
   value: {{ $mount | quote }}
   forceString: true
@@ -238,4 +251,233 @@ fails instead of Applications quietly coming from somewhere else.
 {{- if and (ne $default "git") (not (hasKey $catalogs $default)) -}}
 {{- fail (printf "defaultCatalog %q is not declared under catalogs" $default) -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+The generator of a tier's ApplicationSet: the enabled apps of the tier file.
+Called with (list . <scope>).
+*/}}
+{{- define "instance-manager.tierMatrix" -}}
+{{- $root := index . 0 -}}
+{{- $scope := index . 1 -}}
+- matrix:
+    generators:
+    - git:
+        repoURL: {{ $root.Values.repoURL | quote }}
+        revision: {{ $root.Values.targetRevision | default "main" | quote }}
+        files:
+        - path: 'argo-cd/instances/{{ $root.Values.instance.name }}/{{ $scope }}.yaml'
+    - list:
+        elementsYaml: "{{ `{{ .apps | toJson }}` }}"
+      selector:
+        matchExpressions:
+        - key: enabled
+          operator: In
+          values:
+          - "true"
+{{- end -}}
+
+{{/*
+The instance's object storage, validated, as YAML: the stores a role names,
+each with its endpoint's port, its region and the path of its root keys (the
+record of the store's app), and the store of each role. Empty while no role
+names a store, so that nothing of storage renders.
+*/}}
+{{- define "instance-manager.storage" -}}
+{{- $s := .Values.storage | default dict -}}
+{{- $env := .Values.instance.env | default "" | toString -}}
+{{- $coreMount := include "instance-manager.vaultMount" (list . "core") -}}
+{{- $stores := dict -}}
+{{- range $name, $st := $s.stores | default dict -}}
+{{- $st = $st | default dict -}}
+{{- $type := $st.type | default "rustfs" | toString -}}
+{{- if ne $type "rustfs" -}}
+{{- fail (printf "storage.stores.%s.type %q: only rustfs stores exist so far" $name $type) -}}
+{{- end -}}
+{{- if not (and $st.app $st.namespace $st.endpoint $st.size) -}}
+{{- fail (printf "storage.stores.%s needs app, namespace, endpoint and size" $name) -}}
+{{- end -}}
+{{- $endpoint := $st.endpoint | toString -}}
+{{- $port := 0 -}}
+{{- if regexMatch `^https://[a-z0-9]([-a-z0-9.]*[a-z0-9])?:[0-9]{1,5}$` $endpoint -}}
+{{- $port = regexReplaceAll `^.*:` $endpoint "" | atoi -}}
+{{- end -}}
+{{- if or (lt $port 1) (gt $port 65535) -}}
+{{- fail (printf "storage.stores.%s.endpoint %q must be https://<host>:<port>" $name $endpoint) -}}
+{{- end -}}
+{{- $size := $st.size | toString -}}
+{{- if not (regexMatch `^[0-9]+(\.[0-9]+)?([KMGTPE]i|[kMGTPE])?$` $size) -}}
+{{- fail (printf "storage.stores.%s.size %q must be a quantity like 50Gi" $name $size) -}}
+{{- end -}}
+{{- $_ := set $stores $name (dict "type" $type "app" ($st.app | toString) "namespace" ($st.namespace | toString) "endpoint" $endpoint "port" $port "region" ($st.region | default "us-east-1" | toString) "size" $size "storageClass" ($st.storageClass | default "" | toString) "rootPath" (printf "%s/platforms/%s/core/%s" $coreMount $env $st.app)) -}}
+{{- end -}}
+{{- $roles := dict -}}
+{{- range $role := list "backups" "data" -}}
+{{- $store := get $s $role | default "" | toString -}}
+{{- if and $store (not (hasKey $stores $store)) -}}
+{{- fail (printf "storage.%s %q is not a store of storage.stores" $role $store) -}}
+{{- end -}}
+{{- $_ := set $roles $role $store -}}
+{{- end -}}
+{{- range $app, $claims := $s.claims | default dict -}}
+{{- range $claim, $c := $claims | default dict -}}
+{{- $role := dig "role" "" ($c | default dict) | toString -}}
+{{- if not (has $role (list "backups" "data")) -}}
+{{- fail (printf "storage.claims.%s.%s.role %q is not backups or data" $app $claim $role) -}}
+{{- end -}}
+{{- $wiring := dig "wiring" "" ($c | default dict) | toString -}}
+{{- if not (has $wiring (list "" "none" "cnpg" "backup-utils")) -}}
+{{- fail (printf "storage.claims.%s.%s.wiring %q is not cnpg, backup-utils or none" $app $claim $wiring) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if or $roles.backups $roles.data -}}
+{{- if not $env -}}
+{{- fail "storage needs instance.env: it is a segment of every record's path" -}}
+{{- end -}}
+{{- if dig "hub" "" (.Values.vault | default dict) -}}
+{{- fail "storage on an instance that reads another instance's Vault (vault.hub) is not supported yet" -}}
+{{- end -}}
+{{- $used := dict -}}
+{{- range $role, $store := $roles }}{{ if $store }}{{ $_ := set $used $store (get $stores $store) }}{{ end }}{{ end -}}
+{{- toYaml (dict "stores" $used "roles" $roles) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The claims of a scope, as YAML <app>: {<claim>: {...}}: each enabled claim
+whose role has a store, over claimDefaults (a claim's false and 0 win too),
+with its store, its bucket <mount>-<app>-<claim> and its record
+<mount>/platforms/<env>/<scope>/<app>/s3, key <claim>. Every app of the
+registry is in both scopes: the merge keeps those of the tier's apps. Called
+with (list . <scope>).
+*/}}
+{{- define "instance-manager.tierClaims" -}}
+{{- $root := index . 0 -}}
+{{- $scope := index . 1 -}}
+{{- $model := include "instance-manager.storage" $root | fromYaml -}}
+{{- if $model -}}
+{{- $s := $root.Values.storage -}}
+{{- $mount := include "instance-manager.vaultMount" (list $root $scope) -}}
+{{- $out := dict -}}
+{{- range $app, $claims := $s.claims | default dict -}}
+{{- range $claim, $c := $claims | default dict -}}
+{{- $r := mergeOverwrite (deepCopy ($s.claimDefaults | default dict)) (deepCopy ($c | default dict)) -}}
+{{- $store := get $model.roles ($r.role | toString) -}}
+{{- if and $store (ne (toString $r.enabled) "false") -}}
+{{- $_ := set $r "store" $store -}}
+{{- $_ := set $r "bucket" (printf "%s-%s-%s" $mount $app $claim) -}}
+{{- $_ := set $r "record" (printf "%s/platforms/%s/%s/%s/s3" $mount $root.Values.instance.env $scope $app) -}}
+{{- $_ := set $r "key" $claim -}}
+{{- $appClaims := get $out $app | default dict -}}
+{{- $_ := set $appClaims $claim $r -}}
+{{- $_ := set $out $app $appClaims -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The merge list of a scope's ApplicationSet, as YAML: {app, storageValues} for
+each app with values to receive, sorted by app; empty when none. The core
+scope gives the controller its stores, vault-operator the path of each
+store's root keys, and each store's app its volume and region. With
+wireConsumers, each claim gives its app global.ohmlab.storage.<claim> and its
+wiring. Called with (list . <scope>).
+*/}}
+{{- define "instance-manager.storageElements" -}}
+{{- $root := index . 0 -}}
+{{- $scope := index . 1 -}}
+{{- $model := include "instance-manager.storage" $root | fromYaml -}}
+{{- if $model -}}
+{{- $els := dict -}}
+{{- if eq $scope "core" -}}
+{{- $targetStores := list -}}
+{{- $paths := list -}}
+{{- range $name, $st := $model.stores -}}
+{{- $targetStores = append $targetStores (dict "name" $name "type" $st.type "endpoint" $st.endpoint "region" $st.region "pathStyle" true "bucketPrefix" "" "capacity" $st.size "namespace" $st.namespace "rootCredentials" (dict "path" $st.rootPath "key" "admin")) -}}
+{{- $paths = append $paths (dict "name" $name "path" $st.rootPath) -}}
+{{- $class := dict "dataStorageSize" $st.size -}}
+{{- with $st.storageClass }}{{ $_ := set $class "name" . }}{{ end -}}
+{{- $_ := set $els $st.app (dict "rustfs" (dict "storageclass" $class "config" (dict "rustfs" (dict "region" $st.region)))) -}}
+{{- end -}}
+{{- $_ := set $els "ohmlab-controller" (dict "targets" (dict "storage" (dict "enabled" true "stores" $targetStores))) -}}
+{{- $_ := set $els "vault-operator" (dict "ohmlab" (dict "controller" (dict "storage" (dict "stores" $paths)))) -}}
+{{- end -}}
+{{- if ne (toString $root.Values.storage.wireConsumers) "false" -}}
+{{- range $app, $claims := include "instance-manager.tierClaims" (list $root $scope) | fromYaml -}}
+{{- $v := get $els $app | default dict -}}
+{{- range $claim, $c := $claims -}}
+{{- $st := get $model.stores $c.store -}}
+{{- $global := get $v "global" | default dict -}}
+{{- $ohmlab := get $global "ohmlab" | default dict -}}
+{{- $storage := get $ohmlab "storage" | default dict -}}
+{{- $_ := set $storage $claim (dict "enabled" true "bucket" $c.bucket "endpoint" $st.endpoint "region" $st.region "pathStyle" true) -}}
+{{- $_ := set $ohmlab "storage" $storage -}}
+{{- $_ := set $global "ohmlab" $ohmlab -}}
+{{- $_ := set $v "global" $global -}}
+{{- if eq (toString $c.wiring) "cnpg" -}}
+{{- $cnpg := get $v "cnpg" | default dict -}}
+{{- $_ := set $cnpg "backups" (dict "enabled" true "endpointURL" $st.endpoint "destinationPath" (printf "s3://%s/" $c.bucket) "endpointCA" (dict "name" (printf "%s-pg-cluster-backup" $app) "key" "ca.crt")) -}}
+{{- $_ := set $v "cnpg" $cnpg -}}
+{{- else if eq (toString $c.wiring) "backup-utils" -}}
+{{- $_ := set $v "backup-utils" (dict "enabled" true) -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set $els $app $v -}}
+{{- end -}}
+{{- end -}}
+{{- $list := list -}}
+{{- range $app := keys $els | sortAlpha -}}
+{{- $list = append $list (dict "app" $app "storageValues" (get $els $app)) -}}
+{{- end -}}
+{{- if $list }}{{ toYaml $list }}{{ end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The values of a scope's storage-claims Application, as YAML: the scope, the
+namespace pattern of its apps, the controller's namespace, each store's
+namespace, port and size, and the scope's claims. Called with (list . <scope>).
+*/}}
+{{- define "instance-manager.claimsValues" -}}
+{{- $root := index . 0 -}}
+{{- $scope := index . 1 -}}
+{{- $model := include "instance-manager.storage" $root | fromYaml -}}
+{{- $stores := dict -}}
+{{- range $name, $st := $model.stores -}}
+{{- $_ := set $stores $name (dict "namespace" $st.namespace "port" $st.port "size" $st.size) -}}
+{{- end -}}
+{{- $claims := dict -}}
+{{- range $app, $cs := include "instance-manager.tierClaims" (list $root $scope) | fromYaml -}}
+{{- $appClaims := dict -}}
+{{- range $claim, $c := $cs -}}
+{{- $_ := set $appClaims $claim (pick $c "store" "bucket" "record" "key" "quota" "versioning" "lifecycle" "replicate" "access" "clients") -}}
+{{- end -}}
+{{- $_ := set $claims $app $appClaims -}}
+{{- end -}}
+{{- toYaml (dict "scope" $scope "namespacePrefix" ($root.Values.namespacePrefix | default "") "namespaceSuffix" ($root.Values.namespaceSuffix | default "") "controller" (dict "namespace" "ohmlab-system") "stores" $stores "claims" $claims) -}}
+{{- end -}}
+
+{{/*
+Where the storage-claims chart comes from: the default catalog, a git
+repository or a bundle with the layout of this one. A chart registry holds no
+catalog app, so storage refuses it as the default catalog.
+*/}}
+{{- define "instance-manager.claimsSource" -}}
+{{- $name := .Values.defaultCatalog | default "git" -}}
+{{- if eq $name "git" -}}
+repoURL: {{ .Values.repoURL | quote }}
+targetRevision: {{ .Values.targetRevision | default "main" | quote }}
+{{- else -}}
+{{- $c := get (.Values.catalogs | default dict) $name -}}
+{{- if kindIs "string" $c -}}
+{{- fail (printf "storage needs a git or bundle default catalog: defaultCatalog %q is a chart registry, which holds no storage-claims chart" $name) -}}
+{{- end -}}
+repoURL: {{ $c.repoURL | quote }}
+targetRevision: {{ $c.version | default "catalog-version-required" | quote }}
+{{- end }}
+path: argo-cd/apps/storage-claims
 {{- end -}}

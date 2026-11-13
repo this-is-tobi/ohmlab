@@ -23,21 +23,20 @@ spec:
   {{- include "instance-manager.rollingSyncStrategy" . | nindent 2 }}
   {{- end }}
   generators:
-  - matrix:
+  {{- /* Each app's object storage values join it by name (storageElements). */}}
+  {{- $elements := include "instance-manager.storageElements" (list . "core") }}
+  {{- if $elements }}
+  - merge:
+      mergeKeys:
+      - app
       generators:
-      - git:
-          repoURL: {{ $repo | quote }}
-          revision: {{ $rev | quote }}
-          files:
-          - path: 'argo-cd/instances/{{ $instance }}/core.yaml'
+      {{- include "instance-manager.tierMatrix" (list . "core") | nindent 6 }}
       - list:
-          elementsYaml: "{{ `{{ .apps | toJson }}` }}"
-        selector:
-          matchExpressions:
-          - key: enabled
-            operator: In
-            values:
-            - "true"
+          elements:
+          {{- $elements | nindent 10 }}
+  {{- else }}
+  {{- include "instance-manager.tierMatrix" (list . "core") | nindent 2 }}
+  {{- end }}
   template:
     metadata:
       name: '{{ $instance }}-{{ `{{ .app }}` }}'
@@ -77,6 +76,9 @@ spec:
         targetRevision: '{{ printf "{{ default (%s) .targetRevision }}" (include "instance-manager.catalogRevision" .) }}'
         helm:
           releaseName: '{{ `{{ default .app .releaseName }}` }}'
+          {{- if $elements }}
+          values: '{{ `{{ if .storageValues }}{{ toJson .storageValues }}{{ end }}` }}'
+          {{- end }}
           valueFiles:
           - '$values/{{ printf "{{ default (printf \"argo-cd/instances/%s/values/core/%%s.yaml\" .app) .valuesPath }}" $instance }}'
           parameters:

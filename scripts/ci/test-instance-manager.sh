@@ -15,19 +15,13 @@ fail=0
 GIT=https://git.example/repo.git
 REGISTRY=ghcr.io/example/charts
 
-# render_sources <scope> <elements-json> [<helm args>...] -> one compact JSON
-# object per element: the first source of the Application it generates,
-# without the empty fields (an empty field is the same as an unset one to Argo
-# CD) and, unless KEEP_PARAMS=true, without its Helm parameters (render_params
-# checks those). The helm arguments set the catalogs of the instance.
-render_sources() {
-  local scope="$1" elements="$2"
-  shift 2
-  helm template t "$CHART" --set instance.name=t --set "repoURL=$GIT" "$@" >"$work/appsets.yaml" || return 1
-  yq ea "select(.kind == \"ApplicationSet\" and .metadata.name == \"$scope-t\")" "$work/appsets.yaml" >"$work/appset.yaml"
+# eval_template <appset-file> <elements-json> -> the YAML the ApplicationSet's
+# template gives for each element, one document per element.
+eval_template() {
+  local file="$1" elements="$2"
   rm -rf "$work/eval" && mkdir -p "$work/eval/templates"
   printf 'apiVersion: v2\nname: eval\nversion: 0.1.0\n' >"$work/eval/Chart.yaml"
-  sed -n '/^  template:$/,/^  templatePatch:/p' "$work/appset.yaml" | sed '1d;$d' | sed 's/^    //' >"$work/eval/app.tpl"
+  sed -n '/^  template:$/,/^  [a-zA-Z]/p' "$file" | sed '1d;$d' | sed 's/^    //' >"$work/eval/app.tpl"
   cat >"$work/eval/templates/out.yaml" <<'EOF'
 {{- range .Values.elements }}
 ---
@@ -38,10 +32,24 @@ EOF
   # where Argo CD's renderer prints nothing, so every element gets an empty
   # destination, the one nested key the templates read.
   elements=$(jq -c 'map(. + {destination: (.destination // {})})' <<<"$elements")
-  helm template eval "$work/eval" --set-json "elements=$elements" 2>"$work/eval.err" \
+  helm template eval "$work/eval" --set-json "elements=$elements" 2>"$work/eval.err"
+  [ -s "$work/eval.err" ] && { head -c 400 "$work/eval.err"; echo; } >&2
+  return 0
+}
+
+# render_sources <scope> <elements-json> [<helm args>...] -> one compact JSON
+# object per element: the first source of the Application it generates,
+# without the empty fields (an empty field is the same as an unset one to Argo
+# CD) and, unless KEEP_PARAMS=true, without its Helm parameters (render_params
+# checks those). The helm arguments set the catalogs of the instance.
+render_sources() {
+  local scope="$1" elements="$2"
+  shift 2
+  helm template t "$CHART" --set instance.name=t --set "repoURL=$GIT" "$@" >"$work/appsets.yaml" || return 1
+  yq ea "select(.kind == \"ApplicationSet\" and .metadata.name == \"$scope-t\")" "$work/appsets.yaml" >"$work/appset.yaml"
+  eval_template "$work/appset.yaml" "$elements" \
     | yq ea -o=json -I=0 '[.spec.sources[0]]' - 2>/dev/null \
     | jq -c --argjson keep "${KEEP_PARAMS:-false}" '.[] | (if $keep then . else del(.helm.parameters) end) | to_entries | map(select(.value != "")) | sort_by(.key) | from_entries' 2>/dev/null
-  [ -s "$work/eval.err" ] && { head -c 400 "$work/eval.err"; echo; } >&2
   return 0
 }
 
@@ -319,5 +327,183 @@ refuse_msg "a name with a control character is refused" 'names.keycloakRealmDisp
 accept "a nested Vault mount is accepted" --set-json 'names={"vaultMount":"team/lab"}'
 helm template t "$CHART" --set instance.name=t --set "repoURL=$GIT" --set-json "catalogs=$bundles" --set defaultCatalog=bundle >/dev/null 2>&1 \
   && echo "ok   a declared default catalog renders" || { echo "FAIL a declared default catalog renders"; fail=1; }
+
+# Object storage, in the homelab's shape: one backups store, the core tier on
+# the ohmlab system mount and the tenant tier on the instance's.
+cat >"$work/storage.yaml" <<'EOF'
+instance: {name: homelab, env: production}
+storage:
+  stores:
+    rustfs-backups:
+      app: rustfs-backups
+      namespace: rustfs-backups
+      endpoint: https://rustfs-svc.rustfs-backups.svc:9000
+      size: 50Gi
+      storageClass: longhorn-two-replicas
+  backups: rustfs-backups
+EOF
+STORE='https://rustfs-svc.rustfs-backups.svc:9000'
+ROOTKEYS='ohmlab/platforms/production/core/rustfs-backups'
+
+# im <name> <helm args...>: renders the manager and writes its ApplicationSet of
+# that name to $work/<name>.yaml (empty when it does not render).
+im() {
+  local name="$1"
+  shift
+  helm template t "$CHART" --set "repoURL=$GIT" "$@" >"$work/im.yaml" || return 1
+  yq ea "select(.kind == \"ApplicationSet\" and .metadata.name == \"$name\")" "$work/im.yaml" >"$work/$name.yaml"
+}
+# merged_element <appset-file> <element-json>: the element merged with the
+# merge list's element of the same app, as Argo CD's merge generator does.
+merged_element() {
+  local list
+  list=$(yq -o=json -I=0 '.spec.generators[0].merge.generators[1].list.elements // []' "$1")
+  jq -c --argjson list "$list" '. as $e | $e + (($list | map(select(.app == $e.app)) | first) // {})' <<<"$2"
+}
+# app_values <appset-file> <element-json>: the inline Helm values of the
+# Application the element gets, as Argo CD hands them to Helm ("" for none).
+app_values() {
+  eval_template "$1" "[$(merged_element "$1" "$2")]" \
+    | yq ea -o=json -I=0 'select(.spec != null) | (.spec.sources[0] // .spec.source).helm.values // ""' - | jq -r .
+}
+# claims_values <tier> <helm args...>: the claims chart's values that
+# storage-<tier>-homelab carries, as JSON.
+claims_values() {
+  local tier="$1"
+  shift
+  im "storage-$tier-homelab" -f "$work/storage.yaml" "$@"
+  yq -o=json -I=0 '.spec.generators[0].matrix.generators[1].list.elements[0].claimsValues' "$work/storage-$tier-homelab.yaml"
+}
+# changed <json-a> <json-b>: the leaf paths whose values differ, as JSON.
+changed() {
+  jq -nc --argjson a "$1" --argjson b "$2" '[($a, $b) | paths(scalars)] | unique | map(select(. as $p | ($a | getpath($p)) != ($b | getpath($p))))'
+}
+
+# No storage: the tier ApplicationSets keep their matrix and no inline values,
+# and no storage-* ApplicationSet renders. A storage block that names no store
+# renders exactly as none.
+im core-homelab --set instance.name=homelab --set instance.env=production
+check "no storage: no storage ApplicationSet" "" \
+  "$(yq ea 'select(.kind == "ApplicationSet" and (.metadata.name | test("^storage-"))) | .metadata.name' "$work/im.yaml")"
+check "no storage: the core ApplicationSet keeps its matrix" '["matrix"]' "$(yq -o=json -I=0 '.spec.generators[0] | keys' "$work/core-homelab.yaml")"
+check "no storage: no inline values" "" "$(yq '.spec.template.spec.sources[0].helm.values // ""' "$work/core-homelab.yaml")"
+cp "$work/im.yaml" "$work/im-none.yaml"
+cp "$work/core-homelab.yaml" "$work/core-none.yaml"
+im core-homelab -f "$work/storage.yaml" --set storage.backups=
+check "a storage block that names no store renders as none" "same" "$(cmp -s "$work/im-none.yaml" "$work/im.yaml" && echo same)"
+
+im core-homelab -f "$work/storage.yaml"
+check "storage: the core ApplicationSet merges on app" '["app"]' "$(yq -o=json -I=0 '.spec.generators[0].merge.mergeKeys' "$work/core-homelab.yaml")"
+check "storage: the merge's first generator is the tier's matrix, unchanged" \
+  "$(yq -o=json -I=0 '.spec.generators[0]' "$work/core-none.yaml")" "$(yq -o=json -I=0 '.spec.generators[0].merge.generators[0]' "$work/core-homelab.yaml")"
+check "storage: the merge list is sorted by app" \
+  "$(yq -o=json -I=0 '[.spec.generators[0].merge.generators[1].list.elements[].app] | sort' "$work/core-homelab.yaml")" \
+  "$(yq -o=json -I=0 '[.spec.generators[0].merge.generators[1].list.elements[].app]' "$work/core-homelab.yaml")"
+ctl=$(app_values "$work/core-homelab.yaml" '{"app":"ohmlab-controller"}')
+check "storage: the controller's target is on" "true" "$(jq -c '.targets.storage.enabled' <<<"$ctl")"
+check "storage: the controller gets the store, its root keys and capacity" \
+  "[{\"bucketPrefix\":\"\",\"capacity\":\"50Gi\",\"endpoint\":\"$STORE\",\"name\":\"rustfs-backups\",\"namespace\":\"rustfs-backups\",\"pathStyle\":true,\"region\":\"us-east-1\",\"rootCredentials\":{\"key\":\"admin\",\"path\":\"$ROOTKEYS\"},\"type\":\"rustfs\"}]" \
+  "$(jq -cS '.targets.storage.stores' <<<"$ctl")"
+check "storage: the store's app gets its size, class and region" \
+  '{"config":{"rustfs":{"region":"us-east-1"}},"storageclass":{"dataStorageSize":"50Gi","name":"longhorn-two-replicas"}}' \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"rustfs-backups"}' | jq -cS '.rustfs')"
+kc=$(app_values "$work/core-homelab.yaml" '{"app":"keycloak"}')
+check "storage: keycloak's claim" \
+  "{\"bucket\":\"ohmlab-keycloak-pg\",\"enabled\":true,\"endpoint\":\"$STORE\",\"pathStyle\":true,\"region\":\"us-east-1\"}" \
+  "$(jq -cS '.global.ohmlab.storage.pg' <<<"$kc")"
+check "storage: keycloak's Postgres backs up to its bucket" \
+  "{\"destinationPath\":\"s3://ohmlab-keycloak-pg/\",\"enabled\":true,\"endpointCA\":{\"key\":\"ca.crt\",\"name\":\"keycloak-pg-cluster-backup\"},\"endpointURL\":\"$STORE\"}" \
+  "$(jq -cS '.cnpg.backups' <<<"$kc")"
+check "storage: vault-operator gets the store's root keys path, its claim and backup-utils" \
+  "{\"backup-utils\":{\"enabled\":true},\"global\":{\"ohmlab\":{\"storage\":{\"vault\":{\"bucket\":\"ohmlab-vault-operator-vault\",\"enabled\":true,\"endpoint\":\"$STORE\",\"pathStyle\":true,\"region\":\"us-east-1\"}}}},\"ohmlab\":{\"controller\":{\"storage\":{\"stores\":[{\"name\":\"rustfs-backups\",\"path\":\"$ROOTKEYS\"}]}}}}" \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"vault-operator"}' | jq -cS .)"
+check "storage: an app without a claim gets no values" "" "$(app_values "$work/core-homelab.yaml" '{"app":"homepage"}')"
+im tenant-homelab -f "$work/storage.yaml"
+check "storage: a tenant app's bucket is on the instance's mount" "homelab-gitea-pg" \
+  "$(app_values "$work/tenant-homelab.yaml" '{"app":"gitea"}' | jq -r '.global.ohmlab.storage.pg.bucket')"
+check "storage: the tenant list carries no controller or store" "[]" \
+  "$(yq -o=json -I=0 '[.spec.generators[0].merge.generators[1].list.elements[].app | select(. == "ohmlab-controller" or . == "rustfs-backups")]' "$work/tenant-homelab.yaml")"
+
+# wireConsumers false: the records come first, no consumer is wired.
+im core-homelab -f "$work/storage.yaml" --set storage.wireConsumers=false
+check "wireConsumers false: keycloak gets no values" "" "$(app_values "$work/core-homelab.yaml" '{"app":"keycloak"}')"
+check "wireConsumers false: the controller keeps its store" "rustfs-backups" \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"ohmlab-controller"}' | jq -r '.targets.storage.stores[0].name')"
+check "wireConsumers false: vault-operator keeps the root keys path only" \
+  "{\"ohmlab\":{\"controller\":{\"storage\":{\"stores\":[{\"name\":\"rustfs-backups\",\"path\":\"$ROOTKEYS\"}]}}}}" \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"vault-operator"}' | jq -cS .)"
+check "wireConsumers false: the store keeps its size" "50Gi" \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"rustfs-backups"}' | jq -r '.rustfs.storageclass.dataStorageSize')"
+im tenant-homelab -f "$work/storage.yaml" --set storage.wireConsumers=false
+check "wireConsumers false: the tenant ApplicationSet keeps its matrix" '["matrix"]' "$(yq -o=json -I=0 '.spec.generators[0] | keys' "$work/tenant-homelab.yaml")"
+check "wireConsumers false: the claims still render" "homelab-gitea-pg" "$(claims_values tenant --set storage.wireConsumers=false | jq -r '.claims.gitea.pg.bucket')"
+
+# Overrides in instance.yaml, per field.
+base=$(claims_values tenant)
+check "the claims values carry the tier, the store and each claim" \
+  "{\"access\":\"readWrite\",\"bucket\":\"homelab-gitea-pg\",\"clients\":{\"cnpg.io/cluster\":\"gitea-pg-cluster\"},\"key\":\"pg\",\"lifecycle\":{\"expireDays\":0,\"noncurrentDays\":7},\"quota\":\"2Gi\",\"record\":\"homelab/platforms/production/tenant/gitea/s3\",\"replicate\":true,\"store\":\"rustfs-backups\",\"versioning\":true}" \
+  "$(jq -cS '.claims.gitea.pg' <<<"$base")"
+check "the claims values name the scope, the controller's namespace and the store" \
+  '{"controller":{"namespace":"ohmlab-system"},"namespacePrefix":"","namespaceSuffix":"","scope":"tenant","stores":{"rustfs-backups":{"namespace":"rustfs-backups","port":9000,"size":"50Gi"}}}' \
+  "$(jq -cS 'del(.claims)' <<<"$base")"
+check "an override of one claim's quota changes only that claim" '[["claims","gitea","pg","quota"]]' \
+  "$(changed "$base" "$(claims_values tenant --set storage.claims.gitea.pg.quota=3Gi)")"
+check "an override of a nested field keeps its siblings" '[["claims","gitea","pg","lifecycle","noncurrentDays"]]' \
+  "$(changed "$base" "$(claims_values tenant --set storage.claims.gitea.pg.lifecycle.noncurrentDays=14)")"
+check "a claim turned off leaves the claims values" "null" "$(claims_values tenant --set storage.claims.gitea.pg.enabled=false | jq -c '.claims.gitea')"
+im tenant-homelab -f "$work/storage.yaml" --set storage.claims.gitea.pg.enabled=false
+check "a claim turned off leaves its app unwired" "" "$(app_values "$work/tenant-homelab.yaml" '{"app":"gitea"}')"
+check "a claim's false and 0 override the defaults, which its siblings keep" '{"gitea":30,"keycloak":{"expireDays":0,"versioning":false}}' \
+  "$(claims_values core --set storage.claimDefaults.lifecycle.expireDays=30 --set storage.claims.keycloak.pg.versioning=false --set storage.claims.keycloak.pg.lifecycle.expireDays=0 \
+    | jq -cS '{keycloak: (.claims.keycloak.pg | {versioning, expireDays: .lifecycle.expireDays}), gitea: .claims.gitea.pg.lifecycle.expireDays}')"
+im core-homelab -f "$work/storage.yaml" --set storage.backups=
+check "storage.backups empty: no storage ApplicationSet" "" \
+  "$(yq ea 'select(.kind == "ApplicationSet" and (.metadata.name | test("^storage-"))) | .metadata.name' "$work/im.yaml")"
+check "storage.backups empty: the core ApplicationSet keeps its matrix" '["matrix"]' "$(yq -o=json -I=0 '.spec.generators[0] | keys' "$work/core-homelab.yaml")"
+
+# The claims Application of each tier.
+im storage-core-homelab -f "$work/storage.yaml"
+cv=$(yq -o=json -I=0 '.spec.generators[0].matrix.generators[1].list.elements[0].claimsValues' "$work/storage-core-homelab.yaml")
+app=$(eval_template "$work/storage-core-homelab.yaml" "[{\"apps\":[{\"app\":\"vault-operator\",\"enabled\":\"true\"}],\"claimsValues\":$cv}]" \
+  | yq ea -o=json -I=0 'select(.spec != null)' -)
+check "storage-core-homelab: the Application of the core claims" "homelab-storage-core" "$(jq -r '.metadata.name' <<<"$app")"
+check "storage-core-homelab: the chart storage-claims, from the default catalog" \
+  "{\"path\":\"argo-cd/apps/storage-claims\",\"repoURL\":\"$GIT\",\"targetRevision\":\"main\"}" "$(jq -cS '.spec.source | del(.helm)' <<<"$app")"
+check "storage-core-homelab: release storage-core, into ohmlab-system" "storage-core ohmlab-system" \
+  "$(jq -r '.spec.source.helm.releaseName + " " + .spec.destination.namespace' <<<"$app")"
+check "storage-core-homelab: retries without limit" "-1" "$(jq -r '.spec.syncPolicy.retry.limit' <<<"$app")"
+check "storage-core-homelab: the chart gets the claims" "ohmlab-vault-operator-vault" \
+  "$(jq -r '.spec.source.helm.values | fromjson | .claims["vault-operator"].vault.bucket' <<<"$app")"
+check "storage-core-homelab: and the tier file's apps" '[{"app":"vault-operator","enabled":"true"}]' \
+  "$(jq -c '.spec.source.helm.values | fromjson | .apps' <<<"$app")"
+im storage-tenant-homelab -f "$work/storage.yaml"
+check "storage-tenant-homelab renders, labelled core" "core" "$(yq '.metadata.labels."ohmlab.fr/instance-scope"' "$work/storage-tenant-homelab.yaml")"
+
+# Storage refuses what it cannot run.
+S=(-f "$work/storage.yaml")
+refuse_msg "a store of another type is refused" 'storage.stores.rustfs-backups.type "external": only rustfs stores exist so far' "${S[@]}" --set storage.stores.rustfs-backups.type=external
+refuse_msg "a store without an endpoint is refused" 'storage.stores.rustfs-backups needs app, namespace, endpoint and size' "${S[@]}" --set storage.stores.rustfs-backups.endpoint=
+refuse_msg "an endpoint other than https://<host>:<port> is refused" 'storage.stores.rustfs-backups.endpoint "http://x" must be https://<host>:<port>' "${S[@]}" --set storage.stores.rustfs-backups.endpoint=http://x
+refuse_msg "a size that is not a quantity is refused" 'storage.stores.rustfs-backups.size "big" must be a quantity like 50Gi' "${S[@]}" --set storage.stores.rustfs-backups.size=big
+refuse_msg "a role naming no store is refused" 'storage.backups "x" is not a store of storage.stores' "${S[@]}" --set storage.backups=x
+refuse_msg "a claim role other than backups or data is refused" 'storage.claims.gitea.pg.role "y" is not backups or data' "${S[@]}" --set storage.claims.gitea.pg.role=y
+refuse_msg "storage without instance.env is refused" "storage needs instance.env: it is a segment of every record's path" "${S[@]}" --set instance.env=
+refuse_msg "storage on an instance reading a hub's Vault is refused" "storage on an instance that reads another instance's Vault (vault.hub) is not supported yet" "${S[@]}" --set vault.hub=platform
+refuse_msg "an unknown wiring is refused" 'storage.claims.gitea.pg.wiring "cnpgg" is not cnpg, backup-utils or none' "${S[@]}" --set storage.claims.gitea.pg.wiring=cnpgg
+refuse_msg "a chart registry as the default catalog is refused" 'storage needs a git or bundle default catalog: defaultCatalog "charts" is a chart registry' \
+  "${S[@]}" --set-json "catalogs={\"charts\":\"$REGISTRY\"}" --set defaultCatalog=charts
+im storage-core-homelab -f "$work/storage.yaml" --set-json "catalogs=$bundles" --set defaultCatalog=bundle
+check "a bundle default catalog gives the claims chart its repository and version" \
+  "{\"path\":\"argo-cd/apps/storage-claims\",\"repoURL\":\"$BUNDLE\",\"targetRevision\":\"0.2.0\"}" \
+  "$(yq -o=json -I=0 '.spec.template.spec.source | del(.helm)' "$work/storage-core-homelab.yaml" | jq -cS .)"
+
+# The registry: every cnpg claim's clients name the app's own Postgres cluster.
+n=0
+for app in $(yq -r '.storage.claims | to_entries[] | select([.value[] | .wiring] | any_c(. == "cnpg")) | .key' "$CHART/values.yaml"); do
+  n=$((n + 1))
+  check "registry: $app's cnpg clients are its cluster's pods" "$(yq -r '.cnpg.fullnameOverride' "$ROOT/argo-cd/apps/$app/values.yaml")" \
+    "$(yq -r ".storage.claims[\"$app\"][] | select(.wiring == \"cnpg\") | .clients[\"cnpg.io/cluster\"]" "$CHART/values.yaml")"
+done
+check "registry: the 11 Postgres apps back up through cnpg" "11" "$n"
 
 exit "$fail"

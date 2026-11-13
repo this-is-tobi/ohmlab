@@ -1,0 +1,79 @@
+{{- /*
+The claims of each tier: one Application of the storage-claims chart, which
+renders the S3Buckets of the tier file's enabled apps in the controller's
+namespace, and their NetworkPolicies. Only an ApplicationSet reads the tier
+file, so the chart gets the file's apps merged with the claims at generation
+time, in one values string: Argo CD ignores `values` next to `valuesObject`.
+*/}}
+{{- if include "instance-manager.storage" . }}
+{{- $instance := required ".Values.instance.name is required" .Values.instance.name -}}
+{{- $repo := required ".Values.repoURL is required" .Values.repoURL -}}
+{{- include "instance-manager.validateCatalogs" . -}}
+{{- $rev := .Values.targetRevision | default "main" -}}
+{{- $source := include "instance-manager.claimsSource" . | fromYaml -}}
+{{- range $tier := list "core" "tenant" }}
+{{- if (get $.Values.scopes $tier).enabled }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: storage-{{ $tier }}-{{ $instance }}
+  namespace: {{ $.Values.argocdNamespace | default "argocd-system" }}
+  labels:
+    {{- include "instance-manager.labels" $ | nindent 4 }}
+    ohmlab.fr/instance-scope: "core"
+spec:
+  goTemplate: true
+  generators:
+  - matrix:
+      generators:
+      - git:
+          repoURL: {{ $repo | quote }}
+          revision: {{ $rev | quote }}
+          files:
+          - path: 'argo-cd/instances/{{ $instance }}/{{ $tier }}.yaml'
+      - list:
+          elements:
+          - claimsValues:
+              {{- include "instance-manager.claimsValues" (list $ $tier) | nindent 14 }}
+  template:
+    metadata:
+      name: '{{ $instance }}-storage-{{ $tier }}'
+      annotations:
+        argocd.argoproj.io/compare-options: ServerSideDiff=true
+      labels:
+        {{- include "instance-manager.labels" $ | nindent 8 }}
+        ohmlab.fr/instance-scope: "core"
+        ohmlab.fr/app-name: 'storage-{{ $tier }}'
+    spec:
+      project: {{ $.Values.projects.core | default "admin-core" | quote }}
+      revisionHistoryLimit: 3
+      source:
+        repoURL: {{ $source.repoURL | quote }}
+        path: {{ $source.path | quote }}
+        targetRevision: {{ $source.targetRevision | quote }}
+        helm:
+          releaseName: 'storage-{{ $tier }}'
+          values: '{{ `{{ toJson (merge (dict "apps" .apps) .claimsValues) }}` }}'
+      destination:
+        server: {{ $.Values.destination.server | default "https://kubernetes.default.svc" | quote }}
+        namespace: ohmlab-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - ServerSideApply=true
+        - ApplyOutOfSyncOnly=true
+        # The S3Bucket CRD or an app's namespace may come later.
+        retry:
+          limit: -1
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 10m
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+{{- end }}
+{{- end }}
+{{- end }}
