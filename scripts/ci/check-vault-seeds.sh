@@ -30,9 +30,13 @@ source "$ROOT/scripts/lib/instances.sh"
 #   .Secrets.<k>[.<k2>...] [| <filter>]...
 #   printf "<format>" with such gets in parentheses, and strings, as arguments
 # where a filter is default "<s>", b64dec, trim or toJson, and any other fails,
-# naming the secret: it could read keys this check does not see. A secret
-# without templates needs its path seeded. Returns 1 when the files cannot be
-# read.
+# naming the secret: it could read keys this check does not see. A whole text
+#   {{ with get .Secrets "<claim>" }}{{ dig "<k>" "" . }}[{{ else }}<a text>]{{ end }}
+# reads a storage claim's key where the data has the claim, else its fallback.
+# A path that ends in /s3 is a claim's record, which the controller's storage
+# target writes, not a seed: its reads are <claim>.<one of the record's keys>.
+# A secret without templates needs its path seeded, unless it is a record.
+# Returns 1 when the files cannot be read.
 seed_reads() {
   jq -r --slurpfile seeds "$2" --arg hub "$3" --arg prefix "${4:-}" '
     def lit: "\"(?:[^\"\\\\]|\\\\.)*\"";
@@ -62,16 +66,32 @@ seed_reads() {
     # Whether the seed data has the key path, whatever its value: an empty
     # one is a placeholder that an operator fills.
     def seeded($data; $p): (try ($data | getpath($p[:-1])) catch null) | type == "object" and has($p[-1]);
+    def with_re: "^\\{\\{-?\\s*with\\s+get\\s+\\.Secrets\\s+(" + lit + ")\\s*-?\\}\\}\\{\\{-?\\s*dig\\s+(" + lit + ")\\s+\"\"\\s+\\.\\s*-?\\}\\}(?:\\{\\{-?\\s*else\\s*-?\\}\\}(.*))?\\{\\{-?\\s*end\\s*-?\\}\\}$";
+    # The key paths a text reads from a path, or null: the claim form reads
+    # the claim key on a record or where the data has it, else its fallback.
+    def text_reads($data; $record):
+      if test(with_re) then
+        (match(with_re) | .captures | map(.string)) as $c
+        | ($c[0] | fromjson) as $claim
+        | if $record or seeded($data; [$claim]) then [[$claim, ($c[1] | fromjson)]]
+          elif $c[2] then ($c[2] | keys_read)
+          else [] end
+      else keys_read end;
+    def record_keys: ["accessKey", "secretKey", "endpoint", "region", "pathStyle", "bucket", "ca"];
     [ .[] as $r
       | ($seeds[0] | map(select(.path == $r.path)) | first) as $seed
+      | (($r.path // "") | endswith("/s3")) as $record
       | if $r.fail then {fail: "\($r.label): \($r.fail)"}
         elif ($r.texts | length) == 0 then
-          if $seed == null then {fail: "\($r.label): \($r.path) is not seeded by hub \($hub)"} else empty end
+          if $seed == null and ($record | not) then {fail: "\($r.label): \($r.path) is not seeded by hub \($hub)"} else empty end
         else
-          $r.texts[] | keys_read as $paths
+          $r.texts[] | text_reads($seed.data; $record) as $paths
           | if $paths == null then {fail: "\($r.label): VaultStaticSecret \($r.secret) reads .Secrets in a form this check cannot follow: \(.[0:160])"}
             else $paths[] as $p
-              | if seeded($seed.data; $p) then {read: "\($r.path) \($p | join("."))"}
+              | if $record then
+                  if ($p | length) == 2 and ($p[1] | IN(record_keys[])) then {read: "\($r.path) \($p | join("."))"}
+                  else {fail: "\($r.label): \($r.path) is a claim'"'"'s record: \($p | join(".")) is not one of its keys (<claim>.\(record_keys | join(", ")))"} end
+                elif seeded($seed.data; $p) then {read: "\($r.path) \($p | join("."))"}
                 else {fail: "\($r.label): \($r.path) key \($p | join(".")) is not seeded by hub \($hub)"} end
             end
         end ]
