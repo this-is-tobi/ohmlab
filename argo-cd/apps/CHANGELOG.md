@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.21.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.20.0...catalog-v0.21.0) (2026-11-13)
+
+
+### Features
+
+* **catalog:** back up Postgres to the app's storage claim ([a58ae21](https://github.com/this-is-tobi/ohmlab/commit/a58ae216e33089aca31041a15b2d7c319c9dceba))
+* **instance-manager:** a storage registry that wires each app to its claims ([669199b](https://github.com/this-is-tobi/ohmlab/commit/669199b827a429b03a877f9eefb0c75d9569324f))
+* **ohmlab-controller:** alert on stale Postgres and Vault backups ([46b69f7](https://github.com/this-is-tobi/ohmlab/commit/46b69f7ec00e54d70dab6e61dbacbf961da230e7))
+* **storage-claims:** render the claims of a tier's enabled apps ([6a94c63](https://github.com/this-is-tobi/ohmlab/commit/6a94c6348460b89934fb30b7018eb37989ba7714))
+* **vault-operator:** set up Vault for the storage target and the snapshot job ([63dbb20](https://github.com/this-is-tobi/ohmlab/commit/63dbb20dace69511d90a06340d341f409b0d0114))
+
+
+### Bug Fixes
+
+* **deps:** backup-utils 2.6.0 ([69ef6af](https://github.com/this-is-tobi/ohmlab/commit/69ef6afdb1866e4444aede5f44ad50eca06480f6))
+* **deps:** update cnpg postgres images ([8dfb16b](https://github.com/this-is-tobi/ohmlab/commit/8dfb16bb5f852eeea968c28ba633663c57de033f))
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.10.0 ([3ff34e2](https://github.com/this-is-tobi/ohmlab/commit/3ff34e2b6965a11d1857037610a1bd6d9188a321))
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.9.0 ([2c0debf](https://github.com/this-is-tobi/ohmlab/commit/2c0debf71a42789bb6dfd7e035f2da3629c82898))
+* **deps:** update helm release loki to v21.2.3 ([1d0bb59](https://github.com/this-is-tobi/ohmlab/commit/1d0bb592f3c2c59313555370491c17f982a70305))
+* **deps:** update helm release sops-secrets-operator to v0.30.0 ([ba4718e](https://github.com/this-is-tobi/ohmlab/commit/ba4718e196f9c022857749ed8419212b3d3d3d8e))
+* **deps:** update helm release traefik to v42.4.0 ([4dffb9c](https://github.com/this-is-tobi/ohmlab/commit/4dffb9c0bae01900c92f69a596bfc555af38b5e3))
+* **storage:** close the final review's findings before rollout ([27c8bf7](https://github.com/this-is-tobi/ohmlab/commit/27c8bf753c17f0c0b444193d679d76dfa15e9c90))
+
 ## [0.20.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.19.3...catalog-v0.20.0) (2026-11-12)
 
 
