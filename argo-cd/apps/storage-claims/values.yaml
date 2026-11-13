@@ -1,0 +1,21 @@
+# The instance-manager renders these from instance.yaml's storage block and
+# the catalog's claims (storage-<tier>-<instance>, docs/10): nothing here is
+# meant to be set by hand.
+
+# The tier: core or tenant.
+scope: ""
+# The namespace of an app is its tier entry's, else <prefix><app><suffix>.
+namespacePrefix: ""
+namespaceSuffix: ""
+# The namespace the storage target watches, where the S3Buckets go.
+controller:
+  namespace: ohmlab-system
+# NetworkPolicies between each claim's pods and its store (instance-manager's
+# storage.networkPolicies, which says when they are safe).
+networkPolicies: false
+# <name>: {namespace, port, size}
+stores: {}
+# <app>: {<claim>: {store, bucket, record, key, quota, versioning, lifecycle, replicate, access, clients}}
+claims: {}
+# The tier file's entries: {app, enabled, namespace, ...}.
+apps: []

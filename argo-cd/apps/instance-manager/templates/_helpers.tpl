@@ -458,7 +458,7 @@ namespace, port and size, and the scope's claims. Called with (list . <scope>).
 {{- end -}}
 {{- $_ := set $claims $app $appClaims -}}
 {{- end -}}
-{{- toYaml (dict "scope" $scope "namespacePrefix" ($root.Values.namespacePrefix | default "") "namespaceSuffix" ($root.Values.namespaceSuffix | default "") "controller" (dict "namespace" "ohmlab-system") "stores" $stores "claims" $claims) -}}
+{{- toYaml (dict "scope" $scope "namespacePrefix" ($root.Values.namespacePrefix | default "") "namespaceSuffix" ($root.Values.namespaceSuffix | default "") "controller" (dict "namespace" "ohmlab-system") "networkPolicies" (eq (toString $root.Values.storage.networkPolicies) "true") "stores" $stores "claims" $claims) -}}
 {{- end -}}
 
 {{/*
