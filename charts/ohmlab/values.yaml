@@ -91,7 +91,7 @@ argo-cd:
             hs.status = "Healthy"
             return hs
         ohmlab.fr/VaultSeed:
-          health.lua: |
+          health.lua: &ohmlab-health |
             hs = {}
             if obj.status == nil or obj.status.conditions == nil then
               hs.status = "Progressing"
@@ -132,6 +132,9 @@ argo-cd:
             hs.status = "Degraded"
             hs.message = ready.message
             return hs
+        # The storage target reports as the vault target does.
+        ohmlab.fr/S3Bucket:
+          health.lua: *ohmlab-health
   redis-ha:
     enabled: true
     fullnameOverride: argocd-redis-ha

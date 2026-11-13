@@ -144,4 +144,12 @@ check "the tier projects are unchanged" "$tiers" "$(appproject admin-core . && a
 refuses "a project that inherits no tier fails" "projects.dev.inherit" \
   --set "rootManager.repoURL.sources=$SRC" --set-json "projects.dev=$(jq -c '.inherit = "dev"' <<<"$DEV")"
 
+# Argo CD rates an S3Bucket as it rates a VaultSeed: one health script for both.
+render
+cust=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "argocd-cm") | .data["resource.customizations"]' "$work/out.yaml")
+seed=$(yq 'explode(.) | .["ohmlab.fr/VaultSeed"]["health.lua"]' <<<"$cust")
+bucket=$(yq 'explode(.) | .["ohmlab.fr/S3Bucket"]["health.lua"]' <<<"$cust")
+check "an S3Bucket takes the VaultSeed's health check" "same" \
+  "$([ -n "$seed" ] && [ "$seed" != null ] && [ "$bucket" = "$seed" ] && echo same)"
+
 exit "$fail"
