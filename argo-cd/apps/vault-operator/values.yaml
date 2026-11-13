@@ -831,6 +831,10 @@ backup-utils:
         VAULT_ADDR: "https://vault.vault-operator-system.svc.cluster.local:8200"
         VAULT_CACERT: /etc/ohmlab/vault-ca/ca.crt
         RCLONE_CA_CERT: /etc/ohmlab/store-ca/ca.crt
+        # The image's rclone remote says provider AWS, which puts the bucket in
+        # the host name whatever force_path_style says: a store's Service has
+        # no such names. rclone reads this before its config file.
+        RCLONE_S3_PROVIDER: Other
         RETENTION: 30d
       secrets: {}
       envFrom:
