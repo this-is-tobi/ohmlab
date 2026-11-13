@@ -1,0 +1,29 @@
+{{- range $app := include "storage-claims.apps" . | fromYamlArray }}
+{{- range $claim, $c := $app.claims }}
+---
+apiVersion: ohmlab.fr/v1alpha1
+kind: S3Bucket
+metadata:
+  name: {{ $c.bucket }}
+  namespace: {{ $.Values.controller.namespace }}
+  labels:
+    ohmlab.fr/app-name: {{ $app.app | quote }}
+    ohmlab.fr/claim: {{ $claim | quote }}
+spec:
+  store: {{ $c.store | quote }}
+  bucket: {{ $c.bucket | quote }}
+  credentials:
+    path: {{ $c.record | quote }}
+    key: {{ $c.key | quote }}
+  access: {{ $c.access | quote }}
+  quota: {{ $c.quota | quote }}
+  versioning: {{ $c.versioning }}
+  lifecycle:
+    noncurrentDays: {{ $c.lifecycle.noncurrentDays }}
+    expireDays: {{ $c.lifecycle.expireDays }}
+  replicate: {{ $c.replicate }}
+  # Deleting the object, or the claim with it, leaves the bucket, its data,
+  # the identity and the record (docs/08).
+  deletionPolicy: Retain
+{{- end }}
+{{- end }}

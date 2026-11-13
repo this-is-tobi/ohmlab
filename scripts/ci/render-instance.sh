@@ -6,6 +6,12 @@
 # which Argo CD requires to exist, and the Helm parameters its manager gives. A change here that breaks an instance's
 # values then fails before it reaches that instance's cluster.
 #
+# With a storage block, an app also gets the inline values its tier's
+# ApplicationSet merges in (its storageValues, after its values file, as Argo
+# CD orders them), and each tier's storage-claims Application renders from the
+# claims its storage ApplicationSet carries and the tier file's apps,
+# recorded as <instance>/<tier>/storage-claims.
+#
 # Like Argo CD, each app renders with its charts' crds/ directories, and with
 # the API versions of every CRD the instance's own apps install, as on a
 # cluster where the instance has synced once: a first pass collects those
@@ -30,6 +36,8 @@ source "$ROOT/scripts/lib/instances.sh"
 : "${APPS_DIR:=$ROOT/argo-cd/apps}"
 manager_chart="$ROOT/argo-cd/apps/instance-manager"
 [ -d "$APPS_DIR/instance-manager" ] && manager_chart="$APPS_DIR/instance-manager"
+claims_chart="$ROOT/argo-cd/apps/storage-claims"
+[ -d "$APPS_DIR/storage-claims" ] && claims_chart="$APPS_DIR/storage-claims"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -91,6 +99,51 @@ crd_api_versions() {
     | grep -v -e '^---$' -e '^$' | sort -u
 }
 
+# storage_values <instance folder>: from one render of the instance's manager,
+# the inline values of each app of a tier's merge list, in
+# $work/storage/<tier>/<app>.json, and the claims of each tier's storage-claims
+# Application, in $work/storage/<tier>.claims.json (empty without storage).
+storage_values() {
+  local dir="$1" name tier element
+  name="${dir%/}"
+  name="${name##*/}"
+  name="${name#_}"
+  rm -rf "$work/storage" && mkdir -p "$work/storage/core" "$work/storage/tenant"
+  helm template manager "$manager_chart" -f "$dir/instance.yaml" --set "instance.name=$name" >"$work/storage/manager.yaml" 2>/dev/null || return 0
+  for tier in core tenant; do
+    N="$tier-$name" yq ea -o=json -I=0 'select(.kind == "ApplicationSet" and .metadata.name == strenv(N))
+      | .spec.generators[0].merge.generators[1].list.elements // [] | .[]' "$work/storage/manager.yaml" \
+      | while IFS= read -r element; do
+          jq '.storageValues' <<<"$element" >"$work/storage/$tier/$(jq -r .app <<<"$element").json"
+        done
+    N="storage-$tier-$name" yq ea -o=json 'select(.kind == "ApplicationSet" and .metadata.name == strenv(N))
+      | .spec.generators[0].matrix.generators[1].list.elements[0].claimsValues' "$work/storage/manager.yaml" >"$work/storage/$tier.claims.json"
+  done
+}
+
+# render_claims <instance folder> <tier> <server>: the tier's storage-claims
+# Application, from its claims and the tier file's apps as Argo CD merges
+# them, reported and recorded as <instance>/<tier>/storage-claims.
+render_claims() {
+  local dir="$1" tier="$2" server="$3" instance id out
+  [ -s "$work/storage/$tier.claims.json" ] || return 0
+  instance="${dir##*/}"
+  id="$instance/$tier/storage-claims"
+  yq -o=json '{"apps": (.apps // [])}' "$dir/$tier.yaml" >"$work/storage/$tier.apps.json"
+  if out=$(helm template "storage-$tier" "$claims_chart" --namespace ohmlab-system \
+      -f "$work/storage/$tier.claims.json" -f "$work/storage/$tier.apps.json" "${api[@]+"${api[@]}"}" 2>&1 >"$work/manifest"); then
+    echo "ok   $id"
+    rendered=$((rendered + 1))
+    if [ -n "${RENDER_OUT:-}" ]; then
+      record "$work/manifest" ohmlab-system "$RENDER_OUT/$id.objects"
+      keep "$work/manifest" "$RENDER_OUT/$id.yaml"
+      record_cluster "$work/manifest" "$server" ohmlab-system "$RENDER_OUT/$id" "$RENDER_OUT/$instance/crd-scopes"
+    fi
+  else
+    fail "$id: $(grep -m1 -i 'error' <<<"$out" | cut -c1-240)"
+  fi
+}
+
 # render_apps <instance folder> <collect|check>: every app the instance
 # enables, both tiers. collect only writes each manifest to $work/collect, so
 # that its CRDs can be read; check renders with the API versions in api,
@@ -98,8 +151,9 @@ crd_api_versions() {
 render_apps() {
   local dir="$1" mode="$2" instance values_root prefix suffix default_catalog default_server tier lines p
   local app chart release namespace catalog revision values_path chart_path server id values out
-  local -a params chart_args
+  local -a params chart_args storage
   instance="${dir##*/}"
+  storage_values "$dir"
   # The values repository: Argo CD reads every values file under
   # argo-cd/instances/<instance>/ of it.
   values_root="$(cd "$dir/../../.." && pwd)"
@@ -136,12 +190,14 @@ render_apps() {
         [ "$mode" = collect ] || fail "$id: $(cat "$work/why")"
         continue
       fi
+      storage=()
+      [ -f "$work/storage/$tier/$app.json" ] && storage=(-f "$work/storage/$tier/$app.json")
       if [ "$mode" = collect ]; then
-        helm template "$release" "${chart_args[@]}" --namespace "$namespace" -f "$values" --include-crds \
+        helm template "$release" "${chart_args[@]}" --namespace "$namespace" -f "$values" "${storage[@]+"${storage[@]}"}" --include-crds \
           "${params[@]+"${params[@]}"}" >"$work/collect/$tier-$app.yaml" 2>/dev/null || true
         continue
       fi
-      if out=$(helm template "$release" "${chart_args[@]}" --namespace "$namespace" -f "$values" --include-crds \
+      if out=$(helm template "$release" "${chart_args[@]}" --namespace "$namespace" -f "$values" "${storage[@]+"${storage[@]}"}" --include-crds \
           "${api[@]+"${api[@]}"}" "${params[@]+"${params[@]}"}" 2>&1 >"$work/manifest"); then
         echo "ok   $id"
         rendered=$((rendered + 1))
@@ -156,6 +212,7 @@ render_apps() {
     done < <(yq -r '.apps[] | select(.enabled == "true" or .enabled == true)
       | [.app, (.chart // .app), (.releaseName // .app), (.namespace // ""), (.catalog // ""), (.targetRevision // ""), (.valuesPath // ""), (.chartPath // ""), (.destination.server // "")]
       | join("|")' "$dir/$tier.yaml")
+    if [ "$mode" = check ]; then render_claims "$dir" "$tier" "$default_server"; fi
   done
 }
 

@@ -118,6 +118,8 @@ jobs:
         env:
           RENDER_OUT: ${{ runner.temp }}/render-head
         run: scripts/ci/render-instance.sh
+      - name: Check that the claims' quotas fit their stores
+        run: scripts/ci/check-storage-quotas.sh "$RUNNER_TEMP/render-head"
       - name: Check that instances sharing a cluster do not collide
         run: scripts/ci/check-shared-clusters.sh "$RUNNER_TEMP/render-head"
       - name: Render the instance with the base's charts

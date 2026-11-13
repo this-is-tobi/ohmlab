@@ -132,6 +132,12 @@ storage:
   # false renders the claims, the store and the controller's target but wires
   # no consumer: a first rollout writes every record before an app reads one.
   wireConsumers: true
+  # NetworkPolicies from each claim's pods to its store, and into the store
+  # from them and the controller. They widen the apps' own, so they are for
+  # an instance whose apps and store deny by default (networkPolicy.enabled):
+  # on a pod no other egress policy selects, the claim's would deny the rest of
+  # its egress (DNS, the API server, its peers).
+  networkPolicies: false
   # What a claim takes unless the registry or instance.yaml sets it.
   claimDefaults:
     enabled: true

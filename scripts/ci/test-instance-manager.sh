@@ -444,8 +444,9 @@ check "the claims values carry the tier, the store and each claim" \
   "{\"access\":\"readWrite\",\"bucket\":\"homelab-gitea-pg\",\"clients\":{\"cnpg.io/cluster\":\"gitea-pg-cluster\"},\"key\":\"pg\",\"lifecycle\":{\"expireDays\":0,\"noncurrentDays\":7},\"quota\":\"2Gi\",\"record\":\"homelab/platforms/production/tenant/gitea/s3\",\"replicate\":true,\"store\":\"rustfs-backups\",\"versioning\":true}" \
   "$(jq -cS '.claims.gitea.pg' <<<"$base")"
 check "the claims values name the scope, the controller's namespace and the store" \
-  '{"controller":{"namespace":"ohmlab-system"},"namespacePrefix":"","namespaceSuffix":"","scope":"tenant","stores":{"rustfs-backups":{"namespace":"rustfs-backups","port":9000,"size":"50Gi"}}}' \
+  '{"controller":{"namespace":"ohmlab-system"},"namespacePrefix":"","namespaceSuffix":"","networkPolicies":false,"scope":"tenant","stores":{"rustfs-backups":{"namespace":"rustfs-backups","port":9000,"size":"50Gi"}}}' \
   "$(jq -cS 'del(.claims)' <<<"$base")"
+check "storage.networkPolicies reaches the claims chart" "true" "$(claims_values tenant --set storage.networkPolicies=true | jq -c '.networkPolicies')"
 check "an override of one claim's quota changes only that claim" '[["claims","gitea","pg","quota"]]' \
   "$(changed "$base" "$(claims_values tenant --set storage.claims.gitea.pg.quota=3Gi)")"
 check "an override of a nested field keeps its siblings" '[["claims","gitea","pg","lifecycle","noncurrentDays"]]' \

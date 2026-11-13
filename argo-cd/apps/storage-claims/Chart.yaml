@@ -1,0 +1,5 @@
+apiVersion: v2
+name: storage-claims
+description: The S3Bucket claims of a tier's enabled apps and the NetworkPolicies between their pods and the store, as the instance-manager gives them
+type: application
+version: 0.1.0

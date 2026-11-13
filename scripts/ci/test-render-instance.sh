@@ -260,4 +260,36 @@ else
   fail=1
 fi
 
+# With storage, an app renders with the inline values its tier's
+# ApplicationSet merges in, which win over its values file, and each tier's
+# claims render as <instance>/<tier>/storage-claims.
+mkdir -p "$work/apps/keycloak/templates"
+printf 'apiVersion: v2\nname: keycloak\nversion: 0.1.0\n' >"$work/apps/keycloak/Chart.yaml"
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: probe}\ndata: {bucket: {{ .Values.global.ohmlab.storage.pg.bucket | quote }}, own: {{ .Values.own | quote }}}\n' \
+  >"$work/apps/keycloak/templates/cm.yaml"
+d=$(instance s "" '- {app: keycloak, enabled: "true"}')
+cat >"$d/instance.yaml" <<'YAML'
+instance: {name: s, env: production}
+repoURL: https://git.example/x.git
+storage:
+  stores:
+    backups: {app: rustfs-backups, namespace: rustfs-backups, endpoint: "https://rustfs-svc.rustfs-backups.svc:9000", size: 50Gi}
+  backups: backups
+YAML
+printf 'own: kept\nglobal: {ohmlab: {storage: {pg: {bucket: from-the-values-file}}}}\n' >"$d/values/core/keycloak.yaml"
+out=$(APPS_DIR="$work/apps" INSTANCES_DIR="$(dirname "$d")" RENDER_OUT="$work/out-s" "$SCRIPT" 2>&1)
+expect "each tier's claims render as <instance>/<tier>/storage-claims" 0 "ok   s/core/storage-claims" "$out" $?
+o="$work/out-s/s"
+if [ "$(yq -r 'select(.kind == "ConfigMap") | .data.bucket + " " + .data.own' "$o/core/keycloak.yaml" 2>/dev/null)" = "ohmlab-keycloak-pg kept" ]; then
+  echo "ok   an app's storage values come after its values file"
+else
+  echo "FAIL an app's storage values come after its values file: $(yq -c 'select(.kind == "ConfigMap") | .data' "$o/core/keycloak.yaml" 2>&1)"; fail=1
+fi
+if [ "$(yq -r 'select(.kind == "S3Bucket") | .metadata.name' "$o/core/storage-claims.yaml" 2>/dev/null)" = "ohmlab-keycloak-pg" ] \
+    && grep -q '^S3Bucket/ohmlab-system/ohmlab-keycloak-pg ' "$o/core/storage-claims.objects" 2>/dev/null; then
+  echo "ok   the claims of the tier's enabled apps are recorded"
+else
+  echo "FAIL the claims of the tier's enabled apps are recorded: $(cat "$o/core/storage-claims.objects" 2>&1)"; fail=1
+fi
+
 exit "$fail"

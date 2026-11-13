@@ -1,0 +1,82 @@
+{{- if .Values.networkPolicies }}
+{{- /* Per store: the namespaces and pods of this tier's claims on it. */}}
+{{- $admit := dict }}
+{{- range $app := include "storage-claims.apps" . | fromYamlArray }}
+{{- range $claim, $c := $app.claims }}
+{{- $store := get $.Values.stores $c.store }}
+---
+# The claim's pods reach the store, on top of the app's own policies.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ohmlab-storage-{{ $claim }}
+  namespace: {{ $app.namespace }}
+  labels:
+    ohmlab.fr/app-name: {{ $app.app | quote }}
+    ohmlab.fr/claim: {{ $claim | quote }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $c.clients | nindent 6 }}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ $store.namespace }}
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rustfs
+    ports:
+    - protocol: TCP
+      port: {{ $store.port }}
+{{- $_ := set $admit $c.store (append (get $admit $c.store | default list) (dict "namespace" $app.namespace "clients" $c.clients)) }}
+{{- end }}
+{{- end }}
+{{- /* The core tier admits the controller into every store, claims or not. */}}
+{{- if eq .Values.scope "core" }}
+{{- range $name, $_ := .Values.stores }}
+{{- $_ := set $admit $name (get $admit $name | default list) }}
+{{- end }}
+{{- end }}
+{{- range $name, $from := $admit }}
+{{- $store := get $.Values.stores $name }}
+---
+# Who may reach the store: this tier's claims, and in the core tier the
+# controller's storage target.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ohmlab-storage-{{ $.Values.scope }}
+  namespace: {{ $store.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rustfs
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    {{- range $from }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .namespace }}
+      podSelector:
+        matchLabels:
+          {{- toYaml .clients | nindent 10 }}
+    {{- end }}
+    {{- if eq $.Values.scope "core" }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ $.Values.controller.namespace }}
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ohmlab-controller
+          app.kubernetes.io/component: storage
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: {{ $store.port }}
+{{- end }}
+{{- end }}
