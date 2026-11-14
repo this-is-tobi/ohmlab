@@ -3,8 +3,9 @@
 # ScheduledBackup, and the backup Secret reads the app's own path. With the
 # values the instance-manager gives the app's pg claim: an ObjectStore at the
 # claim's bucket with the store's CA and gzip, synced before the Cluster and
-# not as a Helm hook, a daily ScheduledBackup at the app's minute, and the
-# Secret reading the claim's record. Needs helm, yq and jq. No render is printed.
+# not as a Helm hook, a daily ScheduledBackup at the app's minute, base backups
+# on the primary, and the Secret reading the claim's record. Needs helm, yq and
+# jq. No render is printed.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -66,6 +67,10 @@ for entry in crowdsec:0 gitea:5 keycloak:10 mattermost:15 prometheus-stack:20 ou
     "$(jq -c '.metadata.annotations["argocd.argoproj.io/sync-wave"]' <<<"$store") $(jq -c '.metadata.annotations["helm.sh/hook"]' <<<"$store")"
   check "$app: a daily ScheduledBackup at 20:$(printf '%02d' "$minute") UTC" "0 $minute 20 * * *" \
     "$(yq 'select(.kind == "ScheduledBackup") | .spec.schedule' "$work/wired.yaml")"
+  # A standby's backup ends in a WAL segment that a quiet primary may not switch
+  # for hours; on the primary, the backup switches it itself.
+  check "$app: the base backups run on the primary" "primary" \
+    "$(yq 'select(.kind == "Cluster" and .apiVersion == "postgresql.cnpg.io/v1") | .spec.backup.target' "$work/wired.yaml")"
   check "$app: the backup Secret reads the claim's record" "true" "$(secret "$work/wired.yaml" | jq --arg a "/$app/s3" '.path | endswith($a)')"
   # The backup alerts read the series of the cluster's PodMonitor.
   mon=$(yq ea -o=json -I=0 'select(.kind == "PodMonitor" or .kind == "PrometheusRule")' "$work/wired.yaml" \
