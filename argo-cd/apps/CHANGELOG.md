@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.21.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.21.0...catalog-v0.21.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **cnpg:** take the base backups on the primary ([5cb2e52](https://github.com/this-is-tobi/ohmlab/commit/5cb2e52b2a0fc343d8c3e23df3573b1fc2ccd250))
+* **deps:** update backup-utils docker tag to v2.6.1 ([7fb6e5a](https://github.com/this-is-tobi/ohmlab/commit/7fb6e5a59607a053bf1f2b59b785e096135c2d6d))
+* **deps:** update helm release alloy to v1.16.0 ([cdafe92](https://github.com/this-is-tobi/ohmlab/commit/cdafe9295dde5a97fb17010cf0fef81ce63aae2c))
+* **deps:** update helm release apisix to v2.19.0 ([5889cee](https://github.com/this-is-tobi/ohmlab/commit/5889cee877eef6803f1dff12beec54ae5ddf68e2))
+* **deps:** update homepage docker tag to v0.3.0 ([2855455](https://github.com/this-is-tobi/ohmlab/commit/2855455dbcbc4151f49ad0118b9ed365d45132e0))
+* **rustfs:** make a store wait for the instance-manager's wiring ([77b12ef](https://github.com/this-is-tobi/ohmlab/commit/77b12ef882293808d568465f77bf966c9a930262))
+* **storage:** leave out the egress policy of a claim whose namespace keeps egress open ([8827119](https://github.com/this-is-tobi/ohmlab/commit/8827119c4286a6a46197d4b9878426fcea39bfea))
+* **vault-operator:** address the store's buckets by path in the snapshot job ([2074b34](https://github.com/this-is-tobi/ohmlab/commit/2074b348a8cb4dc3c84212cfb071087eeb199b82))
+
 ## [0.21.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.20.0...catalog-v0.21.0) (2026-11-13)
 
 
