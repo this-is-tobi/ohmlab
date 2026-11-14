@@ -57,6 +57,12 @@ spec:
         - --log-level={{ $.Values.logLevel }}
         - --metrics-addr=:8080
         - --probe-addr=:8081
+        {{- if has "storage" $targets }}
+        # RustFS answers madmin-go's /v4/ admin calls with 426, and madmin then
+        # retries each one on /v3/ after a random wait.
+        env:
+        - {name: MADMIN_API_VERSION, value: v3}
+        {{- end }}
         ports:
         - {name: metrics, containerPort: 8080, protocol: TCP}
         - {name: probes, containerPort: 8081, protocol: TCP}
