@@ -208,6 +208,12 @@ sspec=$(yq -o=json 'select(.kind == "Deployment") | .spec.template.spec' <<<"$s"
   || fail "storage: the Deployment must take targets.storage.resources"
 [ "$(yq -o=json -I=0 'select(.kind == "Deployment" and .metadata.name == "ohmlab-controller-vault") | .spec.template.spec.containers[0].resources' <<<"$vonly" | jq -cS .)" \
   = "$(yq -o=json -I=0 '.resources' "$CHART/values.yaml" | jq -cS .)" ] || fail "vault: the Deployment must keep the shared resources"
+# RustFS answers madmin-go's /v4/ admin calls with 426, and madmin then retries
+# each one on /v3/ after a random wait: the storage process asks /v3/ at once.
+[ "$(jq -c '[.containers[0].env // [] | .[] | select(.name == "MADMIN_API_VERSION") | .value]' <<<"$sspec")" = '["v3"]' ] \
+  || fail "storage: want MADMIN_API_VERSION=v3 in the container's env"
+[ "$(yq 'select(.kind == "Deployment" and .metadata.name == "ohmlab-controller-vault") | .spec.template.spec.containers[0].env' <<<"$vonly")" = null ] \
+  || fail "vault: the vault process calls no store, it needs no env"
 jq -e '([.containers[0].volumeMounts[] | {(.name): .mountPath}] | add) as $m
        | $m["vault-ca"] == "/etc/ohmlab/vault-ca" and $m["vault-token"] == "/var/run/secrets/ohmlab/vault" and $m["store-ca"] == "/etc/ohmlab/store-ca"
        and ([.volumes[] | select(.name == "store-ca") | .configMap] == [{"name": "ohmlab-internal-ca", "items": [{"key": "ca.crt", "path": "ca.crt"}]}])
