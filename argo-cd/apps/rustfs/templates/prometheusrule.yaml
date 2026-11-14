@@ -10,14 +10,20 @@ spec:
     rules:
     - alert: RustFSMetricsAbsent
       # The job label is the OTLP service.name, which RustFS sets as
-      # "RustFS"; label matchers are case-sensitive, hence (?i).
-      expr: absent_over_time(target_info{job=~"(?i).*rustfs.*"}[15m])
+      # "RustFS"; label matchers are case-sensitive, hence (?i). Each RustFS
+      # reports its namespace as its environment (RUSTFS_OBS_ENVIRONMENT,
+      # values.yaml), so another RustFS's metrics cannot hide this one's
+      # silence.
+      expr: absent_over_time(target_info{job=~"(?i).*rustfs.*", deployment_environment_name="{{ .Release.Namespace }}"}[15m])
       labels:
         severity: warning
       annotations:
-        summary: RustFS has stopped pushing metrics
+        summary: The RustFS in {{ .Release.Namespace }} has stopped pushing metrics
         description: >-
-          No RustFS metrics reached Prometheus for 15m. Check the RustFS pod,
-          then Alloy's OTLP receiver (otelcol_receiver_* metrics) and the
-          rustfs to Alloy network policy.
+          No metrics of the RustFS in {{ .Release.Namespace }} reached
+          Prometheus for 15m. Check its pod, then Alloy's OTLP receiver
+          (otelcol_receiver_* metrics) and the rustfs to Alloy network policy.
+          Its metrics count only while its RUSTFS_OBS_ENVIRONMENT is its
+          namespace: an extraEnv list that replaces the chart's keeps that
+          entry.
 {{- end }}

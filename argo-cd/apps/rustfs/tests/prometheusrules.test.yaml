@@ -3,10 +3,12 @@ evaluation_interval: 1m
 tests:
 # Pushed metrics have no scrape target, so TargetDown cannot see RustFS go
 # silent: 15m without its target_info fires; a live push never does. The job
-# label is the OTLP service.name, which RustFS sets with a capital R and S.
+# label is the OTLP service.name, which RustFS sets with a capital R and S, and
+# each RustFS reports its namespace as its environment (charts render into
+# namespace "test").
 - interval: 1m
   input_series:
-  - series: 'target_info{job="RustFS", instance="10.45.1.2"}'
+  - series: 'target_info{job="RustFS", instance="10.45.1.2", deployment_environment_name="test"}'
     values: '1x5 _x30'
   alert_rule_test:
   - eval_time: 10m
@@ -15,16 +17,32 @@ tests:
   - eval_time: 30m
     alertname: RustFSMetricsAbsent
     exp_alerts:
-    - exp_labels: {severity: warning}
+    - exp_labels: {severity: warning, deployment_environment_name: test}
       exp_annotations:
-        summary: RustFS has stopped pushing metrics
-        description: No RustFS metrics reached Prometheus for 15m. Check the RustFS pod, then Alloy's OTLP receiver (otelcol_receiver_* metrics) and the rustfs to Alloy network policy.
+        summary: The RustFS in test has stopped pushing metrics
+        description: "No metrics of the RustFS in test reached Prometheus for 15m. Check its pod, then Alloy's OTLP receiver (otelcol_receiver_* metrics) and the rustfs to Alloy network policy. Its metrics count only while its RUSTFS_OBS_ENVIRONMENT is its namespace: an extraEnv list that replaces the chart's keeps that entry."
 # Still pushing at 30m: never fires.
 - interval: 1m
   input_series:
-  - series: 'target_info{job="RustFS", instance="10.45.1.2"}'
+  - series: 'target_info{job="RustFS", instance="10.45.1.2", deployment_environment_name="test"}'
     values: '1x35'
   alert_rule_test:
   - eval_time: 30m
     alertname: RustFSMetricsAbsent
     exp_alerts: []
+# Another RustFS still pushing, from its own namespace, does not hide this
+# one's silence.
+- interval: 1m
+  input_series:
+  - series: 'target_info{job="RustFS", instance="10.45.1.2", deployment_environment_name="test"}'
+    values: '1x5 _x30'
+  - series: 'target_info{job="RustFS", instance="10.45.5.6", deployment_environment_name="rustfs-backups"}'
+    values: '1x35'
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: RustFSMetricsAbsent
+    exp_alerts:
+    - exp_labels: {severity: warning, deployment_environment_name: test}
+      exp_annotations:
+        summary: The RustFS in test has stopped pushing metrics
+        description: "No metrics of the RustFS in test reached Prometheus for 15m. Check its pod, then Alloy's OTLP receiver (otelcol_receiver_* metrics) and the rustfs to Alloy network policy. Its metrics count only while its RUSTFS_OBS_ENVIRONMENT is its namespace: an extraEnv list that replaces the chart's keeps that entry."
