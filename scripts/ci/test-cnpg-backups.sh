@@ -65,6 +65,10 @@ for entry in crowdsec:0 gitea:5 keycloak:10 mattermost:15 prometheus-stack:20 ou
     "$(jq -cS '{name: .metadata.name, endpointURL: .spec.configuration.endpointURL, destinationPath: .spec.configuration.destinationPath, endpointCA: .spec.configuration.endpointCA, wal: .spec.configuration.wal.compression, data: .spec.configuration.data.compression}' <<<"$store")"
   check "$app: the ObjectStore syncs before the Cluster and is no Helm hook" '"-1" null' \
     "$(jq -c '.metadata.annotations["argocd.argoproj.io/sync-wave"]' <<<"$store") $(jq -c '.metadata.annotations["helm.sh/hook"]' <<<"$store")"
+  # Each instance's barman-cloud sidecar, which the pod policies require to
+  # have limits like any container.
+  check "$app: the barman-cloud sidecar's requests and limits" '{"limits":{"cpu":"1","memory":"384Mi"},"requests":{"cpu":"25m","memory":"64Mi"}}' \
+    "$(jq -cS '.spec.instanceSidecarConfiguration.resources' <<<"$store")"
   check "$app: a daily ScheduledBackup at 20:$(printf '%02d' "$minute") UTC" "0 $minute 20 * * *" \
     "$(yq 'select(.kind == "ScheduledBackup") | .spec.schedule' "$work/wired.yaml")"
   # A standby's backup ends in a WAL segment that a quiet primary may not switch
