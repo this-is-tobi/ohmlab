@@ -113,17 +113,19 @@ trap 'rm -rf "$work"' EXIT
 (cd "$ROOT/cli" && go build -o "$work/ohmlab-validate" .) || { echo "FAIL: cannot build the CLI" >&2; exit 1; }
 
 # render_seeds <instance dir>: sets `rendered` to the vault-operator chart
-# rendered with the instance's values and the parameters its manager gives the
-# core tier, its seeds on as if the cluster had the VaultSeed kind. When it
-# does not render, sets it to the reason and returns 1.
+# rendered with the instance's values and the storage values and parameters
+# its manager gives it, its seeds on as if the cluster had the VaultSeed kind.
+# When it does not render, sets it to the reason and returns 1.
 render_seeds() {
-  local values="$1/values/core/vault-operator.yaml" lines p args=()
-  if ! lines=$(manager_parameters "$1" core 2>"$work/err"); then
+  local values="$1/values/core/vault-operator.yaml" manager name p args=()
+  if ! manager=$(manager_render "$1" 2>"$work/err"); then
     rendered="the instance-manager does not render: $(cat "$work/err")"
     return 1
   fi
+  name=$(instance_name "$1")
   [ -f "$values" ] && args=(-f "$values")
-  while IFS= read -r p; do [ -n "$p" ] && args+=(--set-string "$p"); done <<<"$lines"
+  while IFS= read -r p; do [ -n "$p" ] && args+=(--set-json "$p"); done < <(storage_sets "$(storage_of "$name" core <<<"$manager")" vault-operator)
+  while IFS= read -r p; do [ -n "$p" ] && args+=(--set-string "$p"); done < <(parameters_of "$name" core <<<"$manager")
   # Helm's warnings stay out of the manifests the seeds are read from.
   if ! rendered=$(helm template check "$ROOT/argo-cd/apps/vault-operator" "${args[@]+"${args[@]}"}" --namespace vault-operator-system \
         --set ohmlab.vault.seeds.enabled=true --set ohmlab.vault.seeds.requireCRD=false 2>"$work/err"); then
@@ -160,20 +162,23 @@ done
 # instance's enabled apps, rendered as their Applications render them, and a
 # failure entry ({label, fail}) for an app that does not render.
 reads_of() {
-  local dir="$1" instance="${1##*/}" scope prefix suffix entry label ns lines
+  local dir="$1" instance="${1##*/}" scope prefix suffix entry label ns manager name lines storage
   prefix=$(yq '.namespacePrefix // ""' "$dir/instance.yaml")
   suffix=$(yq '.namespaceSuffix // ""' "$dir/instance.yaml")
+  if ! manager=$(manager_render "$dir" 2>"$work/err"); then
+    jq -cn --arg label "$instance" --arg why "$(cat "$work/err")" '{$label, fail: "the instance-manager does not render: \($why)"}'
+    return
+  fi
+  name=$(instance_name "$dir")
   for scope in core tenant; do
     [ -f "$dir/$scope.yaml" ] || continue
-    if ! lines=$(manager_parameters "$dir" "$scope" 2>"$work/err"); then
-      jq -cn --arg label "$instance" --arg why "$(cat "$work/err")" '{$label, fail: "the instance-manager does not render: \($why)"}'
-      return
-    fi
+    lines=$(parameters_of "$name" "$scope" <<<"$manager")
+    storage=$(storage_of "$name" "$scope" <<<"$manager")
     while IFS= read -r entry; do
       [ -n "$entry" ] || continue
       label="$instance/$scope/$(jq -r '.app' <<<"$entry")"
       ns=$(jq -r --arg p "$prefix" --arg s "$suffix" '.namespace // "\($p)\(.app)\($s)"' <<<"$entry")
-      vso_render "$dir" "$scope" "$entry" "$lines" "$ns" "$work/app" >"$work/why"
+      vso_render "$dir" "$scope" "$entry" "$lines" "$ns" "$work/app" "$storage" >"$work/why"
       case $? in
         0) yq ea -o=json -I=0 '[select(.kind == "VaultStaticSecret")]' "$work/app" \
              | jq -c --arg label "$label" '.[] | {$label, secret: .metadata.name, path: "\(.spec.mount)/\(.spec.path)",

@@ -3,8 +3,9 @@
 # instance kept in a repository of its own is checked by the same scripts.
 # Unit cases for scripts/lib/instances.sh, then the Vault checks run on a copy
 # of the instances: a copy that is broken only where INSTANCES_DIR points must
-# fail, which a script reading this repository's own folder would not.
-# Needs helm, yq, jq and go.
+# fail, which a script reading this repository's own folder would not. Last,
+# the checks on an instance with a storage block. Needs helm, yq, jq, go and
+# the Kyverno CLI.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -39,6 +40,55 @@ check "values_file prefers a real instance of INSTANCES_DIR" \
 check "values_file falls back to this repository's _example" \
   "$ROOT/argo-cd/instances/_example/values/core/vault-operator.yaml" "$(lookup "$other" values_file vault-operator)"
 check "values_file prints nothing when no instance has the app" "" "$(lookup "$other" values_file no-such-app)"
+
+sv='{"gitea":{"cnpg":{"backups":{"enabled":true,"endpointURL":"https://s:9000"}},"global":{"ohmlab":{"storage":{"pg":{"bucket":"b"}}}}},"vo":{"stores":[{"name":"a"}],"x.y":{"z":null}}}'
+check "storage_sets gives each leaf of an app's storage values" \
+  'cnpg.backups.enabled=true cnpg.backups.endpointURL="https://s:9000" global.ohmlab.storage.pg.bucket="b"' \
+  "$(lookup "" storage_sets "$sv" gitea | paste -sd' ' -)"
+check "storage_sets keeps a list whole and escapes a dot in a key" 'stores=[{"name":"a"}] x\.y.z=null' \
+  "$(lookup "" storage_sets "$sv" vo | paste -sd' ' -)"
+check "storage_sets prints nothing for an app without storage values" "" "$(lookup "" storage_sets "$sv" none)"
+
+# A local instance with a Vault of its own, once without a storage block and
+# once with one, so that the two differ only by the storage values.
+store_fixture() { # store_fixture <dir> <yes|no>
+  local d="$1/lab"
+  mkdir -p "$d/values/core" "$d/values/tenant"
+  printf 'instance: {name: lab, env: production}\nrepoURL: https://git.example/x.git\n' >"$d/instance.yaml"
+  if [ "$2" = yes ]; then
+    printf 'storage:\n  stores:\n    backups: {type: rustfs, app: rustfs-backups, namespace: rustfs-backups, endpoint: "https://rustfs-svc.rustfs-backups.svc:9000", size: 10Gi}\n  backups: backups\n  wireConsumers: true\n' >>"$d/instance.yaml"
+  fi
+  printf 'apps:\n- app: vault-operator\n  enabled: "true"\n  namespace: vault-operator-system\n' >"$d/core.yaml"
+  printf 'apps:\n- app: gitea\n  enabled: "true"\n' >"$d/tenant.yaml"
+  cp "$ROOT/argo-cd/instances/_example/values/core/vault-operator.yaml" "$d/values/core/"
+  cp "$ROOT/argo-cd/instances/_example/values/tenant/gitea.yaml" "$d/values/tenant/"
+}
+plain="$work/plain" stored="$work/stored"
+store_fixture "$plain" no
+store_fixture "$stored" yes
+check "storage_values gives the values the manager merges into each app of a tier" true \
+  "$(lookup "" storage_values "$stored/lab" tenant | jq '.gitea.global.ohmlab.storage.pg.enabled')"
+check "storage_values is an empty object without a storage block" '{}' "$(lookup "" storage_values "$plain/lab" tenant)"
+
+argsof() { # argsof <values file>: the arguments app_args gives, one per line
+  ( # shellcheck source=scripts/lib/instances.sh
+    source "$ROOT/scripts/lib/instances.sh" && app_args "$1" && printf '%s\n' "${args[@]}" ) 2>&1
+}
+check "app_args gives an app its storage values as --set-json" --set-json \
+  "$(argsof "$stored/lab/values/tenant/gitea.yaml" | grep -B1 -xF 'global.ohmlab.storage.pg.enabled=true' | head -n1)"
+check "app_args gives none without a storage block" 0 "$(argsof "$plain/lab/values/tenant/gitea.yaml" | grep -cx -- '--set-json')"
+
+vso_path() { # vso_path <fixture>: the path gitea's backup secret reads, as vso_render renders gitea
+  ( # shellcheck source=scripts/lib/instances.sh
+    source "$ROOT/scripts/lib/instances.sh"
+    lines=$(manager_parameters "$1/lab" tenant) && storage=$(storage_values "$1/lab" tenant) \
+      && vso_render "$1/lab" tenant '{"app":"gitea"}' "$lines" gitea "$work/vso.yaml" "$storage" >/dev/null \
+      && yq 'select(.kind == "VaultStaticSecret" and .spec.destination.name == "gitea-pg-cluster-backup") | .spec.mount + "/" + .spec.path' "$work/vso.yaml" ) 2>&1
+}
+check "vso_render renders an app with its storage values: gitea's backup secret reads the pg claim's record" \
+  "lab/platforms/production/tenant/gitea/s3" "$(vso_path "$stored")"
+check "vso_render without a storage block: the secret reads the app's own path" \
+  "lab/platforms/production/tenant/gitea" "$(vso_path "$plain")"
 
 # --- the scripts --------------------------------------------------------------
 copy="$work/copy"
@@ -257,5 +307,37 @@ for script in check-vault-access.sh check-vault-seeds.sh; do
     echo "FAIL $script on an instance whose manager does not render (rc $rc)"; sed 's/^/     /' "$work/out" | head -5; fail=1
   fi
 done
+
+# The checks render each app with the storage values its manager merges in. With
+# a storage block, gitea's backup secret reads the pg claim's record, which the
+# storage target writes: no postgres.s3 seed is asked for.
+runs "$plain" check-vault-seeds.sh >/dev/null
+without=$(grep -c 'gitea key postgres\.s3\.' "$work/out")
+runs "$stored" check-vault-seeds.sh >/dev/null
+if [ "$without" = 3 ] && ! grep -q 'gitea key postgres\.s3\.' "$work/out"; then
+  echo "ok   check-vault-seeds.sh reads a storage-wired app's claim record, not postgres.s3 seeds"
+else
+  echo "FAIL check-vault-seeds.sh on a storage-wired app ($without postgres.s3 line(s) without storage)"; grep 'postgres\.s3' "$work/out" | sed 's/^/     /' | head -4; fail=1
+fi
+rc=$(runs "$stored" check-vault-access.sh)
+if [ "$rc" = 0 ] && grep -qx 'ok   lab/gitea' "$work/out" && grep -qx 'ok   lab/vault-operator' "$work/out"; then
+  echo "ok   check-vault-access.sh passes a storage-wired instance: the roles read the claims' records"
+else
+  echo "FAIL check-vault-access.sh on a storage-wired instance (rc $rc)"; sed 's/^/     /' "$work/out" | head -6; fail=1
+fi
+# The snapshot CronJob renders only with the vault claim: a latest tag there is
+# refused once the check renders vault-operator with its storage values.
+for f in "$plain" "$stored"; do
+  yq -i '.["backup-utils"].backups.vaultSnapshot.image.tag = "latest"' "$f/lab/values/core/vault-operator.yaml"
+done
+"$ROOT/scripts/ci/check-example-pod-security.sh" --instances "$plain" >"$work/out" 2>&1
+without=$?
+"$ROOT/scripts/ci/check-example-pod-security.sh" --instances "$stored" >"$work/out" 2>&1
+rc=$?
+if [ "$without" = 0 ] && [ "$rc" != 0 ] && grep -q 'CronJob/backup-vault-snapshot disallow-latest-tag' "$work/out"; then
+  echo "ok   check-example-pod-security.sh checks the snapshot CronJob a storage block adds"
+else
+  echo "FAIL check-example-pod-security.sh on a storage-wired vault-operator (rc $without without storage, $rc with)"; sed 's/^/     /' "$work/out" | head -6; fail=1
+fi
 
 exit "$fail"

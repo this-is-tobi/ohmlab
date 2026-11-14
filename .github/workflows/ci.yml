@@ -244,8 +244,6 @@ jobs:
         run: |
           scripts/ci/check-vault-seeds.test.sh
           scripts/ci/check-vault-seeds.sh
-      - name: Test that the instance checks read INSTANCES_DIR
-        run: scripts/ci/test-instances-dir.sh
       - name: Test the render of every app an instance enables
         run: scripts/ci/test-render-instance.sh
       - name: Test the comparison of two renders of an instance
@@ -310,6 +308,9 @@ jobs:
         run: |
           scripts/ci/check-example-pod-security.test.sh
           scripts/ci/check-example-pod-security.sh
+      # After the Kyverno CLI: the pod check runs on an instance with storage.
+      - name: Test that the instance checks read INSTANCES_DIR
+        run: scripts/ci/test-instances-dir.sh
       - name: Test the pods actions-runner-controller creates at runtime
         run: scripts/ci/test-arc-chart.sh
 
