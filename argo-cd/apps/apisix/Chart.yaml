@@ -6,7 +6,7 @@ description: Apache APISIX API Gateway with Ingress Controller for Kubernetes.
 dependencies:
 - name: apisix
   alias: apisix
-  version: 2.18.3
+  version: 2.19.0
   repository: https://charts.apiseven.com
 # Standalone etcd for APISIX config storage — replaces the apisix chart's
 # bundled bitnami etcd subchart (bitnamilegacy images are frozen/unmaintained).
