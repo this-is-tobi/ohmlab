@@ -299,4 +299,43 @@ else
   echo "FAIL the claims of the tier's enabled apps are recorded: $(cat "$o/core/storage-claims.objects" 2>&1)"; fail=1
 fi
 
+# A store of the storage block (its wiring sets store.wired) must not render
+# without that wiring, as its Application's first sync renders it when it races
+# the wiring: its values file sets store.enabled, which its chart refuses
+# unwired. guarded refuses it as the catalog's rustfs chart does; unguarded
+# ignores it.
+mkdir -p "$work/apps/guarded/templates" "$work/apps/unguarded/templates"
+printf 'apiVersion: v2\nname: guarded\nversion: 0.1.0\n' >"$work/apps/guarded/Chart.yaml"
+printf 'store: {enabled: false, wired: false}\n' >"$work/apps/guarded/values.yaml"
+cat >"$work/apps/guarded/templates/cm.yaml" <<'YAML'
+{{- if and .Values.store.enabled (not .Values.store.wired) }}{{ fail "store.enabled: waiting for the wiring" }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: store}
+YAML
+printf 'apiVersion: v2\nname: unguarded\nversion: 0.1.0\n' >"$work/apps/unguarded/Chart.yaml"
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: store}\n' >"$work/apps/unguarded/templates/cm.yaml"
+store_instance() { # store_instance <name> <chart> <values file>: an instance whose store is rustfs-backups
+  local d
+  d=$(instance "$1" "" "- {app: rustfs-backups, chart: $2, enabled: \"true\", namespace: rustfs-backups}")
+  cat >"$d/instance.yaml" <<YAML
+instance: {name: $1, env: production}
+repoURL: https://git.example/x.git
+storage:
+  stores:
+    backups: {app: rustfs-backups, namespace: rustfs-backups, endpoint: "https://rustfs-svc.rustfs-backups.svc:9000", size: 50Gi}
+  backups: backups
+YAML
+  printf '%s\n' "$3" >"$d/values/core/rustfs-backups.yaml"
+  echo "$d"
+}
+d=$(store_instance sa guarded 'store: {enabled: true}')
+out=$(run "$d"); expect "a store that waits for its wiring renders" 0 "ok   sa/core/rustfs-backups" "$out" $?
+d=$(store_instance sb guarded '{}')
+out=$(run "$d"); expect "a store without store.enabled is refused: it renders without its wiring" 1 \
+  "FAIL sb/core/rustfs-backups: renders without the instance-manager's wiring" "$out" $?
+d=$(store_instance sc unguarded 'store: {enabled: true}')
+out=$(run "$d"); expect "a store whose chart ignores store.enabled is refused" 1 \
+  "FAIL sc/core/rustfs-backups: renders without the instance-manager's wiring although its values set store.enabled" "$out" $?
+
 exit "$fail"
