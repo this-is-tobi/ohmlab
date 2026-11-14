@@ -124,25 +124,31 @@ manager_err="$work/manager"
 
 # scope_args <instance dir>: sets core_args and tenant_args, the --set-string
 # arguments for the parameters the instance's manager gives every app of each
-# scope. Returns 1, the manager's reason in $manager_err, when it does not
-# render: the instance is then not checked against the charts' fallbacks.
+# scope, and core_storage and tenant_storage, the storage values it gives each
+# app of the scope (storage_values). Returns 1, the manager's reason in
+# $manager_err, when it does not render: the instance is then not checked
+# against the charts' fallbacks.
 scope_args() {
-  local lines p
+  local manager name p
   core_args=() tenant_args=()
-  lines=$(manager_parameters "$1" core 2>"$manager_err") || return 1
-  while IFS= read -r p; do [ -n "$p" ] && core_args+=(--set-string "$p"); done <<<"$lines"
-  lines=$(manager_parameters "$1" tenant 2>"$manager_err") || return 1
-  while IFS= read -r p; do [ -n "$p" ] && tenant_args+=(--set-string "$p"); done <<<"$lines"
+  manager=$(manager_render "$1" 2>"$manager_err") || return 1
+  name=$(instance_name "$1")
+  while IFS= read -r p; do [ -n "$p" ] && core_args+=(--set-string "$p"); done < <(parameters_of "$name" core <<<"$manager")
+  while IFS= read -r p; do [ -n "$p" ] && tenant_args+=(--set-string "$p"); done < <(parameters_of "$name" tenant <<<"$manager")
+  core_storage=$(storage_of "$name" core <<<"$manager")
+  tenant_storage=$(storage_of "$name" tenant <<<"$manager")
 }
 
 # vault_json <instance dir>: the description of the instance's Vault, from the
-# vault-operator chart rendered with that instance's values and the parameters
-# its own manager gives the core tier.
+# vault-operator chart rendered with that instance's values and the storage
+# values and parameters its own manager gives it.
 vault_json() {
-  local vf="$1/values/core/vault-operator.yaml" args=() lines p
+  local vf="$1/values/core/vault-operator.yaml" args=() manager name p
   [ -f "$vf" ] && args=(-f "$vf")
-  lines=$(manager_parameters "$1" core 2>/dev/null) || return 1
-  while IFS= read -r p; do [ -n "$p" ] && args+=(--set-string "$p"); done <<<"$lines"
+  manager=$(manager_render "$1" 2>/dev/null) || return 1
+  name=$(instance_name "$1")
+  while IFS= read -r p; do [ -n "$p" ] && args+=(--set-json "$p"); done < <(storage_sets "$(storage_of "$name" core <<<"$manager")" vault-operator)
+  while IFS= read -r p; do [ -n "$p" ] && args+=(--set-string "$p"); done < <(parameters_of "$name" core <<<"$manager")
   helm template check "$ROOT/argo-cd/apps/vault-operator" "${args[@]+"${args[@]}"}" 2>/dev/null \
     | yq ea -o=json -I=0 '[select(.kind == "Vault")][0].spec.externalConfig' - \
     | jq -c '{mounts: [.secrets[]? | select(.type == "kv") | .path],
@@ -196,11 +202,12 @@ for dir in "$INSTANCES_DIR"/*/; do
     for scope in core tenant; do
       [ -f "$dir/$scope.yaml" ] || continue
       lines=$(manager_parameters "$dir" "$scope" 2>/dev/null)
+      if [ "$scope" = core ]; then storage="$core_storage"; else storage="$tenant_storage"; fi
       while IFS= read -r entry; do
         [ -n "$entry" ] || continue
         label="$inst/$scope/$(jq -r '.app' <<<"$entry")"
         ns=$(jq -r --arg p "$prefix" --arg s "$suffix" '.namespace // "\($p)\(.app)\($s)"' <<<"$entry")
-        vso_render "$dir" "$scope" "$entry" "$lines" "$ns" "$work/app" >"$work/why"
+        vso_render "$dir" "$scope" "$entry" "$lines" "$ns" "$work/app" "$storage" >"$work/why"
         case $? in
           0) report "$label" "$ns" "$inst" <"$work/app" ;;
           2) ;;
@@ -236,6 +243,8 @@ for dir in "$INSTANCES_DIR"/*/; do
     args=()
     vf="$dir/values/$scope/$app.yaml"
     [ -f "$vf" ] && args=(-f "$vf")
+    if [ "$scope" = core ]; then storage="$core_storage"; else storage="$tenant_storage"; fi
+    while IFS= read -r p; do [ -n "$p" ] && args+=(--set-json "$p"); done < <(storage_sets "$storage" "$app")
     if [ "$scope" = core ]; then args+=("${core_args[@]+"${core_args[@]}"}"); else args+=("${tenant_args[@]+"${tenant_args[@]}"}"); fi
     if [ -f "$chart/Chart.lock" ] && [ ! -d "$chart/charts" ]; then
       helm dependency build "$chart" >/dev/null 2>&1 || { echo "FAIL $inst/$name: helm dependency build"; failures=$((failures + 1)); continue; }
