@@ -15,6 +15,6 @@ dependencies:
   condition: vso.enabled
 - name: backup-utils
   alias: backup-utils
-  version: 2.6.0
+  version: 2.6.1
   repository: oci://ghcr.io/this-is-tobi/charts
   condition: backup-utils.enabled
