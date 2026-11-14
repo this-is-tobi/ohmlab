@@ -205,6 +205,15 @@ cnpg:
           secretKeyRef:
             name: sonarqube-pg-cluster-backup
             key: S3_REGION
+      # About 40 MiB and 0.01 core between backups, up to about 150 MiB and
+      # 0.65 core while it compresses a base backup.
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: "1"
+          memory: 384Mi
     # A plain resource synced before the Cluster: as a Helm hook, Argo CD runs
     # it as an untracked PreSync hook that outlives a disabled backup.
     objectStore:
