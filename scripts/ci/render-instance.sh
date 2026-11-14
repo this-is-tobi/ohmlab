@@ -10,7 +10,10 @@
 # ApplicationSet merges in (its storageValues, after its values file, as Argo
 # CD orders them), and each tier's storage-claims Application renders from the
 # claims its storage ApplicationSet carries and the tier file's apps,
-# recorded as <instance>/<tier>/storage-claims.
+# recorded as <instance>/<tier>/storage-claims. A store of the storage block
+# must also fail to render without its storage values, as its first sync
+# renders it when it races them: otherwise that sync creates its volume from
+# the chart's defaults.
 #
 # Like Argo CD, each app renders with its charts' crds/ directories, and with
 # the API versions of every CRD the instance's own apps install, as on a
@@ -121,6 +124,22 @@ storage_values() {
   done
 }
 
+# unwired_store <storage values> <release> <namespace> <values file>: for a
+# store of the storage block (its wiring sets store.wired) that still renders
+# without that wiring, as its first sync renders it when it races the wiring,
+# the reason on stdout; false otherwise. Reads render_apps' chart_args, api and
+# params.
+unwired_store() {
+  [ -f "$1" ] && [ "$(jq -r '.store.wired // false' "$1")" = true ] || return 1
+  helm template "$2" "${chart_args[@]}" --namespace "$3" -f "$4" --include-crds \
+    "${api[@]+"${api[@]}"}" "${params[@]+"${params[@]}"}" >/dev/null 2>&1 || return 1
+  if [ "$(yq '.store.enabled == true' "$4")" = true ]; then
+    echo "renders without the instance-manager's wiring although its values set store.enabled: its chart does not wait for the wiring (docs/10-object-storage.md)"
+  else
+    echo "renders without the instance-manager's wiring: a store sets store.enabled: true in its values file, so that its chart waits for the wiring (docs/10-object-storage.md)"
+  fi
+}
+
 # render_claims <instance folder> <tier> <server>: the tier's storage-claims
 # Application, from its claims and the tier file's apps as Argo CD merges
 # them, reported and recorded as <instance>/<tier>/storage-claims. Recorded
@@ -152,7 +171,7 @@ render_claims() {
 # reports each app and records it.
 render_apps() {
   local dir="$1" mode="$2" instance values_root prefix suffix default_catalog default_server tier lines p
-  local app chart release namespace catalog revision values_path chart_path server id values out
+  local app chart release namespace catalog revision values_path chart_path server id values out why
   local -a params chart_args storage
   instance="${dir##*/}"
   storage_values "$dir"
@@ -201,7 +220,11 @@ render_apps() {
       fi
       if out=$(helm template "$release" "${chart_args[@]}" --namespace "$namespace" -f "$values" "${storage[@]+"${storage[@]}"}" --include-crds \
           "${api[@]+"${api[@]}"}" "${params[@]+"${params[@]}"}" 2>&1 >"$work/manifest"); then
-        echo "ok   $id"
+        if why=$(unwired_store "$work/storage/$tier/$app.json" "$release" "$namespace" "$values"); then
+          fail "$id: $why"
+        else
+          echo "ok   $id"
+        fi
         rendered=$((rendered + 1))
         if [ -n "${RENDER_OUT:-}" ]; then
           record "$work/manifest" "$namespace" "$RENDER_OUT/$id.objects"

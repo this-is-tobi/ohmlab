@@ -56,7 +56,7 @@ The example instance carries every piece, commented or disabled ([argo-cd/instan
 
    From it, the instance-manager sizes the store's volume and sets its region, gives the controller's storage target the store, and gives `vault-operator` the policy and role of that target.
 
-   The store's Application can appear, and sync, a few seconds before its ApplicationSet carries that wiring, and a volume's class and size cannot change once created. With `store.enabled: true`, the store's chart does not render until the wiring arrives (`store.wired`), so its first sync waits for it instead of creating the volume from the chart's defaults.
+   The store's Application can appear, and sync, a few seconds before its ApplicationSet carries that wiring, and a volume's class and size cannot change once created. With `store.enabled: true`, the store's chart does not render until the wiring arrives (`store.wired`), so its first sync waits for it instead of creating the volume from the chart's defaults. The instance checks render each store a second time without its wiring, as that first sync would, and fail when it still renders (`scripts/ci/render-instance.sh`).
 5. The internal CA in `ohmlab-system`: trust-manager's `targetNamespaces` lists it, since the storage target verifies the store with that CA.
 6. The store's namespace in Kyverno's `exceptionNamespaces`, under `rustfs-init-step-limits`, as for any RustFS outside its default namespace ([security policies](05-services.md#security-policies)).
 
