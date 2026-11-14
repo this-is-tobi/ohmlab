@@ -182,6 +182,9 @@ cnpg:
     # The instance-manager turns it on with the app's pg claim (docs/10).
     enabled: false
     method: plugin
+    # A backup taken on a standby is restorable only once the primary
+    # switches its WAL segment, which a quiet database may not do for hours.
+    target: primary
     pluginConfiguration:
       name: barman-cloud.cloudnative-pg.io
     endpointURL: ""

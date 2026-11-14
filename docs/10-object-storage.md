@@ -105,7 +105,7 @@ A consumer never comes before its record: the barman-cloud plugin's pre-reconcil
 
 ## Backups
 
-- **Postgres.** Each CNPG app backs up with the barman-cloud plugin: WAL continuously, and a base backup every day, five minutes apart from 20:00 UTC (crowdsec 20:00, gitea 20:05, keycloak 20:10, mattermost 20:15, prometheus-stack 20:20, outline 20:25, harbor 20:30, sonarqube 20:35, mlflow 20:40, vaultwarden 20:45, coder 20:50). They are kept 30 days, gzip-compressed. The ObjectStore syncs before the cluster.
+- **Postgres.** Each CNPG app backs up with the barman-cloud plugin: WAL continuously, and a base backup every day, five minutes apart from 20:00 UTC (crowdsec 20:00, gitea 20:05, keycloak 20:10, mattermost 20:15, prometheus-stack 20:20, outline 20:25, harbor 20:30, sonarqube 20:35, mlflow 20:40, vaultwarden 20:45, coder 20:50). They are kept 30 days, gzip-compressed. The ObjectStore syncs before the cluster. Base backups run on the primary (`cnpg.backups.target: primary`): one taken on a standby is restorable only once the primary switches its WAL segment, which a quiet database may not do for hours. An app with a large database can set `prefer-standby` to keep the base backup's reads off its primary; its newest backup then becomes restorable only at that switch.
 - **Vault.** A raft snapshot every day at 22:00 UTC (CronJob `backup-vault-snapshot` in vault-operator's namespace), kept 30 days. The job logs in as the ServiceAccount `vault-backup`, whose role reads the snapshot and nothing else, with a projected token, and verifies the TLS of Vault and of the store.
 
 A noncurrent object version expires after the claim's `noncurrentDays`. RustFS, as S3, rounds a due time up to the next midnight UTC, so a version goes between N and N+1 days.
