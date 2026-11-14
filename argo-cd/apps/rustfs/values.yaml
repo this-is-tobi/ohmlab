@@ -94,11 +94,24 @@ rustfs:
   # the file if compression fails — on a full logs volume nothing was ever
   # freed. Delete without compressing (stdout is mirrored to Loki anyway)
   # and cap the total below the 1Gi volume (the default cap is 2GiB).
+  #
+  # RustFS's environment is its namespace: its metrics carry it
+  # (deployment_environment_name), and RustFSMetricsAbsent selects it, so that
+  # one RustFS's metrics cannot hide another's silence. A list that replaces
+  # this one keeps that entry, or the alert fires for good. stdout logs stay
+  # on whatever the environment: RustFS turns them off in one named
+  # production.
   extraEnv:
   - name: RUSTFS_OBS_LOG_COMPRESS_OLD_FILES
     value: "false"
   - name: RUSTFS_OBS_LOG_MAX_TOTAL_SIZE_BYTES
     value: "536870912"
+  - name: RUSTFS_OBS_ENVIRONMENT
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  - name: RUSTFS_OBS_LOG_STDOUT_ENABLED
+    value: "true"
 
 vso:
   extraObjects:

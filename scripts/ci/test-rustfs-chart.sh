@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests of the rustfs app: its TLS, where one certificate serves the S3 API and
 # the console and the gateway verifies both once a route reaches the Service,
-# and a store's wait for its wiring.
+# the environment RustFS reports, and a store's wait for its wiring.
 #
 #   test-rustfs-chart.sh
 #
@@ -105,6 +105,14 @@ routes check-rustfs-svc 9000
 RELEASE=check render "${tls[@]}" -f "$work/routes.yaml"
 check "the names follow another release name" "check-rustfs-svc check-rustfs-svc check-rustfs-svc rustfs-tls" \
   "$(q 'select(.kind == "Service" and (.metadata.name | test("-svc$"))) | .metadata.name') $(q "$cert | .spec.dnsNames[0]") $(q "$policy | .spec.targetRefs[0].name") $(q "$cert | .spec.secretName")"
+
+# RustFSMetricsAbsent selects a RustFS by its environment, which is its
+# namespace; its stdout logs stay on whatever that environment (RustFS turns
+# them off in one named production).
+render
+env='select(.kind == "Deployment") | .spec.template.spec.containers[0].env[]'
+check "the pod reports its namespace as RustFS's environment, with stdout logs on" "metadata.namespace true" \
+  "$(q "$env | select(.name == \"RUSTFS_OBS_ENVIRONMENT\") | .valueFrom.fieldRef.fieldPath") $(q "$env | select(.name == \"RUSTFS_OBS_LOG_STDOUT_ENABLED\") | .value")"
 
 fails "TLS with the distributed mode fails" "rustfs.mode.distributed" "${tls[@]}" \
   --set rustfs.mode.standalone.enabled=false --set rustfs.mode.distributed.enabled=true
