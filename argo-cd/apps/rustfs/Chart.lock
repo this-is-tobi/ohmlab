@@ -1,9 +1,9 @@
 dependencies:
 - name: rustfs
   repository: https://charts.rustfs.com
-  version: 1.0.5
+  version: 1.0.6
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.4.0
-digest: sha256:c00db9632d477793c01ed78f04b666b314a9d54c553fbff18aa88e85baca37ee
-generated: "2026-11-11T02:52:33.204547924Z"
+digest: sha256:7c65610a7a734b383887fc7e2e1b70c8762df2445fb65244bba3f624ae3c9e9c
+generated: "2026-11-16T03:03:51.895591519Z"
