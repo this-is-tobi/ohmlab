@@ -10,7 +10,7 @@ dependencies:
   condition: vault-operator.enabled
 - name: vault-secrets-operator
   alias: vso
-  version: 1.6.2
+  version: 2.0.0
   repository: https://helm.releases.hashicorp.com
   condition: vso.enabled
 - name: backup-utils
