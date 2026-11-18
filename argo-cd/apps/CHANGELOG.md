@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.22.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.21.1...catalog-v0.22.0) (2026-11-18)
+
+
+### Features
+
+* **deps:** update kube-prometheus-stack docker tag to v93 ([d71a62c](https://github.com/this-is-tobi/ohmlab/commit/d71a62cf19b93d0b23d512a3cd3c43dc940c77b9))
+
+
+### Bug Fixes
+
+* **deps:** update cnpg postgres images ([4cc165e](https://github.com/this-is-tobi/ohmlab/commit/4cc165ea34261c3e6e363c559edfdf28bfb18885))
+* **deps:** update etcd docker tag to v0.9.1 ([dbcad39](https://github.com/this-is-tobi/ohmlab/commit/dbcad39f2c4c144c2b83864d63849886af81d083))
+* **deps:** update ghcr.io/this-is-tobi/mirror/outline docker tag to v1.13.0 ([0a1a9cc](https://github.com/this-is-tobi/ohmlab/commit/0a1a9cc7aaf7969cf29c075b90da34d5592df8eb))
+* **deps:** update helm release cilium to v1.20.5 ([1d73853](https://github.com/this-is-tobi/ohmlab/commit/1d73853a935b1525ac6b4b5a964c5432682c778d))
+* **deps:** update helm release cloudnative-pg to v0.29.2 ([e5b4cd7](https://github.com/this-is-tobi/ohmlab/commit/e5b4cd703e06a576b9778e271cebc90204a3c1b0))
+* **deps:** update helm release rustfs to v1.0.6 ([f626ae4](https://github.com/this-is-tobi/ohmlab/commit/f626ae4f4c9bd760e3161eba5410d15b23e44162))
+
 ## [0.21.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.21.0...catalog-v0.21.1) (2026-11-14)
 
 
