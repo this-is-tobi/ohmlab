@@ -1,9 +1,9 @@
 dependencies:
 - name: traefik
   repository: https://traefik.github.io/charts
-  version: 42.4.0
+  version: 42.4.1
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.4.0
-digest: sha256:b9b663995bf625e8d7f4502be56fce9c2a7070d9503d16fa165c1910c2602f3d
-generated: "2026-11-12T22:28:23.179701439Z"
+digest: sha256:265e037b672b4291800c77d548b651717efedee746c25df35e58adc25e6df42c
+generated: "2026-11-19T07:02:56.143108737Z"
