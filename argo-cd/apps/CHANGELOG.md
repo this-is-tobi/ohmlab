@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.22.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.22.0...catalog-v0.22.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **deps:** update helm release argo-cd to v10.18.1 ([45ba3c9](https://github.com/this-is-tobi/ohmlab/commit/45ba3c9770e91dff0114b3bdc7d1db976d4442ff))
+* **deps:** update helm release argo-cd to v10.18.2 ([bb1593f](https://github.com/this-is-tobi/ohmlab/commit/bb1593f95fe4b415027eabed9837266c4a9b041f))
+* **deps:** update helm release coder to v2.39.4 ([8654611](https://github.com/this-is-tobi/ohmlab/commit/8654611ff940b63afaeaf327ff74cbc64206c47f))
+* **deps:** update helm release mattermost-team-edition to v6.6.112 ([23ca260](https://github.com/this-is-tobi/ohmlab/commit/23ca260e798685d021f9efd1670fd53e2f9b19ed))
+* **deps:** update helm release sops-secrets-operator to v0.30.1 ([65b3c7d](https://github.com/this-is-tobi/ohmlab/commit/65b3c7d3e0b36e8806963147a878443d58605509))
+* **deps:** update helm release teleport-cluster to v18.11.12 ([bd88993](https://github.com/this-is-tobi/ohmlab/commit/bd8899306472e4d9ab2fcfb9dce99d48fdc447ff))
+* **deps:** update helm release traefik to v42.4.1 ([f93958d](https://github.com/this-is-tobi/ohmlab/commit/f93958dbfdc8bf973782726b2fafcb28aef33042))
+* **deps:** update keycloak docker tag to v0.22.4 ([9a4ed60](https://github.com/this-is-tobi/ohmlab/commit/9a4ed601e24a3515590171fed3a3ce717b153b85))
+* **deps:** update kube-prometheus-stack docker tag to v93.4.1 ([e0564f9](https://github.com/this-is-tobi/ohmlab/commit/e0564f9b9ee05870018b5e0d1e4578719fb61e4c))
+
 ## [0.22.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.21.1...catalog-v0.22.0) (2026-11-18)
 
 
