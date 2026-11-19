@@ -1,6 +1,6 @@
 dependencies:
 - name: teleport-cluster
   repository: https://charts.releases.teleport.dev
-  version: 18.11.10
-digest: sha256:35240d8fbce52be44fe19c17c7f23ca67ae3f7447c0241e1f08b6804f43e8412
-generated: "2026-11-11T02:52:47.514880476Z"
+  version: 18.11.12
+digest: sha256:6ce88b1384abc351f33e140a77e1cf0ac0476f4697617b44af6c8e12488ba3d7
+generated: "2026-11-19T07:02:43.073386969Z"
