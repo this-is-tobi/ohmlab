@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -82,14 +83,11 @@ const (
 	fieldSecretKey = "secretKey"
 )
 
-// entryFields are a claim's other fields, written from the spec and the store.
-var entryFields = []string{"bucket", "ca", "endpoint", "pathStyle", "region"}
-
-// claim is what one S3Bucket asks of its record.
+// claim is what one S3Bucket, or a store's replicator, asks of its record.
 type claim struct {
-	owner  string            // <namespace>/<name> of the S3Bucket
+	owner  string            // <namespace>/<name> of the S3Bucket, or store:<name>
 	key    string            // the claim's key in the record
-	fields map[string]string // the entryFields
+	fields map[string]string // the entry's other fields, from the spec and the store
 	token  string            // spec.rotate.token; empty: none asked
 }
 
@@ -184,8 +182,8 @@ func planRecord(sec *vault.KVSecret, c claim, now time.Time, grace time.Duration
 		}
 	}
 
-	for _, f := range entryFields {
-		if str(entry[f]) != c.fields[f] {
+	for _, f := range slices.Sorted(maps.Keys(c.fields)) {
+		if v, ok := entry[f]; !ok || str(v) != c.fields[f] {
 			entry[f] = c.fields[f]
 			dataChanged = true
 			p.changes = append(p.changes, change{"update-field", f})

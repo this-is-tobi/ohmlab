@@ -241,6 +241,15 @@ targets:
 
 The chart refuses a store without a name, type, endpoint, region, namespace, capacity or root keys, an endpoint that is not `https://<host>:<port>`, and unknown keys. The target's Deployment takes `targets.storage.resources` rather than the shared `resources`: each admin call that creates a user or a key, or attaches a policy, encrypts its request with a 64 MiB argon2id key, so the target idles near 40 MiB and peaks near 190 MiB while it writes. The target's Vault policy, which `vault-operator` renders, creates, updates and reads `…/platforms/+/+/+/s3` and reads each store's root keys, and nothing else.
 
+### The replicator
+
+A store with a cloud replica (`replicator` in its configuration, set by the instance-manager from `instance.yaml`'s `replica` block: [10-object-storage.md](10-object-storage.md#cloud-replica)) gets one read-only identity, which the replica's copy job uses:
+
+- a user `ohmlab-replicator-<store>` with a canned policy of the same name, allowing list and read on the buckets of the store's `S3Bucket` objects that have `replicate: true`, and nothing else;
+- its key, as the key `replicator` of the record the configuration names, the store app's own `…/<app>/s3`. The entry holds `accessKey`, `secretKey`, `endpoint`, `region`, `pathStyle`, `ca` and `buckets`: the replicated buckets, sorted and separated by spaces. Its marker is `ohmlab.fr/claim.replicator: store:<store>`.
+
+A bucket joins once its `S3Bucket` is `Ready`, and leaves only when the object stops replicating or is deleted: an outage that turns claims not-`Ready` never narrows the replica. With no bucket left, the policy is detached and `buckets` is empty. The replicator runs at start, at every change of the store's `S3Bucket` objects (their status included) and at each resync, and follows the same rules as a claim: Vault first, observe-only, a resync that writes nothing. It has no object of its own: its metrics carry the kind `S3Replicator` and the store's name, and it logs what it changed, by name. An `S3Bucket` on the replicator's record key, or whose bucket is the replicator's user name, is refused with `InvalidSpec`.
+
 ### Metrics and alerts
 
 The target reports through the controller's metrics (`ohmlab_object_ready`; `ohmlab_backend_requests_total` and `ohmlab_backend_writes_total`, whose ops are named after the store calls, such as `create-bucket` and `add-service-account`), and adds `ohmlab_storage_bucket_quota_bytes{store,bucket}` and `ohmlab_storage_capacity_bytes{store}`. With the target on, the chart adds four alerts:
@@ -291,7 +300,8 @@ kubectl -n ohmlab-system describe s3bucket ohmlab-keycloak-pg
 
 - **An `S3Bucket` is `OwnedByAnother`.** Another `S3Bucket` holds the record's key (the record's `ohmlab.fr/claim.<claim>` names it) or, through another record, the same bucket (the message names it); or the record belongs to something else, such as a `VaultSeed` whose owner marker is on the path. Delete the duplicate object. To hand a key over, remove its claim marker by hand. Deleting the waiting object removes nothing from the store.
 - **An `S3Bucket` is `BackendUnavailable` with `context deadline exceeded`.** The store does not answer. Each store call ends after 15 seconds, its retries included, so a store that is down holds the target only that long per attempt, and the claims of the other stores carry on.
-- **An `S3Bucket` is `Stalled` with `InvalidSpec`.** The message says why: a store the target does not know, a quota of zero, or a bucket that is not the one its record implies, with the expected name.
+- **An `S3Bucket` is `Stalled` with `InvalidSpec`.** The message says why: a store the target does not know, a quota of zero, a bucket that is not the one its record implies, with the expected name, or a claim on the name or the record key of the store's replicator.
+- **`OhmlabObjectNotReady` for kind `S3Replicator`.** The store's replicator could not be reconciled: the target's log line `replicator not reconciled` gives the reason.
 - **An `S3Bucket` is `Forbidden`.** The message says whether Vault refused (the target's role, or a record path its policy does not cover) or the store did (root keys in Vault that the store does not hold, for example after they changed in Vault only). The target reads the root keys again after a refusal, so a fix in Vault is picked up at the next attempt.
 
 - **An object stays `RefPending` after its source exists.** The retry delay grows to five minutes; touch the object (an annotation change does not count, the spec must change) or wait.
