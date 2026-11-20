@@ -82,6 +82,43 @@ func TestPlanGeneratesKeysOnce(t *testing.T) {
 	}
 }
 
+// A replicator's entry carries the buckets it reads, and no bucket of its own.
+func TestPlanWritesTheClaimsOwnFields(t *testing.T) {
+	c := claim{owner: "store:backups", key: "replicator", fields: map[string]string{"buckets": "a b", "ca": caOne}}
+	p, err := planRecord(&vault.KVSecret{}, c, t0, testGrace, newKeyPair)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := p.data["replicator"].(map[string]any)
+	if e["buckets"] != "a b" || e["ca"] != caOne {
+		t.Errorf("entry = %v", e)
+	}
+	for _, f := range []string{"bucket", "endpoint", "region", "pathStyle"} {
+		if _, ok := e[f]; ok {
+			t.Errorf("the entry holds %s, which the claim does not give", f)
+		}
+	}
+}
+
+// An empty value is written once, so a consumer finds the field: a replicator
+// with no bucket to copy still lists none.
+func TestPlanWritesAnEmptyFieldOnce(t *testing.T) {
+	c := claim{owner: "store:backups", key: "replicator", fields: map[string]string{"buckets": ""}}
+	fresh := &vault.KVSecret{}
+	p, err := planRecord(fresh, c, t0, testGrace, newKeyPair)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := p.data["replicator"].(map[string]any)
+	if v, ok := e["buckets"]; !ok || v != "" {
+		t.Fatalf("buckets = %v (present %v), want an empty string", v, ok)
+	}
+	again, err := planRecord(written(p, fresh), c, t0, testGrace, noKeys)
+	if err != nil || again.data != nil || len(again.changes) != 0 {
+		t.Errorf("replanning: err=%v data=%v changes=%v", err, again.data != nil, again.changes)
+	}
+}
+
 func TestPlanKeepsOtherClaims(t *testing.T) {
 	lfs := map[string]any{"accessKey": "LFSACCESSKEY00000000", "secretKey": "s", "bucket": "ohmlab-app1-lfs"}
 	sec := &vault.KVSecret{Exists: true, Version: 3,

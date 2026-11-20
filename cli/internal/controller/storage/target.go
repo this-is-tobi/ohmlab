@@ -39,7 +39,7 @@ func NewTarget(cfg *config.Storage, resync time.Duration, m *metrics.Metrics) (r
 		}
 		sc := StoreConfig{
 			Name: s.Name, Endpoint: s.Endpoint, Region: s.Region, BucketPrefix: s.BucketPrefix, PathStyle: s.PathStyle,
-			Capacity: capacity, Root: s.RootCredentials, CAFile: cfg.CAFile,
+			Capacity: capacity, Root: s.RootCredentials, Replicator: s.Replicator, CAFile: cfg.CAFile,
 		}
 		sc.Dial = func(accessKey, secretKey string) (Store, error) {
 			return rustfs.New(rustfs.Config{Endpoint: sc.Endpoint, CAFile: sc.CAFile, Region: sc.Region, AccessKey: accessKey, SecretKey: secretKey})

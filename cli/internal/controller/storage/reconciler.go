@@ -56,8 +56,10 @@ type StoreConfig struct {
 	PathStyle                            bool
 	Capacity                             int64
 	// Root is where the store's root keys live in Vault.
-	Root   config.SecretRef
-	CAFile string
+	Root config.SecretRef
+	// Replicator is the record of the store's replicator key; empty: none.
+	Replicator string
+	CAFile     string
 	// Dial builds a client from the root keys.
 	Dial func(accessKey, secretKey string) (Store, error)
 }
@@ -125,11 +127,14 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager, skipNameValidation bool)
 	}); err != nil {
 		return err
 	}
-	return ctrl.NewControllerManagedBy(mgr).
+	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.S3Bucket{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Named("s3bucket").
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1, SkipNameValidation: &skipNameValidation}).
-		Complete(r)
+		Complete(r); err != nil {
+		return err
+	}
+	return r.setupReplicators(mgr, skipNameValidation)
 }
 
 func owner(o *v1alpha1.S3Bucket) string { return o.Namespace + "/" + o.Name }
@@ -371,6 +376,12 @@ func (r *Reconciler) check(obj *v1alpha1.S3Bucket) (StoreConfig, string, string,
 	}
 	if want := sc.BucketPrefix + mount + "-" + parts[3] + "-" + obj.Spec.Credentials.Key; obj.Spec.Bucket != want {
 		return StoreConfig{}, "", "", fmt.Errorf("bucket must be %q: the store's bucketPrefix, then <mount>-<app>-<claim> of the record", want)
+	}
+	if obj.Spec.Credentials.Path == sc.Replicator && obj.Spec.Credentials.Key == config.ReplicatorKey {
+		return StoreConfig{}, "", "", fmt.Errorf("key %s of %s holds the store's replicator key: claim another", config.ReplicatorKey, sc.Replicator)
+	}
+	if obj.Spec.Bucket == replicatorUser(sc.Name) {
+		return StoreConfig{}, "", "", fmt.Errorf("bucket %s is the name of the store's replicator user: claim another", obj.Spec.Bucket)
 	}
 	if obj.Spec.Quota.Sign() <= 0 {
 		return StoreConfig{}, "", "", fmt.Errorf("quota must be above zero")

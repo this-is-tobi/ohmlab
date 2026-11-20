@@ -94,6 +94,8 @@ var kindActions = map[string][]string{
 	"S3Bucket": {"adopt", "add-key", "update-field", "rotate", "retire-key",
 		"create-bucket", "set-versioning", "set-lifecycle", "set-quota", "put-policy", "create-user",
 		"attach-policy", "detach-policy", "add-service-account", "remove-service-account"},
+	"S3Replicator": {"adopt", "add-key", "update-field", "put-policy", "create-user",
+		"attach-policy", "detach-policy", "add-service-account", "remove-service-account"},
 }
 
 // SetBucketQuota exposes the quota of one S3Bucket's bucket. Forget drops it.
