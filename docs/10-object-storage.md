@@ -26,7 +26,7 @@ flowchart LR
 
 A store is a RustFS app of the catalog, run as an entry of `core.yaml` and declared in `instance.yaml`'s `storage.stores`. Each role names the store its claims go to: `backups`, and `data` for app data. A role without a store leaves its claims out; while no role names a store, nothing of this renders.
 
-The store runs in the same cluster as the apps it serves, on that cluster's disks. A backup there survives the loss of an app, a database or a volume, not the loss of the cluster: copying the backups to a cloud S3 is not there yet.
+The store runs in the same cluster as the apps it serves, on that cluster's disks. A backup there survives the loss of an app, a database or a volume, not the loss of the cluster: for that, a store can keep an encrypted copy in a cloud S3 ([cloud replica](#cloud-replica)).
 
 The backups store is a RustFS of its own, apart from a RustFS that users reach. It is admin only: no console, no route, no SSO. Only the controller's storage target and the pods of each claim reach its S3 API.
 
@@ -155,8 +155,92 @@ The new cluster starts from the newest base backup before the target and replays
 
 **Vault.** A snapshot opens only with the unseal keys of the Vault that took it: keep them outside the cluster, never in the store. Take the newest snapshot from the `vault` claim's bucket with its record's key, then, on that Vault with a root token, `vault operator raft snapshot restore -force <snapshot>`, and unseal with those keys.
 
+## Cloud replica
+
+A store can keep a copy of its buckets in a cloud S3, so that its backups outlive the cluster. Every hour but 01:40-04:40 UTC (the volume snapshots and the k3s upgrade window), a job copies each bucket whose claim has `replicate: true` (every backups claim of the catalog) into `<bucket>/<instance>/` of one cloud bucket. It goes through rclone's `crypt` remote: the provider holds encrypted contents and encrypted names only, and the passwords never leave the cluster and the [break-glass bundle](#break-glass-bundle).
+
+```mermaid
+flowchart LR
+    ctl[storage target]
+    rec[(the store's record<br/>key replicator)]
+    job[replica job<br/>rclone + crypt]
+    store[(RustFS store)]
+    cloud[(cloud bucket<br/>versioned)]
+
+    ctl -->|read-only user over<br/>the replicated buckets| store
+    ctl -->|its key, the bucket list| rec
+    rec --> job
+    store -->|read| job
+    job -->|ciphertext| cloud
+```
+
+The storage target keeps one read-only user per store, `ohmlab-replicator-<store>`, over the buckets that replicate, and writes its key and the bucket list into the store's own record ([08-controller.md](08-controller.md#the-replicator)). The job reads that key, the cloud key and the crypt passwords from Vault. A bucket that lists nothing in the store while the replica holds some of it fails the run instead of copying: a store rebuilt empty never empties its replica. A bucket missing from the store is skipped, and any failed bucket fails the run while the others still copy.
+
+### Turning it on
+
+1. **The cloud side**, at the provider, by the owner. Any S3 works. The same five rules apply everywhere:
+   1. One bucket for the instance, with versioning on. Its name is global at most providers.
+   2. A lifecycle rule that expires noncurrent versions after 30 days, and incomplete multipart uploads after a day.
+   3. A key of its own for the job, which can list, read, write and delete objects, and nothing else: no deleting a version, no lifecycle, versioning or policy change. A cluster that is taken over then cannot erase its own history faster than the lifecycle does.
+   4. The owner's own access kept, to manage the bucket.
+   5. The key written into Vault, at `<ohmlab mount>/platforms/<env>/core/<store app>/replica`, as `accessKey` and `secretKey`.
+
+   On Scaleway, a bucket policy allows only what it lists ("Deny statements are therefore useless", version `2023-04-17`), and the job's IAM application needs Object Storage read and write in the project as well. The bucket policy gives the owner's user everything and the application exactly eight actions:
+
+   ```json
+   {
+     "Version": "2023-04-17",
+     "Statement": [
+       {"Sid": "owner", "Effect": "Allow", "Principal": {"SCW": "user_id:<owner user id>"},
+        "Action": "*", "Resource": ["<bucket>", "<bucket>/*"]},
+       {"Sid": "replica", "Effect": "Allow", "Principal": {"SCW": "application_id:<application id>"},
+        "Action": ["s3:ListBucket", "s3:ListBucketMultipartUploads", "s3:GetBucketLocation",
+                   "s3:GetObject", "s3:PutObject", "s3:DeleteObject",
+                   "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"],
+        "Resource": ["<bucket>", "<bucket>/*"]}
+     ]
+   }
+   ```
+
+   Check it with the application's key: deleting an object version must answer `AccessDenied`. On AWS S3 the same rules are an IAM policy for the key plus a bucket policy that denies `s3:DeleteObjectVersion`, `s3:PutLifecycleConfiguration`, `s3:PutBucketVersioning` and `s3:PutBucketPolicy` to it.
+2. **The store's `replica`** in `instance.yaml`, first as a dry run:
+
+   ```yaml
+   storage:
+     stores:
+       rustfs-backups:
+         # ...
+         replica:
+           endpoint: https://s3.fr-par.scw.cloud
+           region: fr-par
+           bucket: <bucket>
+           provider: Scaleway       # rclone's S3 provider; Other by default
+           storageClass: ""         # empty: the provider's default
+           dryRun: true             # lists what each run would copy, copies nothing
+           bwlimit: 4M              # rclone's --bwlimit, bytes per second
+           extraArgs: []            # more rclone flags, for example --size-only
+   ```
+
+   From it, the instance-manager gives the storage target the store's replicator, `vault-operator` the VaultSeed that generates the two crypt passwords once (`…/<store app>/replica-crypt`), and the store's app the job. Its log lists, per bucket, what a live run would copy, which also proves the store's TLS, the cloud's TLS and the listing.
+3. **Live**: remove `dryRun`. The first run copies every replicated bucket; if it takes longer than the job's 50 minutes, the next runs carry on where it stopped. Then [make the break-glass bundle](#break-glass-bundle).
+
+The job's settings in the store's values: `replica.schedule`, `transfers`, `checkers`, `resources` and `egress` (TCP 443 to public addresses, rendered where the namespace denies egress). The job's ConfigMap, `<release>-replica`, holds its script and the settings a restore needs; it carries the label `ohmlab.fr/replica: "true"`.
+
+| Alert | Fires when | Look at |
+| --- | --- | --- |
+| `OhmlabReplicaStale` | the replica job has not succeeded in 6 hours (counted from its creation if it never did), for 15m; the job runs at most 5 hours apart | the logs of its last Job: a bucket it refused to empty, a missing Secret, the cloud's answer |
+
+### Restore from the replica
+
+Not drilled yet. On a new cluster, with the [break-glass bundle](#break-glass-bundle):
+
+1. Suspend the replica job of the new store (`kubectl -n <store namespace> patch cronjob <release>-replica -p '{"spec":{"suspend":true}}'`) until the restore is done, so it never syncs a store that is still empty.
+2. Copy each bucket back, with the bundle's rclone remotes: `rclone copy crypt:<bucket> store:<bucket>`.
+3. Restore Vault, then each Postgres cluster, as in [Restoring](#restoring).
+4. Resume the job.
+
 ## Not there yet
 
-- Stores other than an in-cluster RustFS: a cloud S3 as a store, and a copy of a store to a cloud S3.
+- Stores other than an in-cluster RustFS: a cloud S3 as a store.
 - Claims of apps on an instance that reads another instance's Vault (`vault.hub`): the render refuses them.
 - Backups of Longhorn volumes, of etcd, and of apps' data other than Postgres.

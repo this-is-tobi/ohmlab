@@ -1,0 +1,32 @@
+{{- /*
+The replica's script and its settings. The settings are what a restore needs
+besides the secrets: `ohmlab storage break-glass` reads every ConfigMap
+labelled ohmlab.fr/replica, and the job reads the same keys.
+*/}}
+{{- if .Values.replica.enabled }}
+{{- include "rustfs.replica.check" . }}
+{{- with .Values.replica }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Release.Name }}-replica
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "rustfs.replica.labels" $ | nindent 4 }}
+    ohmlab.fr/replica: "true"
+data:
+  store: {{ .store | quote }}
+  provider: {{ .provider | quote }}
+  endpoint: {{ .endpoint | quote }}
+  region: {{ .region | quote }}
+  bucket: {{ .bucket | quote }}
+  prefix: {{ .prefix | quote }}
+  storageClass: {{ .storageClass | quote }}
+  filenameEncryption: standard
+  directoryNameEncryption: "true"
+  targetSecret: {{ $.Release.Name }}-replica-target
+  cryptSecret: {{ $.Release.Name }}-replica-crypt
+  replicate.sh: |
+    {{- $.Files.Get "files/replicate.sh" | nindent 4 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,24 @@
+{{- /*
+The replica job's way out to the cloud. The namespace's own policies already
+admit it to the store and to DNS; this one is rendered only where they deny
+egress: on its own, a policy selecting the job would cut it off from both.
+*/}}
+{{- if and .Values.replica.enabled .Values.networkPolicy.enabled .Values.networkPolicy.egressDeny }}
+{{- include "rustfs.replica.check" . }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-replica-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rustfs.replica.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: replica
+  policyTypes:
+  - Egress
+  egress:
+  {{- toYaml .Values.replica.egress | nindent 2 }}
+{{- end }}

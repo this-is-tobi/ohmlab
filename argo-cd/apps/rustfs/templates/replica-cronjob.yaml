@@ -1,0 +1,114 @@
+{{- /*
+The copy to the cloud replica: one run at a time, never during 01:40-04:40
+UTC (the volume snapshots and the k3s upgrade window), each bounded to 50
+minutes so it ends before the next. A first copy longer than that goes on at
+the next runs: sync resumes.
+*/}}
+{{- if .Values.replica.enabled }}
+{{- include "rustfs.replica.check" . }}
+{{- $r := .Values.replica }}
+{{- $name := printf "%s-replica" .Release.Name }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rustfs.replica.labels" . | nindent 4 }}
+spec:
+  schedule: {{ $r.schedule | quote }}
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3000
+      template:
+        metadata:
+          labels:
+            {{- include "rustfs.replica.labels" . | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: rclone
+            image: {{ printf "%s:%s" $r.image.repository $r.image.tag | quote }}
+            command: [sh, /scripts/replicate.sh]
+            env:
+            {{- range $env, $key := dict "SOURCE_ACCESS_KEY" "ACCESS_KEY" "SOURCE_SECRET_KEY" "SECRET_KEY" "SOURCE_ENDPOINT" "ENDPOINT" "SOURCE_REGION" "REGION" "BUCKETS" "BUCKETS" }}
+            - name: {{ $env }}
+              valueFrom:
+                secretKeyRef: {name: {{ $name }}-source, key: {{ $key }}}
+            {{- end }}
+            - name: TARGET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef: {name: {{ $name }}-target, key: ACCESS_KEY}
+            - name: TARGET_SECRET_KEY
+              valueFrom:
+                secretKeyRef: {name: {{ $name }}-target, key: SECRET_KEY}
+            - name: CRYPT_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ $name }}-crypt, key: PASSWORD}
+            - name: CRYPT_PASSWORD2
+              valueFrom:
+                secretKeyRef: {name: {{ $name }}-crypt, key: PASSWORD2}
+            {{- range $env, $key := dict "TARGET_PROVIDER" "provider" "TARGET_ENDPOINT" "endpoint" "TARGET_REGION" "region" "TARGET_BUCKET" "bucket" "PREFIX" "prefix" "STORAGE_CLASS" "storageClass" }}
+            - name: {{ $env }}
+              valueFrom:
+                configMapKeyRef: {name: {{ $name }}, key: {{ $key }}}
+            {{- end }}
+            - name: STORE_CA
+              value: /etc/ohmlab/store-ca/ca.crt
+            - name: BWLIMIT
+              value: {{ $r.bwlimit | quote }}
+            - name: TRANSFERS
+              value: {{ $r.transfers | quote }}
+            - name: CHECKERS
+              value: {{ $r.checkers | quote }}
+            - name: DRY_RUN
+              value: {{ $r.dryRun | toString | quote }}
+            - name: EXTRA_ARGS
+              value: {{ join " " ($r.extraArgs | default list) | quote }}
+            resources:
+              {{- toYaml $r.resources | nindent 14 }}
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: store-ca
+              mountPath: /etc/ohmlab/store-ca
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          volumes:
+          - name: script
+            configMap:
+              name: {{ $name }}
+              items:
+              - key: replicate.sh
+                path: replicate.sh
+          - name: store-ca
+            secret:
+              secretName: {{ $name }}-source
+              items:
+              - key: ca.crt
+                path: ca.crt
+          - name: tmp
+            emptyDir:
+              sizeLimit: 64Mi
+{{- end }}

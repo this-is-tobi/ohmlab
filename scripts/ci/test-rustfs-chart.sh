@@ -124,4 +124,56 @@ fails "a store does not render before its wiring" "waiting for the instance-mana
 render --set store.enabled=true --set store.wired=true
 check "a wired store renders" "1" "$(q '[select(.kind == "Deployment")] | length')"
 
+# A store's cloud replica: an hourly rclone job, its secrets, its egress and its alert.
+REPLICA=(--set store.enabled=true --set store.wired=true --set replica.enabled=true --set networkPolicy.enabled=true
+  --set replica.endpoint=https://s3.fr-par.scw.cloud --set replica.region=fr-par --set replica.bucket=cloud-replica
+  --set replica.provider=Scaleway --set replica.prefix=homelab --set replica.store=rustfs-backups
+  --set replica.vault.mount=ohmlab --set replica.vault.record=platforms/production/core/rustfs-backups/s3
+  --set replica.vault.target=platforms/production/core/rustfs-backups/replica
+  --set replica.vault.crypt=platforms/production/core/rustfs-backups/replica-crypt)
+objs='select(.metadata.name | test("-replica"))'
+render --set store.enabled=true --set store.wired=true
+check "without a replica, no replica object and no replica alert" "0 0" \
+  "$(q "[$objs] | length") $(q '[select(.kind == "PrometheusRule") | .spec.groups[].rules[] | select(.alert == "OhmlabReplicaStale")] | length')"
+render "${REPLICA[@]}"
+check "a replica renders its objects" \
+  "ConfigMap/rustfs-replica CronJob/rustfs-replica NetworkPolicy/rustfs-replica-egress VaultStaticSecret/rustfs-replica-crypt VaultStaticSecret/rustfs-replica-source VaultStaticSecret/rustfs-replica-target" \
+  "$(q "[$objs | .kind + \"/\" + .metadata.name] | sort | join(\" \")")"
+check "a replica renders its alert" "OhmlabReplicaStale" \
+  "$(q 'select(.kind == "PrometheusRule") | .spec.groups[].rules[] | select(.alert == "OhmlabReplicaStale") | .alert')"
+cj='select(.kind == "CronJob")'
+pod="$cj | .spec.jobTemplate.spec.template.spec"
+check "the schedule skips 01:40-04:40 UTC, one run at a time, bounded" "40 0,5-23 * * * Etc/UTC Forbid 600 3000 0" \
+  "$(q "$cj | .spec.schedule + \" \" + .spec.timeZone + \" \" + .spec.concurrencyPolicy + \" \" + (.spec.startingDeadlineSeconds | tostring) + \" \" + (.spec.jobTemplate.spec.activeDeadlineSeconds | tostring) + \" \" + (.spec.jobTemplate.spec.backoffLimit | tostring)")"
+check "the job runs unprivileged" "65534 true RuntimeDefault false true false ALL" \
+  "$(q "$pod | (.securityContext.runAsUser | tostring) + \" \" + (.securityContext.runAsNonRoot | tostring) + \" \" + .securityContext.seccompProfile.type + \" \" + (.automountServiceAccountToken | tostring) + \" \" + (.containers[0].securityContext.readOnlyRootFilesystem | tostring) + \" \" + (.containers[0].securityContext.allowPrivilegeEscalation | tostring) + \" \" + (.containers[0].securityContext.capabilities.drop | join(\",\"))")"
+check "the image is pinned by digest" "yes" "$(q "$pod | .containers[0].image" | grep -qE '^docker\.io/rclone/rclone:[0-9.]+@sha256:[a-f0-9]{64}$' && echo yes || echo no)"
+envs="$pod | .containers[0].env[]"
+check "the job's secrets come from the three Secrets" \
+  "rustfs-replica-crypt/PASSWORD rustfs-replica-crypt/PASSWORD2 rustfs-replica-source/ACCESS_KEY rustfs-replica-source/BUCKETS rustfs-replica-source/ENDPOINT rustfs-replica-source/REGION rustfs-replica-source/SECRET_KEY rustfs-replica-target/ACCESS_KEY rustfs-replica-target/SECRET_KEY" \
+  "$(q "[$envs | select(.valueFrom.secretKeyRef) | .valueFrom.secretKeyRef.name + \"/\" + .valueFrom.secretKeyRef.key] | sort | join(\" \")")"
+check "the job mounts its script, the store's CA and a writable /tmp" "/etc/ohmlab/store-ca /scripts /tmp" \
+  "$(q "[$pod | .containers[0].volumeMounts[].mountPath] | sort | join(\" \")")"
+check "the job is not a dry run by default" "false" "$(q "$envs | select(.name == \"DRY_RUN\") | .value")"
+cm='select(.kind == "ConfigMap" and .metadata.name == "rustfs-replica")'
+check "the ConfigMap holds the settings the bundle reads, and its label" \
+  "rustfs-backups Scaleway https://s3.fr-par.scw.cloud fr-par cloud-replica homelab standard true rustfs-replica-target rustfs-replica-crypt true" \
+  "$(q "$cm | .data.store + \" \" + .data.provider + \" \" + .data.endpoint + \" \" + .data.region + \" \" + .data.bucket + \" \" + .data.prefix + \" \" + .data.filenameEncryption + \" \" + .data.directoryNameEncryption + \" \" + .data.targetSecret + \" \" + .data.cryptSecret + \" \" + .metadata.labels[\"ohmlab.fr/replica\"]")"
+check "the ConfigMap holds the script" "yes" "$(q "$cm | .data[\"replicate.sh\"]" | grep -q 'refusing to empty the replica' && echo yes || echo no)"
+vss='select(.kind == "VaultStaticSecret" and .metadata.name == "rustfs-replica-source") | .spec'
+check "the source secret reads the store's record with the store's auth" "ohmlab platforms/production/core/rustfs-backups/s3 rustfs-vso-default rustfs-replica-source" \
+  "$(q "$vss | .mount + \" \" + .path + \" \" + .vaultAuthRef + \" \" + .destination.name")"
+check "the egress policy selects the job only, on 443" "replica 443" \
+  "$(q 'select(.kind == "NetworkPolicy" and .metadata.name == "rustfs-replica-egress") | .spec.podSelector.matchLabels["app.kubernetes.io/component"] + " " + (.spec.egress[0].ports[0].port | tostring)')"
+render "${REPLICA[@]}" --set replica.dryRun=true --set 'replica.extraArgs={--size-only}'
+check "dryRun and extraArgs reach the job" "true --size-only" \
+  "$(q "$envs | select(.name == \"DRY_RUN\") | .value") $(q "$envs | select(.name == \"EXTRA_ARGS\") | .value")"
+render "${REPLICA[@]}" --set networkPolicy.enabled=false
+check "no egress policy where the namespace does not restrict egress" "0" \
+  "$(q '[select(.kind == "NetworkPolicy" and .metadata.name == "rustfs-replica-egress")] | length')"
+for key in endpoint region bucket prefix store vault.mount vault.record vault.target vault.crypt; do
+  fails "a replica without $key fails" "replica.$key" "${REPLICA[@]}" --set "replica.$key="
+done
+fails "a replica needs a store" "replica.enabled needs store.enabled" "${REPLICA[@]}" --set store.enabled=false
+
 exit "$failures"

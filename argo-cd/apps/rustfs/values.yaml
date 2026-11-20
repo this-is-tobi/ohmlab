@@ -203,3 +203,63 @@ certificate:
 store:
   enabled: false
   wired: false
+
+# A store's cloud replica (docs/10-object-storage.md#cloud-replica): a job
+# copies each bucket whose claim replicates into <bucket>/<prefix>/ of a cloud
+# S3, every hour but 01:40-04:40 UTC, through rclone's crypt remote, so the
+# provider holds ciphertext and encrypted names only. The instance-manager
+# sets enabled, the cloud's endpoint, region, bucket and provider, the prefix,
+# the store's name and the Vault paths from instance.yaml's replica block; a
+# store sets the rest in its values file.
+replica:
+  enabled: false
+  # Lists what each run would copy, and copies nothing.
+  dryRun: false
+  endpoint: ""        # the cloud S3, https://<host>
+  region: ""
+  bucket: ""          # the cloud bucket: versioned, its key unable to delete a version
+  provider: Other     # rclone's S3 provider: Scaleway, AWS, ...
+  storageClass: ""    # empty: the provider's default
+  prefix: ""          # this store's folder in the bucket: the instance's name
+  store: ""           # the store's name in instance.yaml, for the break-glass bundle
+  schedule: "40 0,5-23 * * *"
+  # rclone's --bwlimit (bytes per second, suffixes K, M, G), --transfers and
+  # --checkers.
+  bwlimit: 4M
+  transfers: 2
+  checkers: 4
+  # More rclone flags, for example --size-only when comparing modification
+  # times costs too many requests.
+  extraArgs: []
+  image:
+    repository: docker.io/rclone/rclone
+    tag: "1.76.0@sha256:7cbeec24a44f206067597c0368be4de90ae19a64d5113c7d1938bd737a81e466"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: "1"
+      memory: 256Mi
+  # Where the job connects beyond its namespace, whose own policy already
+  # admits it to the store: the cloud endpoint, on public addresses.
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+    ports:
+    - protocol: TCP
+      port: 443
+  # The job's secrets in Vault, under mount: the store's record, whose key
+  # replicator the storage target writes; the cloud key the owner writes
+  # (accessKey, secretKey); the crypt passwords a VaultSeed writes once
+  # (password, password2).
+  vault:
+    mount: ""
+    record: ""
+    target: ""
+    crypt: ""
