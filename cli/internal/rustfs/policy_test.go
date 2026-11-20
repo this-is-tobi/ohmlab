@@ -22,6 +22,27 @@ func TestBucketPolicyReadWriteGolden(t *testing.T) {
 	}
 }
 
+// A replicator reads several buckets with one policy.
+func TestBucketsPolicyListsEachBucketOnce(t *testing.T) {
+	got, err := BucketsPolicy([]string{"b", "a", "b"}, "readOnly")
+	if err != nil {
+		t.Fatalf("BucketsPolicy: %v", err)
+	}
+	want, err := os.ReadFile("testdata/policy-readonly-many.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("policy differs from the golden file\n--- got\n%s\n--- want\n%s", got, want)
+	}
+}
+
+func TestBucketsPolicyRefusesNoBucket(t *testing.T) {
+	if _, err := BucketsPolicy(nil, "readOnly"); err == nil || !strings.Contains(err.Error(), "no bucket") {
+		t.Fatalf(`want an error naming "no bucket", got %v`, err)
+	}
+}
+
 func TestBucketPolicyRejectsUnknownAccess(t *testing.T) {
 	if _, err := BucketPolicy("b", "admin"); err == nil {
 		t.Fatal(`want an error for access "admin"`)

@@ -442,6 +442,73 @@ func TestAServiceAccountKeyIsConfinedToItsBucket(t *testing.T) {
 	}
 }
 
+// A replicator's key reads every bucket its policy lists, and nothing else.
+func TestAReadOnlyKeyOverTwoBucketsReadsBothAndNothingElse(t *testing.T) {
+	root, ctx := rootClient(t), t.Context()
+	a, b, c := randName("it-ra"), randName("it-rb"), randName("it-rc")
+	for _, name := range []string{a, b, c} {
+		makeBucket(t, root, name)
+		if err := put(root, t, name, "root-object", 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	user := randName("it-replicator")
+	doc, err := BucketsPolicy([]string{a, b}, "readOnly")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removePolicyAtCleanup(t, root, user)
+	if err := root.PutPolicy(ctx, user, doc); err != nil {
+		t.Fatalf("PutPolicy: %v", err)
+	}
+	removeUserAtCleanup(t, root, user)
+	if err := root.CreateUser(ctx, user, hex.EncodeToString([]byte(randName("secret")))); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if err := root.AttachPolicy(ctx, user, user); err != nil {
+		t.Fatalf("AttachPolicy: %v", err)
+	}
+	ak, sk := randKeys()
+	removeServiceAccountAtCleanup(t, root, ak)
+	if err := root.AddServiceAccount(ctx, user, ak, sk); err != nil {
+		t.Fatalf("AddServiceAccount: %v", err)
+	}
+	app := keyClient(t, ak, sk)
+
+	get := func(bucket string) error {
+		o, err := app.s3.GetObject(ctx, bucket, "root-object", minio.GetObjectOptions{})
+		if err == nil {
+			_, err = io.ReadAll(o)
+		}
+		return err
+	}
+	list := func(bucket string) error {
+		for o := range app.s3.ListObjects(ctx, bucket, minio.ListObjectsOptions{}) {
+			if o.Err != nil {
+				return o.Err
+			}
+		}
+		return nil
+	}
+	for _, name := range []string{a, b} {
+		if err := eventually(5*time.Second, func() error { return get(name) }); err != nil {
+			t.Errorf("get in %s: %v", name, err)
+		}
+		if err := list(name); err != nil {
+			t.Errorf("list in %s: %v", name, err)
+		}
+	}
+	if err := list(c); !forbidden("list", err) {
+		t.Errorf("list in C: want ErrForbidden, got %v", err)
+	}
+	if err := get(c); !forbidden("get", err) {
+		t.Errorf("get in C: want ErrForbidden, got %v", err)
+	}
+	if err := put(app, t, a, "o", 1); !forbidden("put", err) {
+		t.Errorf("put in A: want ErrForbidden, got %v", err)
+	}
+}
+
 func isQuotaRefusal(err error) bool {
 	r := minio.ToErrorResponse(err)
 	text := strings.ToLower(r.Code + " " + r.Message)
