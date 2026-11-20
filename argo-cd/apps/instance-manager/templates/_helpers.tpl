@@ -309,7 +309,22 @@ names a store, so that nothing of storage renders.
 {{- if not (regexMatch `^[0-9]+(\.[0-9]+)?([KMGTPE]i|[kMGTPE])?$` $size) -}}
 {{- fail (printf "storage.stores.%s.size %q must be a quantity like 50Gi" $name $size) -}}
 {{- end -}}
-{{- $_ := set $stores $name (dict "type" $type "app" ($st.app | toString) "namespace" ($st.namespace | toString) "endpoint" $endpoint "port" $port "region" ($st.region | default "us-east-1" | toString) "size" $size "storageClass" ($st.storageClass | default "" | toString) "rootPath" (printf "%s/platforms/%s/core/%s" $coreMount $env $st.app)) -}}
+{{- $model := dict "type" $type "app" ($st.app | toString) "namespace" ($st.namespace | toString) "endpoint" $endpoint "port" $port "region" ($st.region | default "us-east-1" | toString) "size" $size "storageClass" ($st.storageClass | default "" | toString) "rootPath" (printf "%s/platforms/%s/core/%s" $coreMount $env $st.app) "vaultMount" $coreMount "vaultPath" (printf "platforms/%s/core/%s" $env $st.app) -}}
+{{- with $st.replica -}}
+{{- $at := printf "storage.stores.%s.replica" $name -}}
+{{- with omit . "endpoint" "region" "bucket" "provider" "storageClass" "dryRun" "bwlimit" "extraArgs" -}}
+{{- fail (printf "%s has unknown keys: %v" $at (keys . | sortAlpha)) -}}
+{{- end -}}
+{{- if not (regexMatch `^https://[a-z0-9]([-a-z0-9.]*[a-z0-9])?(:[0-9]{1,5})?$` (.endpoint | default "" | toString)) -}}
+{{- fail (printf "%s.endpoint %q must be https://<host>, the cloud S3" $at (.endpoint | default "" | toString)) -}}
+{{- end -}}
+{{- if not .region -}}{{- fail (printf "%s.region is required: the cloud bucket's region" $at) -}}{{- end -}}
+{{- if not (regexMatch `^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$` (.bucket | default "" | toString)) -}}
+{{- fail (printf "%s.bucket %q must be an S3 bucket name: the cloud bucket the owner made" $at (.bucket | default "" | toString)) -}}
+{{- end -}}
+{{- $_ := set $model "replica" (pick . "endpoint" "region" "bucket" "provider" "storageClass" "dryRun" "bwlimit" "extraArgs") -}}
+{{- end -}}
+{{- $_ := set $stores $name $model -}}
 {{- end -}}
 {{- $roles := dict -}}
 {{- range $role := list "backups" "data" -}}
@@ -398,12 +413,22 @@ wiring. Called with (list . <scope>).
 {{- $targetStores := list -}}
 {{- $paths := list -}}
 {{- range $name, $st := $model.stores -}}
-{{- $targetStores = append $targetStores (dict "name" $name "type" $st.type "endpoint" $st.endpoint "region" $st.region "pathStyle" true "bucketPrefix" "" "capacity" $st.size "namespace" $st.namespace "rootCredentials" (dict "path" $st.rootPath "key" "admin")) -}}
-{{- $paths = append $paths (dict "name" $name "path" $st.rootPath) -}}
+{{- $target := dict "name" $name "type" $st.type "endpoint" $st.endpoint "region" $st.region "pathStyle" true "bucketPrefix" "" "capacity" $st.size "namespace" $st.namespace "rootCredentials" (dict "path" $st.rootPath "key" "admin") -}}
+{{- $path := dict "name" $name "path" $st.rootPath -}}
 {{- $class := dict "dataStorageSize" $st.size -}}
 {{- with $st.storageClass }}{{ $_ := set $class "name" . }}{{ end -}}
 {{- /* wired: the store's chart renders only with it (argo-cd/apps/rustfs, store). */ -}}
-{{- $_ := set $els $st.app (dict "rustfs" (dict "storageclass" $class "config" (dict "rustfs" (dict "region" $st.region))) "store" (dict "wired" true)) -}}
+{{- $app := dict "rustfs" (dict "storageclass" $class "config" (dict "rustfs" (dict "region" $st.region))) "store" (dict "wired" true) -}}
+{{- with $st.replica -}}
+{{- /* The replicator's key goes to the store's own record; the job reads it, the owner's cloud key and the crypt passwords vault-operator seeds. */ -}}
+{{- $_ := set $target "replicator" (printf "%s/s3" $st.rootPath) -}}
+{{- $_ := set $path "replica" true -}}
+{{- $job := merge (dict "enabled" true "prefix" ($root.Values.instance.name | toString) "store" $name "vault" (dict "mount" $st.vaultMount "record" (printf "%s/s3" $st.vaultPath) "target" (printf "%s/replica" $st.vaultPath) "crypt" (printf "%s/replica-crypt" $st.vaultPath))) . -}}
+{{- $_ := set $app "replica" $job -}}
+{{- end -}}
+{{- $targetStores = append $targetStores $target -}}
+{{- $paths = append $paths $path -}}
+{{- $_ := set $els $st.app $app -}}
 {{- end -}}
 {{- $_ := set $els "ohmlab-controller" (dict "targets" (dict "storage" (dict "enabled" true "stores" $targetStores))) -}}
 {{- $_ := set $els "vault-operator" (dict "ohmlab" (dict "controller" (dict "storage" (dict "stores" $paths)))) -}}

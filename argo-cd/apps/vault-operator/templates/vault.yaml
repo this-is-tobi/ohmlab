@@ -149,6 +149,31 @@ spec:
     {{- if $p.rules }}{{ $_ := set $p "rules" (tpl $p.rules $kv) }}{{ end }}
     {{- $policies = append $policies $p }}
     {{- end }}
+    {{- /*
+      A store with a cloud replica: its app's own policy (named after the app,
+      the last segment of its root keys' path) also reads the copy job's
+      record, cloud key and crypt passwords.
+    */}}
+    {{- range $st := .Values.ohmlab.controller.storage.stores | default list }}
+    {{- if $st.replica }}
+    {{- $app := regexReplaceAll "^.*/" ($st.path | toString) "" }}
+    {{- $data := regexReplaceAll "^([^/]+)/" ($st.path | toString) "${1}/data/" }}
+    {{- $found := false }}
+    {{- range $p := $policies }}
+    {{- if eq (toString $p.name) $app }}
+    {{- $extra := "" }}
+    {{- range $leaf := list "s3" "replica" "replica-crypt" }}
+    {{- $extra = printf "%spath \"%s/%s\" { capabilities = [\"read\"] }\n" $extra $data $leaf }}
+    {{- end }}
+    {{- $_ := set $p "rules" (printf "%s\n%s" (trimSuffix "\n" (toString $p.rules)) $extra) }}
+    {{- $found = true }}
+    {{- end }}
+    {{- end }}
+    {{- if not $found }}
+    {{- fail (printf "store %s has a replica, and no policy %s reads its root keys: give its app a policy of its name" $st.name $app) }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
     {{- $auth := deepCopy (.Values.vault.externalConfig.auth | default list) }}
     {{- $spokes := include "vault-operator.spokes" (dict "Values" .Values "kv" $kv "auth" $auth) | fromYamlArray }}
     {{- $roles := list }}

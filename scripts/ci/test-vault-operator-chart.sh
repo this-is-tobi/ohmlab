@@ -159,6 +159,30 @@ got=$(role "$work/stores.yaml" ohmlab-controller-storage)
 want='{"audience":"vault","bound_service_account_names":["ohmlab-controller-storage"],"bound_service_account_namespaces":["ohmlab-system"],"name":"ohmlab-controller-storage","policies":["ohmlab-controller-storage"],"ttl":"15m"}'
 [ "$got" = "$want" ] || fail "the storage target's role must be bound to ohmlab-controller-storage, got $got"
 
+# A store with a cloud replica: its crypt passwords are seeded once, and the
+# store's own policy reads the job's three paths.
+seeds='select(.kind == "VaultSeed") | .spec'
+[ -z "$(yq "$seeds | select(.path | test(\"replica-crypt$\")) | .path" "$work/stores.yaml")" ] \
+  || fail "a store without a replica must get no crypt seed"
+render "$work/replica.yaml" --api-versions ohmlab.fr/v1alpha1/VaultSeed --set ohmlab.vault.seeds.enabled=true \
+  --set-json 'ohmlab.controller.storage.stores=[{"name":"rustfs-backups","path":"ohmlab/platforms/production/core/rustfs-backups","replica":true}]'
+got=$(yq -o=json -I=0 "$seeds | select(.path == \"ohmlab/platforms/production/core/rustfs-backups/replica-crypt\") | .data" "$work/replica.yaml" | jq -cS .)
+[ "$got" = '{"password":"<random:48>","password2":"<random:48>"}' ] \
+  || fail "a replicating store must get its crypt passwords seeded once at <root path>/replica-crypt, got '$got'"
+want='path "ohmlab/data/platforms/production/core/rustfs-backups/s3" { capabilities = ["read"] }
+path "ohmlab/data/platforms/production/core/rustfs-backups/replica" { capabilities = ["read"] }
+path "ohmlab/data/platforms/production/core/rustfs-backups/replica-crypt" { capabilities = ["read"] }'
+got=$(policy "$work/replica.yaml" rustfs-backups | grep -E '/rustfs-backups/(s3|replica|replica-crypt)"')
+[ "$got" = "$want" ] || fail "a replicating store's policy must read its record, the cloud key and the crypt passwords, got: $got"
+[ -z "$(policy "$work/stores.yaml" rustfs-backups | grep -E '/(s3|replica|replica-crypt)"')" ] \
+  || fail "a store without a replica must read none of the copy job's paths"
+if helm template vault-operator "$CHART" --namespace vault-operator-system "${args[@]}" \
+  --set-json 'ohmlab.controller.storage.stores=[{"name":"other","path":"ohmlab/platforms/production/core/no-such-app","replica":true}]' >/dev/null 2>"$work/err"; then
+  fail "a replicating store whose app has no policy must fail the render"
+elif ! grep -q 'no policy no-such-app reads its root keys' "$work/err"; then
+  fail "the render must name the app without a policy, got: $(grep -m1 Error "$work/err" | cut -c1-200)"
+fi
+
 render "$work/backup.yaml" --set backup-utils.enabled=true --set global.ohmlab.storage.vault.enabled=true
 got=$(yq -o=json -I=0 'select(.kind == "ServiceAccount" and .metadata.name == "vault-backup") | .automountServiceAccountToken' "$work/backup.yaml")
 [ "$got" = false ] || fail "the ServiceAccount vault-backup must not mount its token, got '$got'"

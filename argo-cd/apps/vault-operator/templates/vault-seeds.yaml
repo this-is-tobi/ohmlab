@@ -19,7 +19,14 @@ controller down, a reference pending) holds nothing else back.
 {{- $names := dict }}
 {{- $hub := list (include "vault-operator.systemMount" .) (include "vault-operator.kvMount" .) }}
 {{- with .Values.ohmlab.controller.kvMount }}{{ $hub = append $hub (toString .) }}{{ end }}
-{{- range $entry := .Values.ohmlab.vault.secrets }}
+{{- /* A store with a cloud replica gets its two crypt passwords, once: without them the replica cannot be read. */}}
+{{- $entries := .Values.ohmlab.vault.secrets | default list }}
+{{- range $st := .Values.ohmlab.controller.storage.stores | default list }}
+{{- if $st.replica }}
+{{- $entries = append $entries (dict "path" (printf "%s/replica-crypt" $st.path) "data" (dict "password" "<random:48>" "password2" "<random:48>")) }}
+{{- end }}
+{{- end }}
+{{- range $entry := $entries }}
 {{- $name := include "vault-operator.seedName" (dict "path" $entry.path "hub" $hub) }}
 {{- if hasKey $names $name }}
 {{- fail (printf "ohmlab.vault.secrets: %q and %q both become the VaultSeed %q" (get $names $name) $entry.path $name) }}

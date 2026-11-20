@@ -440,6 +440,38 @@ im tenant-homelab -f "$work/storage.yaml" --set storage.wireConsumers=false
 check "wireConsumers false: the tenant ApplicationSet keeps its matrix" '["matrix"]' "$(yq -o=json -I=0 '.spec.generators[0] | keys' "$work/tenant-homelab.yaml")"
 check "wireConsumers false: the claims still render" "homelab-gitea-pg" "$(claims_values tenant --set storage.wireConsumers=false | jq -r '.claims.gitea.pg.bucket')"
 
+# A store's cloud replica: the controller gets the store's replicator record,
+# vault-operator a replicating store for the crypt seed, the store's app the job.
+cat >"$work/replica.yaml" <<'EOF'
+storage:
+  stores:
+    rustfs-backups:
+      replica:
+        endpoint: https://s3.fr-par.scw.cloud
+        region: fr-par
+        bucket: cloud-replica
+        provider: Scaleway
+        dryRun: true
+EOF
+im core-homelab -f "$work/storage.yaml"
+norep=$(app_values "$work/core-homelab.yaml" '{"app":"rustfs-backups"}')
+check "no replica: no replicator, no replica values" "null null" \
+  "$(jq -r '.targets.storage.stores[0].replicator' <<<"$ctl") $(jq -r '.replica // null' <<<"$norep")"
+im core-homelab -f "$work/storage.yaml" -f "$work/replica.yaml"
+check "replica: the controller's store names its replicator record" "$ROOTKEYS/s3" \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"ohmlab-controller"}' | jq -r '.targets.storage.stores[0].replicator')"
+check "replica: vault-operator's store replicates" "[{\"name\":\"rustfs-backups\",\"path\":\"$ROOTKEYS\",\"replica\":true}]" \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"vault-operator"}' | jq -cS '.ohmlab.controller.storage.stores')"
+check "replica: the store's app gets the job's values, with the instance as prefix" \
+  '{"bucket":"cloud-replica","dryRun":true,"enabled":true,"endpoint":"https://s3.fr-par.scw.cloud","prefix":"homelab","provider":"Scaleway","region":"fr-par","store":"rustfs-backups","vault":{"crypt":"platforms/production/core/rustfs-backups/replica-crypt","mount":"ohmlab","record":"platforms/production/core/rustfs-backups/s3","target":"platforms/production/core/rustfs-backups/replica"}}' \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"rustfs-backups"}' | jq -cS '.replica')"
+check "replica: the store's app keeps its size and wiring" "50Gi true" \
+  "$(app_values "$work/core-homelab.yaml" '{"app":"rustfs-backups"}' | jq -r '.rustfs.storageclass.dataStorageSize + " " + (.store.wired | tostring)')"
+refuse_msg "a replica without bucket is refused" "storage.stores.rustfs-backups.replica.bucket" -f "$work/storage.yaml" -f "$work/replica.yaml" --set storage.stores.rustfs-backups.replica.bucket=
+refuse_msg "a replica without region is refused" "storage.stores.rustfs-backups.replica.region" -f "$work/storage.yaml" -f "$work/replica.yaml" --set storage.stores.rustfs-backups.replica.region=
+refuse_msg "a replica on plain http is refused" "storage.stores.rustfs-backups.replica.endpoint" -f "$work/storage.yaml" -f "$work/replica.yaml" --set storage.stores.rustfs-backups.replica.endpoint=http://s3.example
+refuse_msg "a replica bucket that is no bucket name is refused" "storage.stores.rustfs-backups.replica.bucket" -f "$work/storage.yaml" -f "$work/replica.yaml" --set storage.stores.rustfs-backups.replica.bucket=Not_A_Bucket
+
 # Overrides in instance.yaml, per field.
 base=$(claims_values tenant)
 check "the claims values carry the tier, the store and each claim" \
