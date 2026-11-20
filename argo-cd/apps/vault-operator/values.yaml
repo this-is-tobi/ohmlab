@@ -300,7 +300,8 @@ vault:
           capabilities = ["read", "list"]
         }
     # The backups store (docs/10): a core app of the rustfs chart, whose root
-    # keys the storage target reads too.
+    # keys the storage target reads too. A store with a cloud replica also
+    # reads the copy job's three paths, which templates/vault.yaml adds.
     - name: rustfs-backups
       rules: |
         path "{{ .systemMount }}/data/platforms/+/core/rustfs-backups" {

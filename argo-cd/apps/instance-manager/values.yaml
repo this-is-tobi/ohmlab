@@ -125,6 +125,19 @@ storage:
   #   region: us-east-1     (default) set on the store as well, so both agree
   #   size: 50Gi            its data volume, which the quotas are counted against
   #   storageClass: ""      that volume's class (empty: the app's own)
+  #   replica:              an encrypted copy of its replicated buckets in a cloud S3
+  #                         (docs/10-object-storage.md#cloud-replica); needs
+  #                         vault-operator's ohmlab.vault.seeds.enabled, which
+  #                         seeds the crypt passwords, and the owner's cloud key at
+  #                         <ohmlab mount>/platforms/<env>/core/<app>/replica
+  #     endpoint: https://s3.fr-par.scw.cloud
+  #     region: fr-par
+  #     bucket: <the cloud bucket>
+  #     provider: Scaleway  rclone's S3 provider (default Other)
+  #     storageClass: ""    (default: the provider's)
+  #     dryRun: true        lists what each run would copy, copies nothing
+  #     bwlimit: 4M         rclone's --bwlimit (default 4M)
+  #     extraArgs: []       more rclone flags
   stores: {}
   # The store of each role; empty leaves that role's claims out.
   backups: ""

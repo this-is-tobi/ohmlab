@@ -100,6 +100,13 @@ targetRevision: main
 #       endpoint: https://rustfs-svc.rustfs-backups.svc:9000
 #       region: us-east-1
 #       size: 50Gi                   # the claims' quotas stay under 80 % of it
+#       # An encrypted copy in a cloud S3, set up as docs/10 says (#cloud-replica):
+#       # replica:
+#       #   endpoint: https://s3.fr-par.scw.cloud
+#       #   region: fr-par
+#       #   bucket: <your cloud bucket>
+#       #   provider: Scaleway
+#       #   dryRun: true             # first: list what would be copied
 #   backups: rustfs-backups
 #   wireConsumers: true
 #   networkPolicies: false           # true when the apps deny egress by default
