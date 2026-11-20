@@ -1,0 +1,23 @@
+# The rules tests (scripts/ci/test-prometheus-rules.sh) render the chart with
+# these values: a store with a cloud replica, so OhmlabReplicaStale renders
+# beside RustFSMetricsAbsent.
+global:
+  ohmlab:
+    vault:
+      mount: test
+      pathPrefix: platforms/test/core
+store:
+  enabled: true
+  wired: true
+replica:
+  enabled: true
+  endpoint: https://s3.example.invalid
+  region: test
+  bucket: replica
+  prefix: test
+  store: test
+  vault:
+    mount: test
+    record: platforms/test/core/rustfs/s3
+    target: platforms/test/core/rustfs/replica
+    crypt: platforms/test/core/rustfs/replica-crypt
