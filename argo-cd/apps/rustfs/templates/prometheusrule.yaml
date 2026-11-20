@@ -27,21 +27,22 @@ spec:
           namespace: an extraEnv list that replaces the chart's keeps that
           entry.
     {{- if .Values.replica.enabled }}
-    # The copy runs hourly but 01:40-04:40 UTC, so 5 hours apart at most. A
+    # The copy runs hourly from 05:40 to 23:40 UTC, so 6 hours apart at most. A
     # CronJob that never succeeded has no last success: its creation counts.
     - alert: OhmlabReplicaStale
       expr: >-
         time() - max by (namespace, cronjob) (kube_cronjob_status_last_successful_time{namespace="{{ .Release.Namespace }}", cronjob="{{ .Release.Name }}-replica"}
-        or kube_cronjob_created{namespace="{{ .Release.Namespace }}", cronjob="{{ .Release.Name }}-replica"}) > 6 * 3600
+        or kube_cronjob_created{namespace="{{ .Release.Namespace }}", cronjob="{{ .Release.Name }}-replica"}) > 7 * 3600
       for: 15m
       labels:
         severity: warning
       annotations:
-        summary: The cloud replica of the store in {{ .Release.Namespace }} is more than 6 hours old
+        summary: The cloud replica of the store in {{ .Release.Namespace }} is more than 7 hours old
         description: >-
           {{ "{{" }} $labels.namespace {{ "}}" }}/{{ "{{" }} $labels.cronjob {{ "}}" }}
-          has not succeeded in more than 6 hours, counted from its creation if
-          it never did. Look at the logs of its last Job: a bucket it refused
-          to empty, a missing Secret, or the cloud's answer.
+          has not succeeded in more than 7 hours, counted from its creation if
+          it never did. Look at the logs of its last Job: a bucket missing from
+          the store or that it refused to shrink, a missing Secret, or the
+          cloud's answer.
     {{- end }}
 {{- end }}

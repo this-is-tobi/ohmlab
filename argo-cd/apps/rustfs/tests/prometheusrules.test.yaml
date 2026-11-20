@@ -46,39 +46,39 @@ tests:
       exp_annotations:
         summary: The RustFS in test has stopped pushing metrics
         description: "No metrics of the RustFS in test reached Prometheus for 15m. Check its pod, then Alloy's OTLP receiver (otelcol_receiver_* metrics) and the rustfs to Alloy network policy. Its metrics count only while its RUSTFS_OBS_ENVIRONMENT is its namespace: an extraEnv list that replaces the chart's keeps that entry."
-# The cloud replica copies hourly but 01:40-04:40 UTC: a last success 5 hours
-# old is quiet, one over 6 hours old fires after 15m; another namespace's
+# The cloud replica copies hourly from 05:40 to 23:40 UTC: a last success 6
+# hours old is quiet, one over 7 hours old fires after 15m; another namespace's
 # success does not hide it (release "ci", namespace "test").
 - interval: 1m
   input_series:
   - series: 'kube_cronjob_status_last_successful_time{namespace="test", cronjob="ci-replica"}'
-    values: '0+0x480'
+    values: '0+0x540'
   - series: 'kube_cronjob_status_last_successful_time{namespace="other", cronjob="ci-replica"}'
-    values: '0+60x480'
+    values: '0+60x540'
   alert_rule_test:
-  - eval_time: 5h
+  - eval_time: 6h30m
     alertname: OhmlabReplicaStale
     exp_alerts: []
-  - eval_time: 7h
+  - eval_time: 7h30m
     alertname: OhmlabReplicaStale
     exp_alerts:
     - exp_labels: {severity: warning, namespace: test, cronjob: ci-replica}
       exp_annotations:
-        summary: The cloud replica of the store in test is more than 6 hours old
-        description: "test/ci-replica has not succeeded in more than 6 hours, counted from its creation if it never did. Look at the logs of its last Job: a bucket it refused to empty, a missing Secret, or the cloud's answer."
+        summary: The cloud replica of the store in test is more than 7 hours old
+        description: "test/ci-replica has not succeeded in more than 7 hours, counted from its creation if it never did. Look at the logs of its last Job: a bucket missing from the store or that it refused to shrink, a missing Secret, or the cloud's answer."
 # A replica job that never succeeded counts from its creation.
 - interval: 1m
   input_series:
   - series: 'kube_cronjob_created{namespace="test", cronjob="ci-replica"}'
-    values: '0+0x480'
+    values: '0+0x540'
   alert_rule_test:
-  - eval_time: 6h
+  - eval_time: 7h
     alertname: OhmlabReplicaStale
     exp_alerts: []
-  - eval_time: 6h20m
+  - eval_time: 7h20m
     alertname: OhmlabReplicaStale
     exp_alerts:
     - exp_labels: {severity: warning, namespace: test, cronjob: ci-replica}
       exp_annotations:
-        summary: The cloud replica of the store in test is more than 6 hours old
-        description: "test/ci-replica has not succeeded in more than 6 hours, counted from its creation if it never did. Look at the logs of its last Job: a bucket it refused to empty, a missing Secret, or the cloud's answer."
+        summary: The cloud replica of the store in test is more than 7 hours old
+        description: "test/ci-replica has not succeeded in more than 7 hours, counted from its creation if it never did. Look at the logs of its last Job: a bucket missing from the store or that it refused to shrink, a missing Secret, or the cloud's answer."

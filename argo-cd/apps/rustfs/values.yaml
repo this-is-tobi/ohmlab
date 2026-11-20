@@ -206,7 +206,7 @@ store:
 
 # A store's cloud replica (docs/10-object-storage.md#cloud-replica): a job
 # copies each bucket whose claim replicates into <bucket>/<prefix>/ of a cloud
-# S3, every hour but 01:40-04:40 UTC, through rclone's crypt remote, so the
+# S3, every hour from 05:40 to 23:40 UTC, through rclone's crypt remote, so the
 # provider holds ciphertext and encrypted names only. The instance-manager
 # sets enabled, the cloud's endpoint, region, bucket and provider, the prefix,
 # the store's name and the Vault paths from instance.yaml's replica block; a
@@ -222,12 +222,19 @@ replica:
   storageClass: ""    # empty: the provider's default
   prefix: ""          # this store's folder in the bucket: the instance's name
   store: ""           # the store's name in instance.yaml, for the break-glass bundle
-  schedule: "40 0,5-23 * * *"
+  # Hourly from 05:40 to 23:40 UTC: never during 00:30-05:00, the volume
+  # snapshots and the k3s upgrade window (02:00-06:00 Europe/Paris).
+  schedule: "40 5-23 * * *"
   # rclone's --bwlimit (bytes per second, suffixes K, M, G), --transfers and
   # --checkers.
   bwlimit: 4M
   transfers: 2
   checkers: 4
+  # Lets a bucket that holds less than half of its replica sync, deleting the
+  # rest from the replica (it stays as noncurrent versions until the cloud's
+  # lifecycle expires them). Off: such a run fails, so a store rebuilt or
+  # refilled after a lost volume never empties its replica.
+  allowShrink: false
   # More rclone flags, for example --size-only when comparing modification
   # times costs too many requests.
   extraArgs: []

@@ -174,8 +174,9 @@ path "ohmlab/data/platforms/production/core/rustfs-backups/replica" { capabiliti
 path "ohmlab/data/platforms/production/core/rustfs-backups/replica-crypt" { capabilities = ["read"] }'
 got=$(policy "$work/replica.yaml" rustfs-backups | grep -E '/rustfs-backups/(s3|replica|replica-crypt)"')
 [ "$got" = "$want" ] || fail "a replicating store's policy must read its record, the cloud key and the crypt passwords, got: $got"
-[ -z "$(policy "$work/stores.yaml" rustfs-backups | grep -E '/(s3|replica|replica-crypt)"')" ] \
-  || fail "a store without a replica must read none of the copy job's paths"
+if policy "$work/stores.yaml" rustfs-backups | grep -qE '/(s3|replica|replica-crypt)"'; then
+  fail "a store without a replica must read none of the copy job's paths"
+fi
 if helm template vault-operator "$CHART" --namespace vault-operator-system "${args[@]}" \
   --set-json 'ohmlab.controller.storage.stores=[{"name":"other","path":"ohmlab/platforms/production/core/no-such-app","replica":true}]' >/dev/null 2>"$work/err"; then
   fail "a replicating store whose app has no policy must fail the render"
