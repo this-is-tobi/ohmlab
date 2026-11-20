@@ -137,6 +137,8 @@ targets:
     #   capacity: 50Gi                      # the store's volume: its quotas are alerted on against it
     #   namespace: rustfs-backups           # where its pods run, for the egress policy
     #   rootCredentials: {path: ohmlab/platforms/production/core/rustfs-backups, key: admin}
+    #   # With a cloud replica: the record of the store's read-only replicator key.
+    #   replicator: ohmlab/platforms/production/core/rustfs-backups/s3
 
 # How the targets are packaged. Empty: one Deployment per enabled target
 # ("split"), each with its own ServiceAccount, RBAC, Vault role and egress.

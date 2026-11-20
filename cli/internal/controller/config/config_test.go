@@ -244,6 +244,35 @@ func TestValidateRejects(t *testing.T) {
 	}
 }
 
+// A store's replicator keeps its key in an s3 record, like a claim.
+func TestAStoreReplicatorMustBeAnS3Record(t *testing.T) {
+	for _, tt := range []struct {
+		path string
+		ok   bool
+	}{
+		{"ohmlab/platforms/production/core/rustfs-backups/s3", true},
+		{"homelab/platforms/production/tenant/rustfs/s3", true},
+		{"ohmlab/platforms/production/core/rustfs-backups", false},
+		{"x/y/s3", false},
+		{"ohmlab/platforms/production/other/rustfs/s3", false},
+	} {
+		t.Run(tt.path, func(t *testing.T) {
+			c := &Config{Storage: goodStorage()}
+			c.Storage.Stores[0].Replicator = tt.path
+			err := c.Validate([]string{TargetStorage})
+			if tt.ok && err != nil {
+				t.Errorf("want valid, got %v", err)
+			}
+			if !tt.ok && (err == nil || !strings.Contains(err.Error(), "replicator")) {
+				t.Errorf("want an error naming replicator, got %v", err)
+			}
+		})
+	}
+	if ReplicatorKey != "replicator" {
+		t.Errorf("ReplicatorKey = %q", ReplicatorKey)
+	}
+}
+
 func TestATargetNotAskedForMustHaveNoSection(t *testing.T) {
 	c, _ := Load(write(t, valid))
 	if err := c.Validate([]string{}); err == nil {
