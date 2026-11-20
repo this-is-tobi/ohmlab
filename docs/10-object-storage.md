@@ -230,6 +230,17 @@ The job's settings in the store's values: `replica.schedule`, `transfers`, `chec
 | --- | --- | --- |
 | `OhmlabReplicaStale` | the replica job has not succeeded in 6 hours (counted from its creation if it never did), for 15m; the job runs at most 5 hours apart | the logs of its last Job: a bucket it refused to empty, a missing Secret, the cloud's answer |
 
+### Break-glass bundle
+
+A rebuild needs a few secrets the cluster cannot keep for itself, since they are what open its backups. They never go to a store, encrypted or not:
+
+- each replica's crypt passwords: without them the replica cannot be read;
+- each replica's cloud key;
+- Vault's unseal keys and root token: a Vault snapshot opens only with the unseal keys of the Vault that took it;
+- the k3s server token, on a self-hosted k3s cluster: an etcd snapshot restores only with it. k3s's `secrets-encryption` is off, so there is no encryption config to keep.
+
+`ohmlab storage break-glass` collects them into one YAML document, for a password manager ([07-cheat-sheet.md](07-cheat-sheet.md#ohmlab-cli)): `--output` writes a new file only you can read; delete it once stored. Each replica comes with the shell lines that set its rclone remotes, `replica` (the cloud bucket) and `crypt` (its decrypted view). Make the bundle again after a change of the crypt passwords, the cloud key or Vault's unseal keys.
+
 ### Restore from the replica
 
 Not drilled yet. On a new cluster, with the [break-glass bundle](#break-glass-bundle):
