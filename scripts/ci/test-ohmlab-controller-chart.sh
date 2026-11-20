@@ -198,6 +198,13 @@ done
 [ "$(yq 'select(.kind == "Deployment") | .spec.template.spec.containers[0].args[] | select(test("^--target="))' <<<"$s")" = "--target=storage" ] || fail "storage: the process runs its own target only"
 scfg=$(yq 'select(.kind == "ConfigMap" and .metadata.name == "ohmlab-controller-storage") | .data["controller.yaml"]' <<<"$s")
 [ "$(yq -o=json -I=0 '.storage.stores' <<<"$scfg" | jq -cS .)" = "$(jq -cS '[.[] | del(.namespace)]' <<<"$STORE")" ] || fail "storage: the config's stores are the values minus namespace"
+[ "$(yq '.storage.stores[0] | has("replicator")' <<<"$scfg")" = false ] || fail "storage: a store without a replica must render no replicator"
+REPLICATED=$(jq -c '.[0].replicator = "ohmlab/platforms/production/core/rustfs-backups/s3"' <<<"$STORE")
+rcfg=$(render --namespace ohmlab-system --set "image=$IMAGE" --set targets.storage.enabled=true --set-json "targets.storage.stores=$REPLICATED" \
+  | yq 'select(.kind == "ConfigMap" and .metadata.name == "ohmlab-controller-storage") | .data["controller.yaml"]')
+[ "$(yq '.storage.stores[0].replicator' <<<"$rcfg")" = "ohmlab/platforms/production/core/rustfs-backups/s3" ] || fail "storage: a store's replicator must reach the config"
+expect_fail 'replicator must be <mount>/platforms/<env>/<core|tenant>/<app>/s3' --set targets.storage.enabled=true \
+  --set-json "targets.storage.stores=$(jq -c '.[0].replicator = "ohmlab/platforms/production/core/rustfs-backups"' <<<"$STORE")"
 [ "$(yq '.storage.caFile' <<<"$scfg")" = "/etc/ohmlab/store-ca/ca.crt" ] || fail "storage: the config must point at the stores' CA"
 [ "$(yq '.storage.backend.auth.role' <<<"$scfg")" = "ohmlab-controller-storage" ] || fail "storage: want its own Vault role"
 [ "$(yq '.storage.rotationGrace' <<<"$scfg")" = "26h" ] || fail "storage: want the rotation grace"

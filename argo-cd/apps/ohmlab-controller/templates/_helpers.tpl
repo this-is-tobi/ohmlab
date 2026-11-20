@@ -55,10 +55,11 @@ render instead of the process.
 {{- if not $list -}}{{- fail "targets.storage.stores lists nothing: the instance-manager sets it from instance.yaml storage.stores" -}}{{- end -}}
 {{- $names := dict -}}
 {{- range $i, $s := $list -}}
-{{- with omit $s "name" "type" "endpoint" "region" "pathStyle" "bucketPrefix" "capacity" "namespace" "rootCredentials" -}}{{- fail (printf "targets.storage.stores[%d] has unknown keys: %v" $i (keys . | sortAlpha)) -}}{{- end -}}
+{{- with omit $s "name" "type" "endpoint" "region" "pathStyle" "bucketPrefix" "capacity" "namespace" "rootCredentials" "replicator" -}}{{- fail (printf "targets.storage.stores[%d] has unknown keys: %v" $i (keys . | sortAlpha)) -}}{{- end -}}
 {{- $root := $s.rootCredentials | default dict -}}
 {{- if not (and $s.name $s.type $s.endpoint $s.region $s.namespace $s.capacity $root.path $root.key) -}}{{- fail (printf "targets.storage.stores[%d] needs name, type, endpoint, region, namespace, capacity and rootCredentials" $i) -}}{{- end -}}
 {{- if not (regexMatch "^https://[^/:@?#]+:[0-9]{1,5}$" (toString $s.endpoint)) -}}{{- fail (printf "targets.storage.stores[%d].endpoint must be https://<host>:<port>" $i) -}}{{- end -}}
+{{- if and $s.replicator (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?/platforms/[a-z0-9]([-a-z0-9]*[a-z0-9])?/(core|tenant)/[a-z0-9]([-a-z0-9]*[a-z0-9])?/s3$" (toString $s.replicator))) -}}{{- fail (printf "targets.storage.stores[%d].replicator must be <mount>/platforms/<env>/<core|tenant>/<app>/s3" $i) -}}{{- end -}}
 {{- if hasKey $names $s.name -}}{{- fail (printf "targets.storage: store %s is listed twice" $s.name) -}}{{- end -}}
 {{- $_ := set $names $s.name true -}}
 {{- end -}}

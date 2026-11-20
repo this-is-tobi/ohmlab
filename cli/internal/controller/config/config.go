@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -171,7 +172,17 @@ type Store struct {
 	// RootCredentials is where the store's root keys live in Vault. The target
 	// reads them itself, so no Secret holds a copy.
 	RootCredentials SecretRef `json:"rootCredentials"`
+	// Replicator is the record where the store's replicator key goes, under
+	// ReplicatorKey: set when the store has a cloud replica.
+	Replicator string `json:"replicator,omitempty"`
 }
+
+// ReplicatorKey is the replicator's key in its record.
+const ReplicatorKey = "replicator"
+
+// RecordPath is the shape of an s3 record, <mount>/platforms/<env>/<scope>/<app>/s3,
+// as the S3Bucket CRD checks a claim's.
+var RecordPath = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?/platforms/[a-z0-9]([-a-z0-9]*[a-z0-9])?/(core|tenant)/[a-z0-9]([-a-z0-9]*[a-z0-9])?/s3$`)
 
 // SecretRef names a Vault KV entry.
 type SecretRef struct {
@@ -255,6 +266,9 @@ func (s *Storage) validate() error {
 		}
 		if _, err := st.CapacityBytes(); err != nil {
 			return fmt.Errorf("%s: %w", at, err)
+		}
+		if st.Replicator != "" && !RecordPath.MatchString(st.Replicator) {
+			return fmt.Errorf("%s: replicator %q must be <mount>/platforms/<env>/<core|tenant>/<app>/s3", at, st.Replicator)
 		}
 		if names[st.Name] {
 			return fmt.Errorf("storage: store %s is listed twice", st.Name)
