@@ -196,6 +196,31 @@ func TestAStoreWithoutReplicatorGetsNone(t *testing.T) {
 	}
 }
 
+// OhmlabReconcileStale takes the newest success of a target: a replicator's
+// would hide an S3Bucket reconciler that stopped succeeding.
+func TestTheReplicatorDoesNotMaskTheTargetsStaleness(t *testing.T) {
+	h := start(t, replicated)
+	h.claim("app1", app("app1"), replicate)
+	h.ready("app1")
+	h.waitBuckets("ohmlab-app1-pg")
+	families, err := h.reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range families {
+		if f.GetName() != "ohmlab_reconcile_last_success_timestamp_seconds" {
+			continue
+		}
+		for _, m := range f.GetMetric() {
+			for _, l := range m.GetLabel() {
+				if l.GetName() == "kind" && l.GetValue() == replicatorKind {
+					t.Errorf("the replicator sets %s", f.GetName())
+				}
+			}
+		}
+	}
+}
+
 func TestNoReplicatorKeyReachesALog(t *testing.T) {
 	h := start(t, replicated)
 	h.claim("app1", app("app1"), replicate)
