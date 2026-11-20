@@ -57,6 +57,11 @@ ohmlab provision [--tags gateway,k3s] [--update] [-- --limit <host>]
 ohmlab provision destroy
 ohmlab provision upgrade-os
 
+# Print what a rebuild needs and the cluster cannot keep for itself (Vault's
+# unseal keys and root token, each cloud replica's key and crypt passwords,
+# the k3s token), for a password manager; --output writes a new 0600 file.
+ohmlab storage break-glass --context <context> --k3s-token-file ansible/inventory/group_vars/.k3sToken
+
 # Optional Sops helpers: decrypt every *.enc.yaml under argo-cd/ to
 # *.dec.yaml, or encrypt them back, never truncating a good file.
 ohmlab sops decrypt
@@ -87,6 +92,8 @@ An exception that allows nothing any more, such as one whose port speaks TLS now
 `ohmlab argocd password` prints the password Argo CD generated, from `argocd-initial-admin-secret` in the bootstrap release's namespace (`--namespace`, `argocd-system` by default), and nothing else, so it pipes. It uses the workspace's context too. Argo CD keeps that Secret until it is deleted, which is due once the password is changed.
 
 `ohmlab provision` runs the product's playbook (`ansible/install.yml` of the product checkout, or `--playbook`) on the hosts of the workspace's inventory, with the product's `ansible/ansible.cfg` and the workspace's vault password file, and asks first (`--yes` answers). `--tags` picks the plays (`all` by default, which leaves out the ones tagged `never`; `never` selects them all, `k3s-destroy` included, so it asks for the word `yes` too), `--update` installs the playbook's collections first, and the arguments after `--` go to `ansible-playbook` as they are (`--limit`, `--check`, `-v`). One play runs on the workstation: `k3s-users`, which creates the inventory's `adminUsers` on the cluster. It gets a kubeconfig holding only the workspace's context (`contextName`, below), never whichever context is current, in a temporary directory removed afterwards. Without that context, it gets none and reaches no cluster: fetch it with `ohmlab kubeconfig`, then run `ohmlab provision --tags k3s-users`. `ohmlab provision destroy` runs `k3s-destroy`, which removes k3s, its data and `/var/lib/rancher` from every node, once you type `yes`. `ohmlab provision upgrade-os` runs `os-upgrade`: the packages of every host, one host at a time, rebooting those that need it. `--dry-run` prints the commands and runs nothing.
+
+`ohmlab storage break-glass` prints the break-glass bundle of a cluster ([10-object-storage.md](10-object-storage.md#break-glass-bundle)) as YAML, to stdout or, with `--output`, to a new file only you can read. It reads `vault-operator-system/vault-unseal-keys` and every ConfigMap labelled `ohmlab.fr/replica=true` with the two Secrets it names, through the kubeconfig as kubectl does (`--kubeconfig`, `--context`). The k3s token comes from `--k3s-token-file`; a cluster that is not self-hosted k3s passes `--no-k3s`. A missing piece fails and names the object and key, never a value.
 
 `ohmlab sops decrypt` and `ohmlab sops encrypt`, for instances that commit Sops-encrypted manifests, convert every `*.enc.yaml` under the workspace's `argo-cd/` (`--dir` for another place) to `*.dec.yaml`, and back. sops writes to a hidden temporary file that replaces the target only once it succeeded, so a missing key never truncates a good file, and an empty `*.dec.yaml` is never encrypted. `.gitignore` must cover `*.dec.yaml`: a decrypted file that git does not ignore gets a warning.
 

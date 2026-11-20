@@ -333,6 +333,8 @@ sequenceDiagram
 > *Bootstrap admin password: pass `ARGOCD_ADMIN_PASSWORD=mypass ./run.sh -b mylab` to set it explicitly. Without this var, the ArgoCD chart auto-generates a password and stores it in `argocd-initial-admin-secret`; the script prints it at the end of the run.*
 >
 > *OIDC for the core ArgoCD is intentionally disabled at bootstrap. Enable it in [argo-cd/instances/\<instance\>/values/core/ohmlab.yaml](../argo-cd/instances/_example/values/core/ohmlab.yaml) once Keycloak is ready (uncomment the `oidc.config` block and provide the client secret out-of-band).*
+>
+> *Once Vault is up, and again after a store's [cloud replica](10-object-storage.md#cloud-replica) first runs, store the break-glass bundle in your password manager: `ohmlab storage break-glass --context <context> --k3s-token-file ansible/inventory/group_vars/.k3sToken` ([break-glass bundle](10-object-storage.md#break-glass-bundle)). A rebuild from the replica needs it, and the cluster cannot keep it for itself.*
 
 ### Using an existing cluster
 
