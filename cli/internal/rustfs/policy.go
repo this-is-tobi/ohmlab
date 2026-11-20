@@ -40,6 +40,15 @@ var deniedActions = []string{
 // BucketPolicy returns the canned policy that confines an app key to one
 // bucket, with access "readWrite" or "readOnly".
 func BucketPolicy(bucket, access string) ([]byte, error) {
+	return BucketsPolicy([]string{bucket}, access)
+}
+
+// BucketsPolicy returns the canned policy that confines a key to the given
+// buckets, each named once, with access "readWrite" or "readOnly".
+func BucketsPolicy(buckets []string, access string) ([]byte, error) {
+	if len(buckets) == 0 {
+		return nil, fmt.Errorf("a policy over no bucket")
+	}
 	var bucketActions, objectActions []string
 	switch access {
 	case "readWrite":
@@ -51,14 +60,20 @@ func BucketPolicy(bucket, access string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("access %q: want readWrite or readOnly", access)
 	}
-	bucketARN := "arn:aws:s3:::" + bucket
-	objectsARN := bucketARN + "/*"
+	names := slices.Compact(sortedCopy(buckets))
+	var bucketARNs, objectARNs, all []string
+	for _, b := range names {
+		arn := "arn:aws:s3:::" + b
+		bucketARNs = append(bucketARNs, arn)
+		objectARNs = append(objectARNs, arn+"/*")
+		all = append(all, arn, arn+"/*")
+	}
 	doc := policyDocument{
 		Version: "2012-10-17",
 		Statement: []statement{
-			{Effect: "Allow", Action: sortedCopy(bucketActions), Resource: []string{bucketARN}},
-			{Effect: "Allow", Action: sortedCopy(objectActions), Resource: []string{objectsARN}},
-			{Effect: "Deny", Action: sortedCopy(deniedActions), Resource: []string{bucketARN, objectsARN}},
+			{Effect: "Allow", Action: sortedCopy(bucketActions), Resource: bucketARNs},
+			{Effect: "Allow", Action: sortedCopy(objectActions), Resource: objectARNs},
+			{Effect: "Deny", Action: sortedCopy(deniedActions), Resource: all},
 		},
 	}
 	out, err := json.MarshalIndent(doc, "", "  ")

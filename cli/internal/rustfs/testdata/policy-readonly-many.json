@@ -1,0 +1,49 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketLocation",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::a",
+        "arn:aws:s3:::b"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::a/*",
+        "arn:aws:s3:::b/*"
+      ]
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "s3:BypassGovernanceRetention",
+        "s3:DeleteBucket",
+        "s3:DeleteBucketPolicy",
+        "s3:DeleteObjectVersion",
+        "s3:ForceDeleteBucket",
+        "s3:PutBucketEncryption",
+        "s3:PutBucketLifecycle",
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketVersioning",
+        "s3:PutReplicationConfiguration",
+        "s3:ResetBucketReplicationState"
+      ],
+      "Resource": [
+        "arn:aws:s3:::a",
+        "arn:aws:s3:::a/*",
+        "arn:aws:s3:::b",
+        "arn:aws:s3:::b/*"
+      ]
+    }
+  ]
+}
