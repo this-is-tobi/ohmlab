@@ -77,6 +77,15 @@ decrypted() {
     rclone lsf -R --files-only "crypt:$B" 2>/dev/null | sort | tr "\n" " "'
 }
 
+# decrypted_cat <bucket> <file>: one object of the replica, decrypted.
+decrypted_cat() {
+  docker run --rm -v "$VOL:/data" -e "P1=$CRYPT1" -e "P2=$CRYPT2" -e "B=$1" -e "F=$2" --entrypoint sh "$IMAGE" -c '
+    export RCLONE_CONFIG_CRYPT_TYPE=crypt RCLONE_CONFIG_CRYPT_REMOTE=/data/target/replica/homelab
+    RCLONE_CONFIG_CRYPT_PASSWORD=$(printf %s "$P1" | rclone obscure -) RCLONE_CONFIG_CRYPT_PASSWORD2=$(printf %s "$P2" | rclone obscure -)
+    export RCLONE_CONFIG_CRYPT_PASSWORD RCLONE_CONFIG_CRYPT_PASSWORD2
+    rclone cat "crypt:$B/$F" 2>/dev/null'
+}
+
 fresh
 replicate
 check "every listed bucket is copied: exit" "0" "$rc"
@@ -86,18 +95,49 @@ check "the replica holds no plaintext name" "" "$(as_root 'cd /data/target && fi
 check "the CA bundle keeps the system roots and adds the store's" "yes yes" \
   "$([ "$(grep -c 'BEGIN CERTIFICATE' "$work/tmp/ca-bundle.pem" 2>/dev/null || echo 0)" -gt 1 ] && echo yes || echo no) $(grep -qF "$STORE_CA_LINE" "$work/tmp/ca-bundle.pem" 2>/dev/null && echo yes || echo no)"
 
+# A file changed in the store after its copy is copied again: the sync compares
+# the store's modification times without a request per object.
+as_root 'sleep 1 && echo changed-and-longer >/data/store/b1/a.txt'
+replicate
+check "a changed file is copied again" "0 changed-and-longer" "$rc $(decrypted_cat b1 a.txt)"
+check "the sync reads modification times from the listings" "yes" \
+  "$(grep -q -- '--update --use-server-modtime' "$work/scripts/replicate.sh" && echo yes || echo no)"
+
 # A store rebuilt empty: the replica keeps every object, and the run fails.
 as_root 'rm -rf /data/store/b1/* && true'
 replicate
 check "an empty source does not empty the target: exit" "nonzero" "$([ "$rc" -ne 0 ] && echo nonzero || echo 0)"
 check "an empty source does not empty the target: the replica" "a.txt dir/x.txt " "$(decrypted b1)"
-check "an empty source does not empty the target: the log names it" "yes" "$(grep -q 'b1' "$work/out" && grep -qi 'empty' "$work/out" && echo yes || echo no)"
+check "an empty source does not empty the target: the log names it" "yes" "$(grep 'b1' "$work/out" | grep -q 'refusing' && echo yes || echo no)"
+
+# A store rebuilt after a lost volume, whose buckets refilled with a few new
+# objects (WAL) before the run: deleting most of the replica is refused too.
+fresh
+# shellcheck disable=SC2016 # the loop runs in the container's shell
+as_root 'for i in 1 2 3 4 5 6; do echo "$i" >/data/store/b1/base-$i; done && chown -R 65534:65534 /data'
+replicate "BUCKETS=b1"
+as_root 'rm -rf /data/store/b1/* && echo wal >/data/store/b1/wal-new && chown -R 65534:65534 /data'
+replicate "BUCKETS=b1"
+check "a refilled bucket with few objects does not delete the replica: exit" "nonzero" "$([ "$rc" -ne 0 ] && echo nonzero || echo 0)"
+check "a refilled bucket with few objects does not delete the replica: the replica" \
+  "a.txt base-1 base-2 base-3 base-4 base-5 base-6 dir/x.txt " "$(decrypted b1)"
+check "a refilled bucket: the log gives both counts" "yes" "$(grep 'b1' "$work/out" | grep -q '1 object(s) in the store and 8 in the replica' && echo yes || echo no)"
+replicate "BUCKETS=b1" ALLOW_SHRINK=true
+check "allowShrink lets a shrunk bucket sync" "0 wal-new " "$rc $(decrypted b1)"
 
 fresh
 replicate "BUCKETS=b1 gone"
-check "a missing source bucket is skipped: exit" "0" "$rc"
-check "a missing source bucket is skipped: the warning names it" "yes" "$(grep -q 'gone' "$work/out" && echo yes || echo no)"
-check "a missing source bucket is skipped: the others copy" "a.txt dir/x.txt " "$(decrypted b1)"
+check "a missing source bucket fails the run" "nonzero" "$([ "$rc" -ne 0 ] && echo nonzero || echo 0)"
+check "a missing source bucket: the log names it" "yes" "$(grep -q 'gone' "$work/out" && echo yes || echo no)"
+check "a missing source bucket: the others copy" "a.txt dir/x.txt " "$(decrypted b1)"
+
+# A replica that cannot be listed fails its bucket instead of counting as empty.
+fresh
+replicate "BUCKETS=b1"
+as_root 'chown -R 0:0 /data/target/replica && chmod 000 /data/target/replica/homelab/*'
+replicate "BUCKETS=b1"
+check "a replica listing error fails the bucket" "nonzero yes" \
+  "$([ "$rc" -ne 0 ] && echo nonzero || echo 0) $(grep 'b1' "$work/out" | grep -q 'listing the replica failed' && echo yes || echo no)"
 
 fresh
 as_root 'mkdir -p /data/store/bad && echo secret >/data/store/bad/locked && chmod 000 /data/store/bad/locked && chown -R 65534:65534 /data/store/bad'

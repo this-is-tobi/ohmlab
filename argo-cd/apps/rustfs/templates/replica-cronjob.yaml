@@ -1,5 +1,5 @@
 {{- /*
-The copy to the cloud replica: one run at a time, never during 01:40-04:40
+The copy to the cloud replica: one run at a time, never during 00:30-05:00
 UTC (the volume snapshots and the k3s upgrade window), each bounded to 50
 minutes so it ends before the next. A first copy longer than that goes on at
 the next runs: sync resumes.
@@ -76,6 +76,8 @@ spec:
               value: {{ $r.checkers | quote }}
             - name: DRY_RUN
               value: {{ $r.dryRun | toString | quote }}
+            - name: ALLOW_SHRINK
+              value: {{ $r.allowShrink | toString | quote }}
             - name: EXTRA_ARGS
               value: {{ join " " ($r.extraArgs | default list) | quote }}
             resources:

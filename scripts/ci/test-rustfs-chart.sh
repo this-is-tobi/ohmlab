@@ -143,7 +143,7 @@ check "a replica renders its alert" "OhmlabReplicaStale" \
   "$(q 'select(.kind == "PrometheusRule") | .spec.groups[].rules[] | select(.alert == "OhmlabReplicaStale") | .alert')"
 cj='select(.kind == "CronJob")'
 pod="$cj | .spec.jobTemplate.spec.template.spec"
-check "the schedule skips 01:40-04:40 UTC, one run at a time, bounded" "40 0,5-23 * * * Etc/UTC Forbid 600 3000 0" \
+check "the schedule skips 00:40-04:40 UTC, one run at a time, bounded" "40 5-23 * * * Etc/UTC Forbid 600 3000 0" \
   "$(q "$cj | .spec.schedule + \" \" + .spec.timeZone + \" \" + .spec.concurrencyPolicy + \" \" + (.spec.startingDeadlineSeconds | tostring) + \" \" + (.spec.jobTemplate.spec.activeDeadlineSeconds | tostring) + \" \" + (.spec.jobTemplate.spec.backoffLimit | tostring)")"
 check "the job runs unprivileged" "65534 true RuntimeDefault false true false ALL" \
   "$(q "$pod | (.securityContext.runAsUser | tostring) + \" \" + (.securityContext.runAsNonRoot | tostring) + \" \" + .securityContext.seccompProfile.type + \" \" + (.automountServiceAccountToken | tostring) + \" \" + (.containers[0].securityContext.readOnlyRootFilesystem | tostring) + \" \" + (.containers[0].securityContext.allowPrivilegeEscalation | tostring) + \" \" + (.containers[0].securityContext.capabilities.drop | join(\",\"))")"
@@ -154,12 +154,12 @@ check "the job's secrets come from the three Secrets" \
   "$(q "[$envs | select(.valueFrom.secretKeyRef) | .valueFrom.secretKeyRef.name + \"/\" + .valueFrom.secretKeyRef.key] | sort | join(\" \")")"
 check "the job mounts its script, the store's CA and a writable /tmp" "/etc/ohmlab/store-ca /scripts /tmp" \
   "$(q "[$pod | .containers[0].volumeMounts[].mountPath] | sort | join(\" \")")"
-check "the job is not a dry run by default" "false" "$(q "$envs | select(.name == \"DRY_RUN\") | .value")"
+check "the job is not a dry run and refuses a shrink by default" "false false" "$(q "$envs | select(.name == \"DRY_RUN\") | .value") $(q "$envs | select(.name == \"ALLOW_SHRINK\") | .value")"
 cm='select(.kind == "ConfigMap" and .metadata.name == "rustfs-replica")'
 check "the ConfigMap holds the settings the bundle reads, and its label" \
   "rustfs-backups Scaleway https://s3.fr-par.scw.cloud fr-par cloud-replica homelab standard true rustfs-replica-target rustfs-replica-crypt true" \
   "$(q "$cm | .data.store + \" \" + .data.provider + \" \" + .data.endpoint + \" \" + .data.region + \" \" + .data.bucket + \" \" + .data.prefix + \" \" + .data.filenameEncryption + \" \" + .data.directoryNameEncryption + \" \" + .data.targetSecret + \" \" + .data.cryptSecret + \" \" + .metadata.labels[\"ohmlab.fr/replica\"]")"
-check "the ConfigMap holds the script" "yes" "$(q "$cm | .data[\"replicate.sh\"]" | grep -q 'refusing to empty the replica' && echo yes || echo no)"
+check "the ConfigMap holds the script" "yes" "$(q "$cm | .data[\"replicate.sh\"]" | grep -q 'refusing to delete more than half of the replica' && echo yes || echo no)"
 vss='select(.kind == "VaultStaticSecret" and .metadata.name == "rustfs-replica-source") | .spec'
 check "the source secret reads the store's record with the store's auth" "ohmlab platforms/production/core/rustfs-backups/s3 rustfs-vso-default rustfs-replica-source" \
   "$(q "$vss | .mount + \" \" + .path + \" \" + .vaultAuthRef + \" \" + .destination.name")"

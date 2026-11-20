@@ -3,10 +3,11 @@
 # on the client side: rclone's crypt remote over <bucket>/<prefix> of the
 # cloud bucket, so the provider holds ciphertext and encrypted names only.
 #
-# A bucket that lists nothing at the source while the replica holds some of it
-# fails, so a store rebuilt empty never turns the replica's objects into
-# delete markers. A listed bucket missing at the source is skipped. Any failed
-# bucket fails the run; the others still copy.
+# A bucket that holds less than half of what its replica holds fails, so a
+# store rebuilt empty, or refilled by its producers after a lost volume, never
+# turns the replica's objects into delete markers. A listed bucket missing at
+# the source, or a replica that cannot be listed, fails too. Any failed bucket
+# fails the run; the others still copy.
 set -eu
 
 : "${BUCKETS?}" "${SOURCE_ENDPOINT:?}" "${SOURCE_REGION:?}" "${SOURCE_ACCESS_KEY:?}" "${SOURCE_SECRET_KEY:?}"
@@ -35,30 +36,53 @@ RCLONE_CONFIG_CRYPT_PASSWORD=$(printf '%s' "$CRYPT_PASSWORD" | rclone obscure -)
 RCLONE_CONFIG_CRYPT_PASSWORD2=$(printf '%s' "$CRYPT_PASSWORD2" | rclone obscure -)
 export RCLONE_CONFIG_CRYPT_PASSWORD RCLONE_CONFIG_CRYPT_PASSWORD2
 
+# --update --use-server-modtime compares the listings' modification times: S3
+# keeps rclone's own in metadata, which costs a request per object on both
+# sides, every run. An object rewritten after its copy is newer, so it goes
+# again; backups rewrite few.
 set -- --ca-cert "$bundle" --transfers "${TRANSFERS:-2}" --checkers "${CHECKERS:-4}" --bwlimit "${BWLIMIT:-0}" \
-  --stats 1m --stats-one-line --stats-log-level NOTICE
+  --update --use-server-modtime --stats 1m --stats-one-line --stats-log-level NOTICE
 if [ "${DRY_RUN:-false}" = true ]; then set -- "$@" --dry-run; fi
 # shellcheck disable=SC2086 # EXTRA_ARGS is a list of flags
 set -- "$@" ${EXTRA_ARGS:-}
 
+# count <rclone size --json output>: its object count.
+count() { printf '%s' "$1" | sed -n 's/.*"count":\([0-9][0-9]*\).*/\1/p'; }
+
 failed=""
 for b in $BUCKETS; do
   # rclone exits 3 for a directory, here a bucket, that does not exist. Only
-  # stdout is the listing.
-  if listing=$(rclone lsf --max-depth 1 "$@" "store:$b"); then
+  # stdout is the size. A listed bucket existed once: missing, the store lost it.
+  if src=$(rclone size --json "$@" "store:$b"); then
     :
   else
     rc=$?
     if [ "$rc" -eq 3 ]; then
-      echo "replica: bucket $b is missing at the source: skipped" >&2
+      echo "replica: bucket $b is missing at the source: failed (the store lost it, or its claim went without leaving the list)" >&2
     else
       echo "replica: bucket $b: listing the source failed (exit $rc)" >&2
-      failed="$failed $b"
     fi
+    failed="$failed $b"
     continue
   fi
-  if [ -z "$listing" ] && [ -n "$(rclone lsf --max-depth 1 "$@" "crypt:$b" 2>/dev/null | head -n 1)" ]; then
-    echo "replica: bucket $b is empty at the source and not in the replica: refusing to empty the replica" >&2
+  if dst=$(rclone size --json "$@" "crypt:$b"); then
+    :
+  else
+    rc=$?
+    if [ "$rc" -eq 3 ]; then
+      dst='{"count":0}'
+    else
+      echo "replica: bucket $b: listing the replica failed (exit $rc)" >&2
+      failed="$failed $b"
+      continue
+    fi
+  fi
+  # A store rebuilt or refilled after a lost volume holds a fraction of what
+  # its producers pruned over weeks: deleting more than half of the replica is
+  # refused, so its current objects never become delete markers.
+  s=$(count "$src") d=$(count "$dst")
+  if [ "${ALLOW_SHRINK:-false}" != true ] && [ $((${s:-0} * 2)) -lt "${d:-0}" ]; then
+    echo "replica: bucket $b holds ${s:-0} object(s) in the store and ${d:-0} in the replica: refusing to delete more than half of the replica (a store rebuilt or refilled; replica.allowShrink lets it through)" >&2
     failed="$failed $b"
     continue
   fi

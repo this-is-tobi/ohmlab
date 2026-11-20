@@ -157,7 +157,7 @@ The new cluster starts from the newest base backup before the target and replays
 
 ## Cloud replica
 
-A store can keep a copy of its buckets in a cloud S3, so that its backups outlive the cluster. Every hour but 01:40-04:40 UTC (the volume snapshots and the k3s upgrade window), a job copies each bucket whose claim has `replicate: true` (every backups claim of the catalog) into `<bucket>/<instance>/` of one cloud bucket. It goes through rclone's `crypt` remote: the provider holds encrypted contents and encrypted names only, and the passwords never leave the cluster and the [break-glass bundle](#break-glass-bundle).
+A store can keep a copy of its buckets in a cloud S3, so that its backups outlive the cluster. Every hour from 05:40 to 23:40 UTC (never during 00:30-05:00: the volume snapshots and the k3s upgrade window), a job copies each bucket whose claim has `replicate: true` (every backups claim of the catalog) into `<bucket>/<instance>/` of one cloud bucket. It goes through rclone's `crypt` remote: the provider holds encrypted contents and encrypted names only, and the passwords never leave the cluster and the [break-glass bundle](#break-glass-bundle).
 
 ```mermaid
 flowchart LR
@@ -174,7 +174,9 @@ flowchart LR
     job -->|ciphertext| cloud
 ```
 
-The storage target keeps one read-only user per store, `ohmlab-replicator-<store>`, over the buckets that replicate, and writes its key and the bucket list into the store's own record ([08-controller.md](08-controller.md#the-replicator)). The job reads that key, the cloud key and the crypt passwords from Vault. A bucket that lists nothing in the store while the replica holds some of it fails the run instead of copying: a store rebuilt empty never empties its replica. A bucket missing from the store is skipped, and any failed bucket fails the run while the others still copy.
+The storage target keeps one read-only user per store, `ohmlab-replicator-<store>`, over the buckets that replicate, and writes its key and the bucket list into the store's own record ([08-controller.md](08-controller.md#the-replicator)). The job reads that key, the cloud key and the crypt passwords from Vault. It compares the listings' modification times (`--update --use-server-modtime`), so a run costs no request per object.
+
+A bucket that holds less than half of the objects its replica holds fails the run instead of copying: a store rebuilt empty, or refilled with a few new WAL files after a lost volume, never turns its replica's backups into delete markers. A producer prunes far less than half at a time. When a bucket shrinks on purpose, `replica.allowShrink: true` in the store's values lets it through; set it back once that run has succeeded. A bucket missing from the store, or a replica that cannot be listed, fails too. Any failed bucket fails the run while the others still copy.
 
 ### Turning it on
 
@@ -224,11 +226,11 @@ The storage target keeps one read-only user per store, `ohmlab-replicator-<store
    From it, the instance-manager gives the storage target the store's replicator, `vault-operator` the VaultSeed that generates the two crypt passwords once (`…/<store app>/replica-crypt`), and the store's app the job. Its log lists, per bucket, what a live run would copy, which also proves the store's TLS, the cloud's TLS and the listing.
 3. **Live**: remove `dryRun`. The first run copies every replicated bucket; if it takes longer than the job's 50 minutes, the next runs carry on where it stopped. Then [make the break-glass bundle](#break-glass-bundle).
 
-The job's settings in the store's values: `replica.schedule`, `transfers`, `checkers`, `resources` and `egress` (TCP 443 to public addresses, rendered where the namespace denies egress). The job's ConfigMap, `<release>-replica`, holds its script and the settings a restore needs; it carries the label `ohmlab.fr/replica: "true"`.
+The job's settings in the store's values: `replica.schedule`, `transfers`, `checkers`, `allowShrink`, `resources` and `egress` (TCP 443 to public addresses, rendered where the namespace denies egress). The job's ConfigMap, `<release>-replica`, holds its script and the settings a restore needs; it carries the label `ohmlab.fr/replica: "true"`.
 
 | Alert | Fires when | Look at |
 | --- | --- | --- |
-| `OhmlabReplicaStale` | the replica job has not succeeded in 6 hours (counted from its creation if it never did), for 15m; the job runs at most 5 hours apart | the logs of its last Job: a bucket it refused to empty, a missing Secret, the cloud's answer |
+| `OhmlabReplicaStale` | the replica job has not succeeded in 7 hours (counted from its creation if it never did), for 15m; the job runs at most 6 hours apart | the logs of its last Job: a bucket missing from the store or that it refused to shrink, a missing Secret, the cloud's answer |
 
 ### Break-glass bundle
 
@@ -245,10 +247,18 @@ A rebuild needs a few secrets the cluster cannot keep for itself, since they are
 
 Not drilled yet. On a new cluster, with the [break-glass bundle](#break-glass-bundle):
 
-1. Suspend the replica job of the new store (`kubectl -n <store namespace> patch cronjob <release>-replica -p '{"spec":{"suspend":true}}'`) until the restore is done, so it never syncs a store that is still empty.
-2. Copy each bucket back, with the bundle's rclone remotes: `rclone copy crypt:<bucket> store:<bucket>`.
-3. Restore Vault, then each Postgres cluster, as in [Restoring](#restoring).
-4. Resume the job.
+1. Suspend the replica job of the new store (`kubectl -n <store namespace> patch cronjob <release>-replica -p '{"spec":{"suspend":true}}'`) until the restore is done. It would refuse a store that is still nearly empty, and fail.
+2. Set the bundle's remotes, `replica` and `crypt`, in a shell, and a remote for the new store, for example over a port-forward to its Service with its root keys:
+
+   ```sh
+   export RCLONE_CONFIG_STORE_TYPE=s3 RCLONE_CONFIG_STORE_PROVIDER=Other RCLONE_CONFIG_STORE_FORCE_PATH_STYLE=true \
+     RCLONE_CONFIG_STORE_ENDPOINT=https://localhost:9000 RCLONE_CONFIG_STORE_REGION=<store region> \
+     RCLONE_CONFIG_STORE_ACCESS_KEY_ID=<root access key> RCLONE_CONFIG_STORE_SECRET_ACCESS_KEY=<root secret key>
+   ```
+
+3. Copy each bucket back: `rclone copy crypt:<bucket> store:<bucket> --ca-cert <store CA>`. The replica is versioned, so a bucket can also come back as it was at a time before a bad copy or a deletion, up to the cloud's 30 days of noncurrent versions: add `--s3-version-at <RFC 3339 time>`, which applies to the `replica` remote under `crypt`.
+4. Restore Vault, then each Postgres cluster, as in [Restoring](#restoring).
+5. Resume the job.
 
 ## Not there yet
 
