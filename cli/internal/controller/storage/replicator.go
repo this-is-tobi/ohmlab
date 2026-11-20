@@ -257,12 +257,12 @@ func planReplicator(st storeState, user string, buckets []string, rp recordPlan)
 // replicator has no object to hold a status or events.
 func (r *replicatorReconciler) recordReplicator(store string, changes []change, err error) {
 	logger := log.Log.WithValues("target", Target, "kind", replicatorKind, "store", store)
+	// No last-success time: OhmlabReconcileStale takes a target's newest, and
+	// the replicator's would hide an S3Bucket reconciler that stopped.
 	ready := 1.0
 	if err != nil {
 		ready = 0
 		logger.Info("replicator not reconciled", "error", scrub(err))
-	} else {
-		r.Metrics.LastSuccess.WithLabelValues(Target, replicatorKind).SetToCurrentTime()
 	}
 	r.Metrics.ObjectReady.WithLabelValues(Target, replicatorKind, "", store).Set(ready)
 	if r.ObserveOnly {
