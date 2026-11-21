@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.11.0](https://github.com/this-is-tobi/ohmlab/compare/v0.10.0...v0.11.0) (2026-11-21)
+
+
+### Features
+
+* **cli:** print the break-glass bundle of a cluster ([82d87ee](https://github.com/this-is-tobi/ohmlab/commit/82d87eebbb6ea1eb5ca54c8eba70df9766bf5a4a))
+* **controller:** a read-only replicator per store ([4721e24](https://github.com/this-is-tobi/ohmlab/commit/4721e245f2bc5d5bdfd8403a37e5c57b4585a08b))
+* **controller:** name a store's replicator record ([cff9eb9](https://github.com/this-is-tobi/ohmlab/commit/cff9eb95f68a3286c1d1268f800a1801dbaa4bc6))
+* **rustfs:** a read policy over several buckets ([8ea6f67](https://github.com/this-is-tobi/ohmlab/commit/8ea6f67ad7cc7663d07079bbd287203d0ce68e36))
+
+
+### Bug Fixes
+
+* **controller:** keep the replicator out of the target's last success ([787b018](https://github.com/this-is-tobi/ohmlab/commit/787b01858742cc78589819b2bc9fff40007af141))
+* **deps:** update module sigs.k8s.io/controller-runtime to v0.25.3 ([e7e3746](https://github.com/this-is-tobi/ohmlab/commit/e7e374633fe2938822da49489932615ee47851d7))
+
 ## [0.10.0](https://github.com/this-is-tobi/ohmlab/compare/v0.9.0...v0.10.0) (2026-11-13)
 
 
