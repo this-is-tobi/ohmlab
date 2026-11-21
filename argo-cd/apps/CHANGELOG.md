@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.23.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.22.1...catalog-v0.23.0) (2026-11-21)
+
+
+### Features
+
+* **controller:** name a store's replicator record ([cff9eb9](https://github.com/this-is-tobi/ohmlab/commit/cff9eb95f68a3286c1d1268f800a1801dbaa4bc6))
+* **rustfs:** copy a store's buckets to an encrypted cloud replica ([cefeada](https://github.com/this-is-tobi/ohmlab/commit/cefeadab8e8bff5f36c869622424ebf1ce606cbb))
+* **storage:** wire a store's cloud replica from instance.yaml ([4006e3c](https://github.com/this-is-tobi/ohmlab/commit/4006e3c1499e6680941f2d041f48cb33e7e56f4e))
+
+
+### Bug Fixes
+
+* **deps:** update cnpg postgres images ([3061eec](https://github.com/this-is-tobi/ohmlab/commit/3061eec1c8630f1e56436805244ed1cffa66b2fd))
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.11.1 ([f364436](https://github.com/this-is-tobi/ohmlab/commit/f36443627081ce84a1472422e664c16891a3cc07))
+* **deps:** update helm release loki to v21.4.2 ([733744d](https://github.com/this-is-tobi/ohmlab/commit/733744dd420048548f4cd3f0544ab76f66b75c2e))
+* **deps:** update helm release loki to v21.4.3 ([e21039d](https://github.com/this-is-tobi/ohmlab/commit/e21039d68e61dd3211e289a8b723e3ae4bef587b))
+* **deps:** update helm release teleport-cluster to v18.11.13 ([22f70d5](https://github.com/this-is-tobi/ohmlab/commit/22f70d573101c14382d01d914621ceba1e3961c3))
+* **deps:** update kube-prometheus-stack docker tag to v93.6.0 ([b28ca6e](https://github.com/this-is-tobi/ohmlab/commit/b28ca6efc442e54097532d79f3f1450b05a3e301))
+* **deps:** update kube-prometheus-stack docker tag to v93.6.1 ([4863b64](https://github.com/this-is-tobi/ohmlab/commit/4863b64a63d3c6fb6175236ee9dbb4863dcb3ba5))
+* **deps:** update valkey docker tag to v0.26.1 ([12e3b95](https://github.com/this-is-tobi/ohmlab/commit/12e3b95c177bf5a13f62a71d9c53da3e4eaf0d98))
+* **rustfs:** never let a refilled store shrink its replica ([971446d](https://github.com/this-is-tobi/ohmlab/commit/971446d54a4efd81b84962cb4d6cdd755b602d84))
+
 ## [0.22.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.22.0...catalog-v0.22.1) (2026-11-19)
 
 
