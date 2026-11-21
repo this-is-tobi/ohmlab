@@ -1,12 +1,12 @@
 dependencies:
 - name: apisix
   repository: https://charts.apiseven.com
-  version: 2.19.0
+  version: 3.1.0
 - name: etcd
   repository: oci://ghcr.io/cloudpirates-io/helm-charts
   version: 0.9.1
 - name: vso-utils
   repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.4.0
-digest: sha256:1c34497926d997aafcdfb2660da9933dc0dba28690573552fd461fdf5409034c
-generated: "2026-11-17T19:21:13.505294387Z"
+digest: sha256:e19cfec4be8edc75582d0aca969744b47b8cf86e796a2d463de563167964fdb2
+generated: "2026-11-21T03:09:04.802272572Z"
