@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/this-is-tobi/ohmlab/compare/v0.11.0...v0.11.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/minio/madmin-go/v4 to v4.11.0 ([3332cd5](https://github.com/this-is-tobi/ohmlab/commit/3332cd5977c2d3a66c0b2934664fb616a365cf02))
+
 ## [0.11.0](https://github.com/this-is-tobi/ohmlab/compare/v0.10.0...v0.11.0) (2026-11-21)
 
 
