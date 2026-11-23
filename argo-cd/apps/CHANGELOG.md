@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.23.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.23.0...catalog-v0.23.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **deps:** update cnpg postgres images ([832715e](https://github.com/this-is-tobi/ohmlab/commit/832715e2aa38c75ac6d2365b82a7c9187443066d))
+* **deps:** update etcd docker tag to v0.9.2 ([fbbacf6](https://github.com/this-is-tobi/ohmlab/commit/fbbacf645b7a47f51fc38176851e4f5de06e0120))
+* **deps:** update helm release loki to v21.5.0 ([0d78497](https://github.com/this-is-tobi/ohmlab/commit/0d784978f25c249f6aeab6927b57889304647647))
+* **deps:** update helm release sops-secrets-operator to v0.30.2 ([0aa9f39](https://github.com/this-is-tobi/ohmlab/commit/0aa9f39d99ecbfc8fdfbd9b8dd51c2b8b8a0f211))
+* **deps:** update helm release traefik to v42.4.2 ([f6f756c](https://github.com/this-is-tobi/ohmlab/commit/f6f756c9b0af4f800cd03482493399e8e1def409))
+* **deps:** update kube-prometheus-stack docker tag to v93.9.0 ([0ad2ab2](https://github.com/this-is-tobi/ohmlab/commit/0ad2ab2d03b843bd12155623beb7c99fa4082ab5))
+
 ## [0.23.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.22.1...catalog-v0.23.0) (2026-11-21)
 
 
