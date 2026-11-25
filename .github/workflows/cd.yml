@@ -121,7 +121,7 @@ jobs:
       - uses: oras-project/setup-oras@ac735097e22fe643015b0d19645f7c9a69942128 # v2.0.4
         with:
           version: 1.3.4
-      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
       - name: Verify the published image
         env:
           IMAGE: ${{ needs.image-controller.outputs.image }}@${{ needs.image-controller.outputs.digest }}
@@ -208,7 +208,7 @@ jobs:
       - uses: oras-project/setup-oras@ac735097e22fe643015b0d19645f7c9a69942128 # v2.0.4
         with:
           version: 1.3.4
-      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
       - name: Verify the published catalog
         env:
           ARTIFACT: ${{ needs.catalog.outputs.image }}@${{ needs.catalog.outputs.digest }}
@@ -256,7 +256,7 @@ jobs:
       - uses: oras-project/setup-oras@ac735097e22fe643015b0d19645f7c9a69942128 # v2.0.4
         with:
           version: 1.3.4
-      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
       - name: Verify the published chart
         env:
           CHARTS: ${{ needs.publish-chart.outputs.published-charts }}
