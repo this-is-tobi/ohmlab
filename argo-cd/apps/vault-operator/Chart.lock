@@ -4,9 +4,9 @@ dependencies:
   version: 1.24.1
 - name: vault-secrets-operator
   repository: https://helm.releases.hashicorp.com
-  version: 1.6.2
+  version: 2.0.0
 - name: backup-utils
   repository: oci://ghcr.io/this-is-tobi/charts
   version: 2.6.1
-digest: sha256:3de8efceebdafbec0435e67f1699cb5b7a5d9156ddebacfab1e9ad2afb8a9e96
-generated: "2026-11-14T00:09:21.3254686Z"
+digest: sha256:0b66ac026f91a8ae376ae51402c63c6c22bb8986f55cc20da4a502e63ce32743
+generated: "2026-11-14T01:47:46.076090785Z"
