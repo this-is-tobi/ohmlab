@@ -8,7 +8,7 @@ require (
 	filippo.io/age v1.3.2
 	github.com/go-logr/logr v1.4.4
 	github.com/google/uuid v1.6.0
-	github.com/minio/madmin-go/v4 v4.11.0
+	github.com/minio/madmin-go/v4 v4.11.1
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/prometheus/client_golang v1.25.0
 	github.com/spf13/cobra v1.10.2
