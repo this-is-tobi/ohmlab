@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.2](https://github.com/this-is-tobi/ohmlab/compare/v0.11.1...v0.11.2) (2026-11-27)
+
+
+### Bug Fixes
+
+* **deps:** update kubernetes monorepo to v0.37.3 ([6bd7083](https://github.com/this-is-tobi/ohmlab/commit/6bd708315ee6e1865cf1125366a1c1c2e163260a))
+* **deps:** update module github.com/minio/madmin-go/v4 to v4.11.1 ([d5cd864](https://github.com/this-is-tobi/ohmlab/commit/d5cd8644a4c44e2378ace53eba8525536035909c))
+
 ## [0.11.1](https://github.com/this-is-tobi/ohmlab/compare/v0.11.0...v0.11.1) (2026-11-21)
 
 
