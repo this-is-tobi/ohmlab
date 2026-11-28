@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.23.2](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.23.1...catalog-v0.23.2) (2026-11-28)
+
+
+### Bug Fixes
+
+* **deps:** update ghcr.io/this-is-tobi/ohmlab/controller docker tag to v0.11.2 ([6084294](https://github.com/this-is-tobi/ohmlab/commit/6084294fa8c71420ebafa433aa1390f763775d92))
+* **deps:** update helm release argo-cd to v10.20.0 ([19eb00e](https://github.com/this-is-tobi/ohmlab/commit/19eb00ecb3f45821ab82372ccfe3befe6a63fad1))
+* **deps:** update helm release argo-workflows to v2.0.19 ([c1a204d](https://github.com/this-is-tobi/ohmlab/commit/c1a204db576f365d9bd2311046f37c051e241fee))
+* **deps:** update helm release coder to v2.39.5 ([5b4e7ec](https://github.com/this-is-tobi/ohmlab/commit/5b4e7ec5a903aba404b5399caee4739c7479a768))
+* **deps:** update helm release loki to v21.6.3 ([b64d4b2](https://github.com/this-is-tobi/ohmlab/commit/b64d4b29697cec323c80b81b7992680be98e3f72))
+* **deps:** update helm release rustfs to v1.0.7 ([84593e0](https://github.com/this-is-tobi/ohmlab/commit/84593e0bdfcd05ad6150f0f058d69c6e5a372db1))
+* **deps:** update helm release traefik to v42.4.3 ([8d96d73](https://github.com/this-is-tobi/ohmlab/commit/8d96d73ee2a666de63a265d036b2b57a948e43d6))
+* **deps:** update kube-prometheus-stack docker tag to v93.11.1 ([5a5b072](https://github.com/this-is-tobi/ohmlab/commit/5a5b072830926fe3530e5b9a65a67a72bbc3b36f))
+* **deps:** update sonarqube ([5e0d24a](https://github.com/this-is-tobi/ohmlab/commit/5e0d24a5b07beafef2a2f5632a4e10beff7b5452))
+
 ## [0.23.1](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.23.0...catalog-v0.23.1) (2026-11-23)
 
 
