@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.24.0](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.23.2...catalog-v0.24.0) (2026-11-28)
+
+
+### Features
+
+* **deps:** update helm release apisix to v3 ([515d483](https://github.com/this-is-tobi/ohmlab/commit/515d48377326bc28989b44f89608124c61c39bda))
+* **deps:** update helm release teleport-cluster to v19 ([8233f74](https://github.com/this-is-tobi/ohmlab/commit/8233f7465dc43c4d96aafb6fb26cefa81e8b52a1))
+* **deps:** update helm release traefik to v43 ([974a2db](https://github.com/this-is-tobi/ohmlab/commit/974a2dbf3df644b1dfe17a3be56f6654d86f1556))
+* **deps:** update kube-prometheus-stack docker tag to v94 ([c8fefe4](https://github.com/this-is-tobi/ohmlab/commit/c8fefe4d6433a048bc7293ec905fc34ca2e67769))
+
+
+### Bug Fixes
+
+* **apisix:** let the chart create the gatewayproxy ([8489d21](https://github.com/this-is-tobi/ohmlab/commit/8489d212cc8198de503214e57945be447e986fb6))
+* **deps:** update helm release loki to v21.6.4 ([b8f84b1](https://github.com/this-is-tobi/ohmlab/commit/b8f84b1f8ba93030573d09d9496a287387025f5d))
+
 ## [0.23.2](https://github.com/this-is-tobi/ohmlab/compare/catalog-v0.23.1...catalog-v0.23.2) (2026-11-28)
 
 
