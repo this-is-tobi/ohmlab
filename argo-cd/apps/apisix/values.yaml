@@ -77,17 +77,9 @@ apisix:
     config:
       apisix:
         adminAPIVersion: v3
+    # The apisix chart creates the GatewayProxy, for its own Admin API Service
+    # and the `apisix-admin` secret named in apisix.admin.credentials.
     gatewayProxy:
-      createDefault: true
-      provider:
-        controlPlane:
-          auth:
-            type: AdminKey
-            adminKey:
-              valueFrom:
-                secretKeyRef:
-                  name: apisix-admin
-                  key: admin
       publishService: apisix/apisix-gateway
 
   dashboard:
